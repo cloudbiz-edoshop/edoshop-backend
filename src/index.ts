@@ -20,5 +20,6 @@ console.log(`Server is running on port http://localhost:${port}`);
  */
 serve({
   fetch: app.fetch,
+  hostname: "0.0.0.0",
   port,
 });
