@@ -224,25 +224,6 @@ export class UsersService {
       tokenVersion,
     });
 
-    // Save refresh token
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7); // 7 days from now
-
-    try {
-      await db.transaction(async (tx) => {
-        await this.userRepository.saveRefreshToken(
-          tx,
-          user.id,
-          tokenVersion,
-          expiresAt,
-        );
-      });
-    } catch (error) {
-      // Login should not fail if the refresh-token audit table is missing or
-      // temporarily unavailable; access tokens remain valid for the session.
-      console.error("Failed to persist refresh token:", error);
-    }
-
     // Map to UserDTO
     const userDto: LoginResponse = {
       user,
