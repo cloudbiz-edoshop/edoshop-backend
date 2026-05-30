@@ -1,0 +1,1614 @@
+Project edoshop {
+  database_type: 'PostgreSQL'
+  Note: '''
+  # Edoshop E-commerce Database
+  This is the database for the Edoshop E-commerce platform with Warehouse Management System.
+  '''
+}
+
+Table entities {
+  id int [primary key]
+  name varchar(100) [not null, unique, note: 'e.g., user, product, order']
+  description varchar(255)
+  created_at timestamp [default: 'NOW()']
+  updated_at timestamp [default: 'NOW()']
+  created_by int [ref: > users.id, null]
+  updated_by int [ref: > users.id, null]
+}
+
+Table roles {
+  id int [primary key]
+  name varchar(50) [not null]
+  description varchar(255)
+  created_at timestamp [not null, default: 'NOW()']
+  updated_at timestamp [default: 'NOW()']
+  created_by int [ref: > users.id, null]
+  updated_by int [ref: > users.id, null]
+}
+
+Table operations {
+  id int [primary key]
+  operation varchar(50) [not null, note: 'create, read, update, delete, export']
+  description varchar(255)
+  created_at timestamp [default: 'NOW()']
+  updated_at timestamp [default: 'NOW()']
+}
+
+// Junction table for role permissions
+Table permissions {
+  id int [primary key]
+  role_id int [not null, ref: > roles.id]
+  entity_id int [not null, ref: > entities.id]
+  operation_id int [not null, ref: > operations.id]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+
+  indexes {
+    (role_id, entity_id, operation_id) [unique]
+  }
+
+}
+
+// User Management
+
+Table users {
+  id int [primary key]
+  username varchar(50) [unique, not null]
+  is_admin boolean [not null, default: false]
+  email varchar(255) [unique, not null]
+  password_hash varchar(255) [not null, note: 'Store securely hashed passwords only']
+  full_name varchar(100) [not null]
+  phone_number varchar(20)
+  profile_photo_url varchar(255)
+  is_active boolean [not null, default: true]
+  is_email_verified boolean [not null, default: false]
+  is_phone_number_verified boolean [not null, default: false]
+  created_by int [ref: > users.id, null]
+  updated_by int [ref: > users.id, null]
+  created_at timestamp [not null, default: 'NOW()']
+  updated_at timestamp [default: 'NOW()']
+  is_deleted boolean [not null, default: false]
+  deleted_at timestamp
+  deleted_by int [ref: > users.id, null]
+
+  indexes {
+    id [unique]
+    username [unique]
+    email [unique]
+    is_deleted
+    (is_deleted, is_active)
+  }
+
+  note: '''
+  Implement triggers to:
+  1. Set deleted_at when is_deleted becomes true
+  2. Prevent updates to deleted records (except for un-deleting)
+  3. Enforce uniqueness only among non-deleted records
+  '''
+}
+
+// Reset Token Management
+
+Table reset_tokens {
+  id int [primary key]
+  user_id int [not null, ref: > users.id]
+  token varchar(128) [not null, unique, note: 'Securely hashed reset token']
+  expires_at timestamp [not null, note: 'Typically 24-48 hours from creation']
+  is_used boolean [not null, default: false]
+  used_at timestamp
+  ip_address varchar(45) [note: 'IP address where token was requested from']
+  user_agent varchar(255) [note: 'User agent that requested the token']
+  delivery_methods varchar(30) [not null, note: 'Array of delivery methods used (email, whatsapp)']
+  created_at timestamp [not null, default: 'NOW()']
+  updated_at timestamp [default: 'NOW()']
+
+  indexes {
+    token [unique]
+    user_id
+    expires_at
+    is_used
+  }
+
+}
+
+Table reset_token_deliveries {
+  id int [primary key]
+  reset_token_id int [not null, ref: > reset_tokens.id]
+  delivery_method varchar(20) [not null, note: 'email, whatsapp']
+  delivery_address varchar(255) [not null, note: 'Email address or phone number']
+  delivery_status varchar(20) [not null, default: 'pending', note: 'pending, sent, failed, delivered']
+  sent_at timestamp
+  delivered_at timestamp
+  error_message text
+  retry_count integer [not null, default: 0]
+  last_retry_at timestamp
+  created_at timestamp [not null, default: 'NOW()']
+  updated_at timestamp [default: 'NOW()']
+
+  indexes {
+    reset_token_id
+    delivery_method
+    delivery_status
+  }
+
+}
+
+// Audit logging for reset token actions
+
+Table reset_token_audit_logs {
+  id int [primary key]
+  reset_token_id int [ref: > reset_tokens.id]
+  user_id int [ref: > users.id]
+  action varchar(50) [not null, note: 'requested, delivered, used, expired, invalidated']
+  ip_address varchar(45)
+  user_agent varchar(255)
+  details json
+  created_at timestamp [not null, default: 'NOW()']
+
+  indexes {
+    reset_token_id
+    user_id
+    action
+    created_at
+  }
+
+}
+
+//Employee Management
+
+Table employees {
+  id int [primary key]
+  user_id int [unique, ref: > users.id]
+  employee_code varchar [unique, note: 'Format: E {CountryCode}_ {SequentialAlphaNum}, e.g., EPK_A01']
+  is_active boolean [default: true]
+  role_id int [ref: > roles.id]
+  role_expires_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+  deleted_by int [ref: > users.id]
+  deleted_at timestamp
+  created_at timestamp [not null]
+  updated_at timestamp
+  is_deleted boolean [default: false]
+}
+
+// Partner Management
+
+Table suppliers {
+  id int [primary key]
+  user_id int [unique, ref: > users.id]
+  store_name varchar [not null]
+  supplier_code varchar [unique, note: 'Format: {CountryCode}_ {SequentialAlphaNum}, e.g., PK_A01']
+  entry_type_id int [ref: > entry_types.id]
+  payment_method_id int [ref: > payment_methods.id]
+  bank_account_name varchar
+  bank_account_number varchar
+  is_active boolean [default: true]
+  created_at timestamp [not null]
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+Table customers {
+  id int [primary key]
+  user_id int [unique, ref: > users.id]
+  customer_code varchar [unique, note: 'Format: C {CountryCode}_ {SequentialAlphaNum}, e.g., CPK_A01']
+  preferred_payment_method_id int [ref: > payment_methods.id]
+  is_active boolean [default: true]
+  created_at timestamp [not null]
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+Table retailers {
+  id int [primary key]
+  user_id int [unique, ref: > users.id]
+  shop_name varchar [not null]
+  retailer_code varchar [unique, note: 'Format: R {CountryCode}_ {SequentialAlphaNum}, e.g., RPK_A01']
+  is_active boolean [default: true]
+  created_at timestamp [not null]
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+Table drivers {
+  id int [primary key]
+  user_id int [unique, ref: > users.id]
+  is_active boolean [default: true]
+  created_at timestamp
+  updated_at timestamp
+}
+
+// Address Type Enumeration Replacement
+Table address_types {
+  id int [primary key]
+  name varchar [not null, unique, note: 'other, billing, shipping']
+  description varchar
+  created_at timestamp
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+Table addresses {
+  id int [primary key]
+  user_id int [not null, ref: > users.id]
+  address_type_id int [not null, ref: > address_types.id]
+  street_address varchar(255) [not null]
+  country_id int [not null, ref: > countries.id]
+  city_id int [ref: > cities.id]
+  state_province varchar(100)
+  postal_code varchar(20)
+  landmark varchar(255)
+  is_default boolean [default: false]
+  created_at timestamp [default: 'NOW()']
+  updated_at timestamp [default: 'NOW()']
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+
+  indexes {
+    (user_id, address_type_id, is_default)
+  }
+
+}
+
+Table countries {
+  id int [primary key]
+  name varchar [not null, unique]
+  isoCode varchar [not null, unique, note: 'ISO country code']
+  flag varchar [not null, unique, note: 'Emoji flag']
+  phone_code varchar [not null, unique, note: 'Phone code']
+  currency varchar [not null, unique, note: 'Currency code']
+  latitude varchar [not null, unique, note: 'Latitude']
+  longitude varchar [not null, unique, note: 'Longitude']
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table cities {
+  id int [primary key]
+  country_id int [not null, ref: > countries.id]
+  name varchar [not null]
+  countryCode varchar [not null, note: 'ISO country code']
+  stateCode varchar [not null, note: 'ISO state code']
+  latitude varchar [not null, note: 'Latitude']
+  longitude varchar [not null, note: 'Longitude']
+  created_at timestamp
+  updated_at timestamp
+
+  indexes {
+    (country_id, name) [unique]
+  }
+
+}
+
+
+// Store and Inventory Management
+
+Table store_types {
+  id int [primary key]
+  name varchar [not null, note: 'e.g., direct_order, dropshipping']
+  description varchar
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table stores {
+  id int [primary key]
+  name varchar [not null]
+  store_type_id int [not null, ref: > store_types.id]
+  description varchar
+  is_active boolean [default: true]
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table warehouses {
+  id int [primary key]
+  name varchar [not null]
+  address_id int [not null, ref: > addresses.id]
+  description varchar
+  is_active boolean [default: true]
+  created_at timestamp
+  updated_at timestamp
+}
+
+
+// Attribute Management
+
+Table attribute_types {
+  id int [primary key]
+  name varchar [not null, note: 'e.g., brand, material']
+  description varchar
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table attributes {
+  id int [primary key]
+  attribute_type_id int [not null, ref: > attribute_types.id]
+  name varchar [not null]
+  description varchar
+  created_at timestamp
+  updated_at timestamp
+
+  indexes {
+    (attribute_type_id, name) [unique]
+  }
+
+}
+
+Table colors {
+  id int [primary key]
+  name varchar [not null, note: 'e.g., red, blue']
+  description varchar
+  created_at timestamp
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+Table sizes {
+  id int [primary key]
+  name varchar [not null, note: 'e.g., XL, LG']
+  description varchar
+  created_at timestamp
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+// Payment Management
+Table payment_types {
+  id int [primary key]
+  name varchar [not null, note: 'e.g., bank_transfer, mobile_money, credit_card, cash']
+  description varchar
+  is_active boolean [default: true]
+  created_at timestamp
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+Table payment_methods {
+  id int [primary key]
+  name varchar [not null, note: 'e.g., Orange Money, MTN Mobile Money, PayPal, Cash, Western Union']
+  country_id int [not null, ref: > countries.id]
+  description varchar
+  is_active boolean [default: true]
+  created_at timestamp
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+Table payment_method_types {
+  payment_method_id int [not null, ref: > payment_methods.id]
+  payment_type_id int [not null, ref: > payment_types.id]
+  is_active boolean [default: true]
+  created_at timestamp
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+
+  indexes {
+    (payment_method_id, payment_type_id) [pk]
+  }
+
+}
+
+Table rayons {
+  id int [primary key]
+  name varchar(100) [note: 'Human-friendly name. Example: "Main Warehouse Zone 1"']
+  description text [note: 'Example: "This rayon contains all electronics stock."']
+  created_at datetime
+  updated_at datetime
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+Table shelves {
+  id int [primary key]
+  rayon_id int [ref: > rayons.id, note: 'Example: 1']
+  column_label varchar(5) [note: 'Shelf label (A, B, C...). Example: "A"']
+  description text [note: 'Example: "Left-most column of Rayon 1."']
+  created_at datetime
+  updated_at datetime
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+
+  indexes {
+    rayon_id
+  }
+
+}
+
+Table bins {
+  id int [primary key]
+  shelf_id int [ref: > shelves.id, note: 'Example: 2']
+  row_number int [note: 'Row number. Example: 1, 2, 3...']
+  location_code varchar(20) [note: 'Full location code. Example: "1A1" OR "2B3"']
+  created_at datetime
+  updated_at datetime
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+
+  indexes {
+    location_code [unique]
+  }
+
+}
+
+Table storage {
+  id int [pk, increment]
+  bin_id int [ref: > bins.id, note: 'Example: 5']
+  entry_id int [note: 'Refers to entity ID. Example: If type=BUNDLE → stored_id=10 means Bundle #10']
+  quantity int [note: 'Number of units. Example: 3']
+  added_at datetime [note: 'Example: "2025-02-15 12:30:00"']
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+
+  indexes {
+    (bin_id, entry_id) [unique]
+    bin_id
+  }
+
+}
+
+
+// Entry Type and State Enumeration Replacements
+Table entry_types {
+  id int [primary key]
+  name varchar [not null, unique, note: 'Bundle, Series, Item, Package']
+  description varchar
+  created_at timestamp
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+Table entry_states {
+  id int [primary key]
+  name varchar [not null, unique, note: 'New, Return']
+  description varchar
+  created_at timestamp
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+Table entries {
+  id int [primary key]
+  entry_type_id int [not null, ref: > entry_types.id]
+  entry_state_id int [not null, ref: > entry_states.id]
+  quantity int [not null]
+  weight decimal [not null]
+  date date [not null]
+  image_url_1 varchar [null]
+  image_url_2 varchar [null]
+  warehouse_id int [ref: > warehouses.id, not null]
+  supplier_id int [ref: > suppliers.id, null, note: 'For New Entry']
+  customer_id int [ref: > customers.id, null, note: 'For Return Entry and Packages']
+  description varchar
+  version integer [not null, default: 1, note: 'Increments with each update']
+  created_at timestamp [not null, default: 'NOW()']
+  updated_at timestamp [default: 'NOW()']
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+  is_deleted boolean [default: false]
+  deleted_at timestamp
+  deleted_by int [ref: > users.id]
+
+  indexes {
+    entry_type_id
+    entry_state_id
+    warehouse_id
+    supplier_id
+    date
+    is_deleted
+  }
+
+}
+
+// Entries history table for versioning
+Table entries_history {
+  id int [primary key]
+  entry_id int [not null, ref: > entries.id]
+  version integer [not null]
+  entry_type_id int
+  entry_state_id int
+  quantity int
+  weight decimal
+  date date
+  image_url_1 varchar
+  image_url_2 varchar
+  warehouse_id int
+  supplier_id int
+  description varchar
+  valid_from timestamp [not null, default: 'NOW()']
+  valid_to timestamp
+  operation varchar [not null, note: 'INSERT, UPDATE, DELETE']
+  changed_by int [ref: > users.id]
+
+  indexes {
+    entry_id
+    version
+    (entry_id, version) [unique]
+    valid_from
+    valid_to
+  }
+
+}
+
+Table bundles {
+  id int [primary key]
+  entry_id int [ref: > entries.id, not null, note: 'Product Entry']
+  bundle_code varchar [unique, note: 'Format: {SupplierCode}_B {SequentialNum}, e.g., PK_A01_B1']
+  created_at timestamp [not null]
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+Table series {
+  id int [primary key]
+  entry_id int [ref: > entries.id, not null, note: 'Product Entry']
+  bundle_id int [ref: > bundles.id, null, note: 'Links to Bundle']
+  series_code varchar [unique, note: 'Format: {BundleCode}_S {SequentialNum}, e.g., PK_A01_B1_S1']
+  color_id int [ref: > colors.id, null, note: 'Links to Color']
+  created_at timestamp [not null]
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+Table items {
+  id int [primary key]
+  entry_id int [ref: > entries.id, not null, note: 'Product Entry']
+  series_id int [ref: > series.id, null, note: 'Links to Series']
+  item_code varchar [unique, note: 'Format: {SeriesCode}_I {SequentialNum}, e.g., PK_A01_B1_S1_I1']
+  size_id int [ref: > sizes.id, null, note: 'Links to Size']
+  created_at timestamp [not null]
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+Table packages {
+  id int [primary key]
+  entry_id int [ref: > entries.id, not null, note: 'Product Entry']
+  package_code varchar [unique, note: 'Format: {SupplierCode}_P {SequentialNum}, e.g., PK_A01_P1']
+  bin_location varchar [note: 'e.g., A01-Z99']
+  //customer_id int [ref: > customers.id, not null]
+  package_status_id int [ref: > package_statuses.id, not null]
+  last_packed_at timestamp [note: 'Last time items were added/modified in this package']
+  created_at timestamp [not null]
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+Table package_statuses {
+  id int [primary key]
+  name varchar(50) [not null, unique]
+  description varchar(255)
+  created_at timestamp [not null]
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+Table fulfillment_states {
+  id int [primary key]
+  name varchar(50) [not null, unique]
+  step_order int [not null]
+  description varchar(255)
+  created_at timestamp [not null]
+  created_by int [ref: > users.id]
+  updated_at timestamp
+  updated_by int [ref: > users.id]
+}
+
+// Removed: package_orders table - redundant as the relationship is already captured through package_items -> order_items -> orders
+
+Table package_items {
+  id int [primary key]
+  package_id int [ref: > packages.id, not null]
+  order_item_id int [ref: > order_items.id, not null]
+  quantity_packed int [not null, note: 'Quantity included in this package']
+  version integer [not null, default: 1, note: 'Increments with each update']
+  created_at timestamp [not null, default: 'NOW()']
+  updated_at timestamp [default: 'NOW()']
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+
+  indexes {
+    package_id
+    order_item_id
+    (package_id, order_item_id) [unique]
+    (order_item_id, package_id)
+  }
+
+  note: '''
+  Tracks which order items are packed in each package and their quantities.
+  Supports partial fulfillment - quantity_packed can be less than order_items.quantity.
+
+  Business Rules (enforced in application logic):
+  1. quantity_packed must be > 0
+  2. Sum of quantity_packed for an order_item across all packages must not exceed order_items.quantity
+  3. All order_items in a package must belong to orders from the same customer
+  4. Cannot add/modify/remove items if package status is "shipped", "delivered", or "cancelled"
+  5. When modifying quantity_packed, must recalculate order_items.quantity_packed and fulfillment_status_id
+  6. When modifying package_items, must recalculate orders.fulfillment_status_id
+
+  History Tracking:
+  - All INSERT, UPDATE, DELETE operations are logged to package_items_history
+  - Version number increments with each modification
+  '''
+}
+
+// Package items history table for versioning and audit trail
+Table package_items_history {
+  id int [primary key]
+  package_item_id int [not null, ref: > package_items.id]
+  version integer [not null]
+  package_id int
+  order_item_id int
+  quantity_packed int
+  valid_from timestamp [not null, default: 'NOW()']
+  valid_to timestamp
+  operation varchar [not null, note: 'INSERT, UPDATE, DELETE']
+  changed_by int [ref: > users.id]
+
+  indexes {
+    package_item_id
+    version
+    (package_item_id, version) [unique]
+    valid_from
+    valid_to
+  }
+
+  note: '''
+  Tracks all changes to package items for audit purposes.
+  Records when items are added, quantities are modified, or items are removed from packages.
+  This is especially important since employees frequently modify packages before shipping.
+  '''
+}
+
+Table returns {
+  id int [primary key]
+  entry_id int [ref: > entries.id, not null, note: 'Return Entry']
+  entry_type varchar [not null, note: 'Bundles, Items, Series, Packages, etc.']
+  original_entry_id int [ref: > entries.id, not null, note: 'Original product being returned']
+  customer_id int [ref: > customers.id, not null]
+  is_open boolean [default: false]
+  created_at timestamp [not null]
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+Table inventory_transactions {
+  id int [primary key]
+  warehouse_id int [not null, ref: > warehouses.id]
+  entry_id int [not null, ref: > entries.id]
+  transaction_type_id int [not null, ref: > transaction_types.id]
+  quantity int [not null, note: 'positive for in, negative for out']
+  reference_id int
+  reference_type_id int [ref: > reference_types.id]
+  notes text
+  version integer [not null, default: 1, note: 'Increments with each update']
+  created_at timestamp [not null, default: 'NOW()']
+  created_by int [not null, ref: > users.id]
+  updated_at timestamp [default: 'NOW()']
+  updated_by int [ref: > users.id]
+  is_deleted boolean [not null, default: false]
+  deleted_at timestamp
+  deleted_by int [ref: > users.id]
+
+  indexes {
+    warehouse_id
+    entry_id
+    transaction_type_id
+    (warehouse_id, entry_id)
+    (created_at, transaction_type_id)
+    is_deleted
+    (warehouse_id, created_at, is_deleted)
+    (entry_id, transaction_type_id, created_at)
+    (reference_id, reference_type_id)
+  }
+
+}
+
+// Inventory transactions history table for versioning
+Table inventory_transactions_history {
+  id int [primary key]
+  transaction_id int [not null, ref: > inventory_transactions.id]
+  version integer [not null]
+  warehouse_id int
+  entry_id int
+  transaction_type_id int
+  quantity int
+  reference_id int
+  reference_type_id int
+  notes text
+  valid_from timestamp [not null, default: 'NOW()']
+  valid_to timestamp
+  operation varchar [not null, note: 'INSERT, UPDATE, DELETE']
+  changed_by int [ref: > users.id]
+
+  indexes {
+    transaction_id
+    version
+    (transaction_id, version) [unique]
+    valid_from
+    valid_to
+  }
+
+}
+
+Table transaction_types {
+  id int [primary key]
+  name varchar [not null, unique, note: 'purchase, sale, transfer, adjustment, return']
+  description varchar
+  created_at timestamp [not null]
+  updated_at timestamp
+}
+
+Table reference_types {
+  id int [primary key]
+  name varchar [not null, unique, note: 'order, transfer, adjustment']
+  description varchar
+  created_at timestamp [not null]
+  updated_at timestamp
+}
+
+Table warehouse_transfers {
+  id int [primary key]
+  entry_id int [ref: > entries.id]
+  source_warehouse_id int [ref: > warehouses.id]
+  destination_warehouse_id int [ref: > warehouses.id]
+  status_id int [ref: > transfer_statuses.id]
+  transfer_date timestamp
+  notes text
+  created_at timestamp [not null]
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  initiated_by int [ref: > users.id]
+  approved_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+Table warehouse_transfers_history {
+  id int [primary key]
+  transfer_id int [ref: > warehouse_transfers.id, not null]
+  entry_id int [ref: > entries.id, not null]
+  source_warehouse_id int [ref: > warehouses.id, not null]
+  destination_warehouse_id int [ref: > warehouses.id, not null]
+  action varchar [not null, note: 'sent, reversed, received, initiated']
+  status_id int [ref: > transfer_statuses.id, not null]
+  notes text
+  created_by int [ref: > users.id, not null]
+  created_at timestamp [not null, default: 'NOW()']
+
+  indexes {
+    transfer_id
+    entry_id
+    (transfer_id, created_at)
+  }
+
+  note: '''
+  Tracks all actions performed on a warehouse transfer.
+  This allows full history of transfers across multiple warehouses.
+  '''
+}
+
+Table transfer_statuses {
+  id int [primary key]
+  name varchar [not null, unique, note: 'sent, in_transit, received, reversed']
+  description varchar
+  created_at timestamp [not null]
+  updated_at timestamp
+}
+
+// Other Admin Features
+Table faqs {
+  id int [primary key]
+  order int [unique]
+  question varchar
+  answer varchar
+  created_at timestamp [not null]
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+Table filters {
+  id int [primary key]
+  name varchar
+  description varchar
+  created_at timestamp [not null]
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+// Notification Type Enumeration Replacement
+Table notification_types {
+  id int [primary key]
+  name varchar [not null, unique]
+  description varchar [note: 'Request approved, New arrivals : Drop-shipping store, New arrivals : Direct store, Clearance, Promotion, Groupage almost closing, Join a different groupage, Reminder to proceed with payments, Pay your custom and shipping fees, Orders Arrived at Edoshop store, Reminder to collect your package, Welcome to Edoshop, Warning ⚠️, Account canceled']
+  created_at timestamp
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+// Notification Frequency Enumeration Replacement
+Table notification_frequencies {
+  id int [primary key]
+  name varchar [not null, unique, note: '1 time, 1 time + Next Day, 1 time + Next Week, 1 time + Every Month']
+  description varchar
+  created_at timestamp
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+// Recipient Type Enumeration Replacement
+Table recipient_types {
+  id int [primary key]
+  name varchar [not null, unique, note: 'Individuals, All customers, Drop-shipping Store orders, Direct Store orders, Delivery requests, Ongoing groups, Rejected groups, Request approved - Check-out delaying']
+  description varchar
+  created_at timestamp
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+Table notifications {
+  id int [primary key]
+  title varchar
+  message varchar
+  notification_type_id int [ref: > notification_types.id]
+  notification_frequency_id int [ref: > notification_frequencies.id]
+  recipient_type_id int [ref: > recipient_types.id]
+  created_at timestamp [not null]
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+Table notification_recipients {
+  id int [primary key]
+  notification_id int [ref: > notifications.id]
+  user_id int [ref: > users.id]
+  created_at timestamp [not null]
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+Table testimonials {
+  id int [primary key]
+  order int [unique]
+  author_name varchar
+  author_title varchar
+  testimonial varchar
+  image_url varchar
+  created_at timestamp [not null]
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+Table about_us {
+  id int [primary key]
+  title varchar
+  heading varchar
+  text varchar
+  primary_button_text varchar
+  delay decimal [note: 'Time delay in ms']
+  date date
+  image_url varchar
+  created_at timestamp [not null]
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+Table banners {
+  id int [primary key]
+  heading varchar
+  heading_font_color varchar
+  heading_font_size varchar
+  heading_font_weight varchar
+  subtext varchar
+  subtext_font_color varchar
+  subtext_font_size varchar
+  subtext_font_weight varchar
+  primary_button_text varchar
+  secondary_button_text varchar
+  delay decimal [note: 'Time delay in ms']
+  date date
+  image_url varchar
+  created_at timestamp [not null]
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+Table tags {
+  id int [primary key]
+  name varchar
+  description varchar
+  created_at timestamp [not null]
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+Table categories {
+  id int [primary key]
+  name varchar [not null, unique]
+  description varchar
+  parent_id int [ref: > categories.id, null, note: 'Self-reference for hierarchy']
+  level int [not null, default: 1, note: '1=main category, 2=subcategory, 3=sub-subcategory']
+  created_at timestamp [not null]
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+
+  indexes {
+    parent_id
+    level
+    name
+  }
+
+}
+
+Table new_arrivals {
+  id int [primary key]
+  start_date date
+  end_date date
+  created_at timestamp [not null]
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+Table promotion_screens {
+  id int [primary key]
+  image_url varchar
+  created_at timestamp [not null]
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+// Review Status Enumeration Replacement
+Table review_statuses {
+  id int [primary key]
+  name varchar [not null, unique, note: 'Approved, Rejected, Pending']
+  description varchar
+  created_at timestamp
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+Table reviews {
+  id int [primary key]
+  review_date date
+  approved_date date
+  customer_id int [ref: > customers.id]
+  package_id int [ref: > packages.id]
+  review varchar
+  status_id int [ref: > review_statuses.id]
+  items_received int
+  items_rejected int
+  created_at timestamp [not null]
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+// Product Type Enumeration Replacement
+Table product_store_types {
+  id int [primary key]
+  name varchar [not null, unique, note: 'DirectOrder, Dropshipping']
+  description varchar
+  created_at timestamp
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+Table products {
+  id int [primary key]
+  store_id int [ref: > stores.id]
+  type_id int [ref: > product_store_types.id]
+  name varchar(255) [not null]
+  price decimal(10,2) [not null]
+  category_id int [ref: > categories.id]
+  short_description varchar(500)
+  full_description text
+  specifications text
+  version integer [not null, default: 1, note: 'Increments with each update']
+  created_at timestamp [default: 'NOW()']
+  updated_at timestamp [default: 'NOW()']
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+  is_deleted boolean [default: false]
+  deleted_at timestamp
+  deleted_by int [ref: > users.id]
+
+  indexes {
+    store_id
+    type_id
+    category_id
+    name
+    (store_id, category_id)
+    (type_id, category_id)
+    is_deleted
+    (name, is_deleted)
+    (price, category_id, is_deleted)
+    (created_at, is_deleted)
+  }
+
+}
+
+// Product history table for versioning
+Table products_history {
+  id int [primary key]
+  product_id int [not null, ref: > products.id]
+  version integer [not null]
+  store_id int
+  type_id int
+  name varchar
+  price decimal
+  category_id int
+  short_description varchar
+  full_description varchar
+  specifications varchar
+  valid_from timestamp [not null, default: 'NOW()']
+  valid_to timestamp
+  operation varchar [not null, note: 'INSERT, UPDATE, DELETE']
+  changed_by int [ref: > users.id]
+
+  indexes {
+    product_id
+    version
+    (product_id, version) [unique]
+    valid_from
+    valid_to
+  }
+
+}
+
+Table direct_order_products {
+  id int [primary key]
+  product_id int [ref: > products.id]
+  series_id int [ref: > series.id, null, note: 'If the product is a series']
+  direct_order_code varchar(50) [unique, note: 'Format: DO_ {ProductId}_ {ItemCode}, e.g., DO_001_PK_A01_B1_S1_I1']
+  created_at timestamp [not null]
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+Table dropshipping_products {
+  id int [primary key]
+  product_id int [ref: > products.id]
+  dropshipping_code varchar [unique, note: 'Format: DS_ {ProductId}_ {SeriesCode}, e.g., DS_001_PK_A01_B1_S1']
+  total_items int
+  group_criteria_id int [ref: > group_criteria_types.id, note: 'MOQ, Number per series']
+  completion_criteria decimal
+  created_at timestamp [not null]
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+Table group_criteria_types {
+  id int [primary key]
+  name varchar [not null, unique, note: 'MOQ, Number per series']
+  description varchar
+  created_at timestamp
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+Table variants {
+  id int [primary key]
+  product_id int [not null, ref: > products.id]
+  item_id int [ref: > items.id, null, note: 'Required if the product is DirectOrder Product']
+  color_id int [not null, ref: > colors.id]
+  size_id int [not null, ref: > sizes.id]
+  quantity int [not null, default: 0]
+  additional_info json
+  created_at timestamp [not null]
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+
+  indexes {
+    product_id
+    (product_id, color_id, size_id) [unique]
+  }
+
+}
+
+Table variant_images {
+  id int [primary key]
+  variant_id int [ref: > variants.id]
+  image_url varchar
+  created_at timestamp [not null]
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+Table product_tags {
+  id int [primary key]
+  product_id int [ref: > products.id]
+  tag_id int [ref: > tags.id]
+  created_at timestamp [not null]
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+// Ongoing Group Management
+Table group_approval_statuses {
+  id int [primary key]
+  name varchar [not null, unique, note: 'ready for approval, approved, rejected']
+  description varchar
+  created_at timestamp
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+Table ongoing_groups {
+  id int [primary key]
+  product_id int [ref: > products.id]
+  ordered_items int
+  total_items int
+  status_id int [ref: > group_approval_statuses.id]
+  approval_date date
+  approved_by int [ref: > users.id]
+  reason_for_rejection varchar
+  rejection_date date
+  rejected_by int [ref: > users.id]
+  created_at timestamp [not null]
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+Table ongoing_group_requests {
+  id int [primary key]
+  ongoing_group_id int [ref: > ongoing_groups.id]
+  requested_by int [ref: > users.id, note: 'Customer or Retailer']
+  product_id int [ref: > products.id]
+  variant_id int [ref: > variants.id]
+  quantity int
+  approval_status_id int [ref: > group_approval_statuses.id]
+  reason_for_rejection varchar [note: 'If group is filled, then default message for rejection']
+  created_at timestamp [not null]
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+// Order Status Enumeration Replacement
+Table order_statuses {
+  id int [primary key]
+  name varchar [not null, unique, note: 'pending, processing, shipped, delivered, cancelled']
+  description varchar
+  created_at timestamp
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+// Order Type Enumeration Replacement
+Table order_types {
+  id int [primary key]
+  name varchar [not null, unique, note: 'direct_order, dropshipping']
+  description varchar
+  created_at timestamp
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+Table orders {
+  id int [primary key]
+  customer_id int [ref: > customers.id]
+  order_code varchar(50) [unique, not null, note: 'Format: ORD_ {YearMonth}_ {SequentialNum}, e.g., ORD_202307_0001']
+  order_date timestamp [not null]
+  status_id int [not null, ref: > order_statuses.id]
+  order_type_id int [not null, ref: > order_types.id]
+  fulfillment_status_id int [ref: > order_fulfillment_statuses.id, note: 'pending, partially_fulfilled, fully_fulfilled - calculated from order_items']
+  shipping_type_id int [ref: > shipping_types.id]
+  shipping_priority_code_id int [ref: > shipping_priority_codes.id]
+  shipping_address_id int [ref: > addresses.id]
+  billing_address_id int [ref: > addresses.id]
+  payment_method_id int [ref: > payment_methods.id]
+  subtotal decimal(10,2) [not null]
+  tax_amount decimal(10,2) [not null, default: 0]
+  shipping_amount decimal(10,2) [not null, default: 0]
+  discount_amount decimal(10,2) [not null, default: 0]
+  total_amount decimal(10,2) [not null]
+  notes text
+  version integer [not null, default: 1, note: 'Increments with each update']
+  created_at timestamp [default: 'NOW()']
+  updated_at timestamp [default: 'NOW()']
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+  is_deleted boolean [default: false]
+  deleted_at timestamp
+  deleted_by int [ref: > users.id]
+
+  indexes {
+    customer_id
+    status_id
+    order_date
+    order_code
+    fulfillment_status_id
+    (customer_id, status_id)
+    (order_date, status_id)
+    (customer_id, fulfillment_status_id)
+    is_deleted
+    (customer_id, order_date, is_deleted)
+    (order_date, customer_id, status_id)
+    (created_at, status_id, is_deleted)
+  }
+
+}
+
+// Order history table for versioning
+Table orders_history {
+  id int [primary key]
+  order_id int [not null, ref: > orders.id]
+  version integer [not null]
+  customer_id int
+  order_code varchar
+  order_date timestamp
+  status_id int
+  order_type_id int
+  shipping_address_id int
+  billing_address_id int
+  payment_method_id int
+  subtotal decimal
+  tax_amount decimal
+  shipping_amount decimal
+  discount_amount decimal
+  total_amount decimal
+  notes text
+  valid_from timestamp [not null, default: 'NOW()']
+  valid_to timestamp
+  operation varchar [not null, note: 'INSERT, UPDATE, DELETE']
+  changed_by int [ref: > users.id]
+
+  indexes {
+    order_id
+    version
+    (order_id, version) [unique]
+    valid_from
+    valid_to
+  }
+
+}
+
+Table order_item_fulfillment_statuses {
+  id int [primary key]
+  name varchar(50) [not null, unique, note: 'pending, partially_fulfilled, fully_fulfilled']
+  description varchar(255)
+  created_at timestamp [not null]
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+// Order fulfillment status lookup table
+Table order_fulfillment_statuses {
+  id int [primary key]
+  name varchar(50) [not null, unique, note: 'pending, partially_fulfilled, fully_fulfilled']
+  description varchar(255)
+  created_at timestamp [not null]
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+
+  note: '''
+  Order-level fulfillment statuses:
+  - pending: all order_items are pending (quantity_packed = 0)
+  - partially_fulfilled: at least one item is partially/fully fulfilled, but not all items are fully fulfilled
+  - fully_fulfilled: all order_items are fully_fulfilled (quantity_packed = quantity)
+  '''
+}
+
+Table order_items {
+  id int [primary key]
+  order_id int [not null, ref: > orders.id]
+  product_id int [not null, ref: > products.id]
+  variant_id int [not null, ref: > variants.id]
+  quantity int [not null, default: 1]
+  quantity_available int [not null, default: 0, note: 'Quantity available in stock at order time']
+  quantity_packed int [not null, default: 0, note: 'Total quantity already packed across all packages']
+  fulfillment_status_id int [ref: > order_item_fulfillment_statuses.id, note: 'pending, partially_fulfilled, fully_fulfilled']
+  unit_price decimal [not null]
+  subtotal decimal [not null]
+  notes text [note: 'Notes required if the quantity available is less than ordered']
+
+  // Snapshot fields - captured at order creation time for historical accuracy
+  product_name varchar(255) [not null, note: 'Product name at order time']
+  product_code varchar(100) [note: 'Direct order or dropshipping code at order time']
+  variant_code varchar(100) [not null, note: 'Variant code at order time']
+  color_name varchar(100) [not null, note: 'Color name at order time']
+  size_name varchar(100) [not null, note: 'Size name at order time']
+  product_image_url varchar(255) [note: 'Primary product image at order time']
+
+  version integer [not null, default: 1, note: 'Increments with each update']
+  created_at timestamp [not null, default: 'NOW()']
+  updated_at timestamp [default: 'NOW()']
+
+  indexes {
+    order_id
+    (order_id, product_id, variant_id) [unique]
+    fulfillment_status_id
+    (order_id, fulfillment_status_id)
+  }
+
+}
+
+Table order_status_history {
+  id int [primary key]
+  order_id int [ref: > orders.id]
+  status_id int [ref: > order_statuses.id]
+  comment text
+  created_at timestamp [not null]
+  created_by int [ref: > users.id]
+  updated_at timestamp
+  updated_by int [ref: > users.id]
+}
+
+Table shipping_labels {
+  id int [primary key]
+  package_id int [ref: > packages.id]
+  shipping_type_id int [ref: > shipping_types.id]
+  shipping_priority_code_id int [ref: > shipping_priority_codes.id]
+  net_weight decimal
+  purchased_by int [ref: > users.id, note: 'Customer or Retailer']
+  additional_notes varchar
+  created_at timestamp [not null]
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+Table shipping_types {
+  id int [primary key]
+  name varchar [not null, unique, note: 'normal, fragile']
+  description varchar
+  created_at timestamp [not null]
+  updated_at timestamp
+}
+
+Table shipping_priority_codes {
+  id int [primary key]
+  name varchar [not null, unique, note: 'A01, A02, B01, B02, C01, C02']
+  description varchar
+  created_at timestamp [not null]
+  updated_at timestamp
+}
+
+
+Table shopping_cart {
+  id int [primary key]
+  user_id int [ref: > users.id]
+  created_at timestamp [not null]
+  updated_at timestamp
+}
+
+Table cart_items {
+  id int [primary key]
+  cart_id int [ref: > shopping_cart.id]
+  product_id int [ref: > products.id]
+  variant_id int [ref: > variants.id]
+  quantity int
+  created_at timestamp [not null]
+  updated_at timestamp
+}
+
+// Payment Status Enumeration Replacement
+Table payment_statuses {
+  id int [primary key]
+  name varchar [not null, unique, note: 'pending, completed, failed, refunded']
+  description varchar
+  created_at timestamp
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+Table payment_transactions {
+  id int [primary key]
+  order_id int [not null, ref: > orders.id]
+  amount decimal(10,2) [not null, note: 'Must be > 0']
+  payment_method_id int [not null, ref: > payment_methods.id]
+  status_id int [not null, ref: > payment_statuses.id]
+  transaction_reference varchar(100) [not null]
+  transaction_date timestamp [not null]
+  version integer [not null, default: 1, note: 'Increments with each update']
+  created_at timestamp [not null, default: 'NOW()']
+  updated_at timestamp [default: 'NOW()']
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+  is_deleted boolean [default: false]
+  deleted_at timestamp
+  deleted_by int [ref: > users.id]
+
+  indexes {
+    order_id
+    status_id
+    transaction_reference [unique]
+    transaction_date
+    is_deleted
+  }
+
+  note: '''
+  CHECK (amount > 0)
+  CHECK (transaction_date <= NOW())
+  When implementing, add these CHECK constraints in your actual SQL.
+  '''
+}
+
+// Payment transactions history table for versioning
+Table payment_transactions_history {
+  id int [primary key]
+  payment_id int [not null, ref: > payment_transactions.id]
+  version integer [not null]
+  order_id int
+  amount decimal
+  payment_method_id int
+  status_id int
+  transaction_reference varchar
+  transaction_date timestamp
+  valid_from timestamp [not null, default: 'NOW()']
+  valid_to timestamp
+  operation varchar [not null, note: 'INSERT, UPDATE, DELETE']
+  changed_by int [ref: > users.id]
+
+  indexes {
+    payment_id
+    version
+    (payment_id, version) [unique]
+    valid_from
+    valid_to
+  }
+
+}
+
+// Invoice Status Enumeration Replacement
+Table invoice_statuses {
+  id int [primary key]
+  name varchar [not null, unique, note: 'draft, sent, paid, cancelled']
+  description varchar
+  created_at timestamp
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+Table invoices {
+  id int [primary key]
+  order_id int [ref: > orders.id]
+  invoice_number varchar [unique]
+  invoice_date timestamp
+  due_date timestamp
+  total_amount decimal
+  status_id int [ref: > invoice_statuses.id]
+  created_at timestamp [not null]
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+// Refund Status Enumeration Replacement
+Table refund_statuses {
+  id int [primary key]
+  name varchar [not null, unique, note: 'pending, processed, rejected']
+  description varchar
+  created_at timestamp
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+Table refunds {
+  id int [primary key]
+  order_id int [ref: > orders.id]
+  payment_transaction_id int [ref: > payment_transactions.id]
+  amount decimal
+  reason text
+  status_id int [ref: > refund_statuses.id]
+  created_at timestamp [not null]
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+// Discount Type Enumeration Replacement
+Table discount_types {
+  id int [primary key]
+  name varchar [not null, unique, note: 'percentage, fixed_amount']
+  description varchar
+  created_at timestamp
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+Table discounts {
+  id int [primary key]
+  name varchar
+  description text
+  discount_type_id int [ref: > discount_types.id]
+  discount_value decimal
+  minimum_purchase_amount decimal
+  is_active boolean
+  starts_at timestamp
+  ends_at timestamp
+  created_at timestamp [not null]
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+Table coupons {
+  id int [primary key]
+  code varchar [unique]
+  discount_id int [ref: > discounts.id]
+  usage_limit int
+  usage_count int
+  is_active boolean
+  expires_at timestamp
+  created_at timestamp [not null]
+  updated_at timestamp
+  created_by int [ref: > users.id]
+  updated_by int [ref: > users.id]
+}
+
+// Adding a consistent audit trail pattern
+Table audit_log {
+  id int [primary key]
+  table_name varchar(100) [not null]
+  record_id int [not null]
+  action varchar(10) [not null, note: 'INSERT, UPDATE, DELETE']
+  old_values jsonb
+  new_values jsonb
+  change_timestamp timestamp [not null, default: 'NOW()']
+  changed_by int [ref: > users.id]
+  ip_address varchar(45)
+  user_agent text
+
+  indexes {
+    table_name
+    record_id
+    action
+    change_timestamp
+    changed_by
+    (table_name, record_id)
+    (change_timestamp, table_name)
+  }
+
+}
+

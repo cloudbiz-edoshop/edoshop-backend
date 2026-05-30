@@ -1,0 +1,32 @@
+export const WAREHOUSE_TRANSFERS_HISTORY_DATA = [
+  // {
+  //   entryId: SERIES_ENTRIES[0].id, // Series,
+  //   transferId: 1,
+  //   sourceWarehouseId: 2,
+  //   destinationWarehouseId: 1,
+  //   statusId: TransferStatusIds.SENT,
+  //   transferDate: new Date().toISOString(),
+  //   transferCode: "WT_01",
+  //   notes: " Transfer Back",
+  //   createdAt: new Date().toISOString(),
+  //   updatedAt: null,
+  //   createdBy: 1,
+  //   updatedBy: null,
+  //   initiatedBy: 2,
+  // },
+  // {
+  //   entryId: PKG_ENTRIES[0].id, // Package
+  //   transferId: 2,
+  //   sourceWarehouseId: 1,
+  //   destinationWarehouseId: 2,
+  //   statusId: TransferStatusIds.SENT,
+  //   transferDate: new Date().toISOString(),
+  //   transferCode: "WT_05",
+  //   notes: "Move package to W1",
+  //   createdAt: new Date().toISOString(),
+  //   updatedAt: null,
+  //   createdBy: 1,
+  //   updatedBy: null,
+  //   initiatedBy: 3,
+  // },
+];

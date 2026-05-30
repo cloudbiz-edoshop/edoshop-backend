@@ -1,0 +1,117 @@
+/**
+ * Validation constraints and messages used across the application
+ */
+export const constraintAndMessages = {
+  STREET_ADDRESS: {
+    MIN_LENGTH: 10,
+    MIN_LENGTH_ERROR: "Street address must be at least 10 characters",
+    MAX_LENGTH: 255,
+    MAX_LENGTH_ERROR: "Street address must be 255 characters or less",
+  },
+  NAME: {
+    MIN_LENGTH: 3,
+    MAX_LENGTH: 50,
+    MIN_LENGTH_ERROR: "Name must be at least 3 characters",
+    MAX_LENGTH_ERROR: "Name must be 50 characters or less",
+    LENGTH_ERROR: "Name must be between 3 and 50 characters",
+    REQUIRED: "Name is required",
+    REGEX: /^[a-z0-9\s]+$/i,
+    INVALID_ERROR: "Invalid name format, should be like Aa-Zz or 0-9",
+  },
+  USERNAME: {
+    MIN_LENGTH: 3,
+    MAX_LENGTH: 50,
+    MIN_LENGTH_ERROR: "Username must be at least 3 characters",
+    MAX_LENGTH_ERROR: "Username must be 50 characters or less",
+    LENGTH_ERROR: "Username must be between 3 and 50 characters",
+    REQUIRED: "Username is required",
+    REGEX: /^[a-z0-9]+$/i,
+    INVALID_ERROR: "Invalid username format",
+  },
+  EMAIL: {
+    MAX_LENGTH: 255,
+    MAX_LENGTH_ERROR: "Email must be 255 characters or less",
+    INVALID_ERROR: "Invalid email address",
+    REQUIRED: "Email is required",
+  },
+  PASSWORD: {
+    MIN_LENGTH: 8,
+    MAX_LENGTH: 32,
+    MIN_LENGTH_ERROR: "Password must be at least 8 characters",
+    MAX_LENGTH_ERROR: "Password must be 32 characters or less",
+    LENGTH_ERROR: "Password must be between 8 and 32 characters",
+    REQUIRED: "Password is required",
+    REQUIRE_UPPERCASE: true,
+    REQUIRE_LOWERCASE: true,
+    REQUIRE_NUMBERS: true,
+    REQUIRE_SPECIAL_CHARS: true,
+  },
+  FULL_NAME: {
+    MIN_LENGTH: 2,
+    MAX_LENGTH: 100,
+    MIN_LENGTH_ERROR: "Full name must be at least 2 characters",
+    MAX_LENGTH_ERROR: "Full name must be 100 characters or less",
+    LENGTH_ERROR: "Full name must be between 2 and 100 characters",
+    REQUIRED: "Full name is required",
+    REGEX: /^[a-z\s]+$/i,
+    INVALID_ERROR: "Invalid full name format, should be like Aa-Zz",
+  },
+  PHONE: {
+    MAX_LENGTH: 15,
+    REGEX: /^\+\d{7,15}$/,
+    PATTERN_ERROR: "Invalid phone number format, should be like +1234567890",
+  },
+  DESCRIPTION: {
+    MAX_LENGTH: 255,
+    MAX_LENGTH_ERROR: "Description must be 255 characters or less",
+  },
+  ENTITY: {
+    NAME_MAX_LENGTH: 100,
+    NAME_MAX_LENGTH_ERROR: "Entity name must be 100 characters or less",
+    NAME_MIN_LENGTH: 3,
+    NAME_MIN_LENGTH_ERROR: "Entity name must be at least 3 characters",
+    REQUIRED: "Entity is required",
+  },
+  OPERATION: {
+    MAX_LENGTH: 50,
+    MAX_LENGTH_ERROR: "Operation must be 50 characters or less",
+    REQUIRED: "Operation is required",
+    INVALID_ERROR: "Invalid operation type",
+  },
+  TOKEN: {
+    MAX_LENGTH: 128,
+    MAX_LENGTH_ERROR: "Token must be 128 characters or less",
+    REQUIRED: "Token is required",
+  },
+  DELIVERY_METHOD: {
+    MAX_LENGTH: 30,
+    MAX_LENGTH_ERROR: "Delivery method must be 30 characters or less",
+    REQUIRED: "Delivery method is required",
+    INVALID_ERROR: "Invalid delivery method",
+  },
+  EMPLOYEE_CODE: {
+    PATTERN: /^E\d{2}_\d{3}$/,
+    PATTERN_ERROR: "Invalid employee code format",
+    REQUIRED: "Employee code is required",
+  },
+  PROFILE_PHOTO_URL: {
+    MAX_LENGTH: 255,
+    MAX_LENGTH_ERROR: "Profile photo URL must be 255 characters or less",
+    REQUIRED: "Profile photo URL is required",
+  },
+  OTP: {
+    LENGTH: 64,
+    LENGTH_ERROR: "OTP must be 64 digits",
+    REQUIRED: "OTP is required",
+  },
+  JWT_TOKEN: {
+    REGEX: /^[\w-]+\.[\w-]+\.[\w-]+$/,
+    REGEX_ERROR: "Invalid JWT token format",
+    REQUIRED: "JWT token is required",
+  },
+  CUSTOMER_CODE: {
+    MAX_LENGTH: 10,
+    MAX_LENGTH_ERROR: "Customer code must be 10 characters or less",
+    REQUIRED: "Customer code is required",
+  },
+};

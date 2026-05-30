@@ -1,0 +1,12 @@
+node_modules/
+dist/
+coverage/
+.pnpm-store/
+logs/
+tools/minio/minio
+tools/minio/minio.exe
+tools/minio/data/
+.env
+.env.*
+!.env.example
+.env.test

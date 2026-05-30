@@ -1,0 +1,214 @@
+import { createRoute, z } from "@hono/zod-openapi";
+
+import { EntityType, OperationType } from "@/constants";
+import {
+  jwtMiddleware,
+  rolesAndPermissionsMiddleware,
+} from "@/core/middlewares";
+import * as HttpStatusCodes from "@/lib/http-status-codes";
+import {
+  commonErrorResponses,
+  jsonContent,
+  jsonContentRequired,
+} from "@/lib/openapi/helpers";
+import { createSuccessResponseSchema, idParams } from "@/lib/openapi/schemas";
+import { createSuccessResponseSchemaWithPagination } from "@/lib/openapi/schemas/create-api-response";
+import commonQueryParamsSchema from "@/lib/openapi/schemas/query-params-schema";
+import { jwtHeaderSchema } from "@/lib/zod-schemas";
+
+import {
+  createBannersRequestSchema,
+  createBannersResponseSchema,
+  getBannersResponseSchema,
+  listBannersResponseSchema,
+  updateBannersRequestSchema,
+} from "./banners.schema";
+
+const tags = ["Banners"];
+
+export const list = createRoute({
+  path: "/banners",
+  method: "get",
+  tags,
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.BANNERS, operation: OperationType.READ },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    query: commonQueryParamsSchema,
+  },
+  summary: "List banners",
+  description: "List banners with pagination, filtering, and sorting",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchemaWithPagination(listBannersResponseSchema),
+      "The list of banners",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNPROCESSABLE_ENTITY,
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.FORBIDDEN,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      commonQueryParamsSchema,
+    ),
+  },
+});
+
+export const create = createRoute({
+  path: "/banners",
+  method: "post",
+  tags,
+  summary: "Create a banners",
+  description: "Create a banners",
+  request: {
+    headers: jwtHeaderSchema,
+    body: jsonContentRequired(createBannersRequestSchema, "Create Banners"),
+  },
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.BANNERS, operation: OperationType.CREATE },
+    ]),
+  ] as const,
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(
+        createBannersResponseSchema,
+        "Banners created successfully",
+      ),
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.FORBIDDEN,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      z.object({}),
+    ),
+  },
+});
+
+export const getOne = createRoute({
+  path: "/banners/{id}",
+  method: "get",
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.BANNERS, operation: OperationType.READ },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    params: idParams,
+  },
+  summary: "Get a banners by id",
+  description: "Get a banners by id",
+  tags,
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(getBannersResponseSchema),
+      "The banners",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNPROCESSABLE_ENTITY,
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.FORBIDDEN,
+        HttpStatusCodes.NOT_FOUND,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      idParams,
+    ),
+  },
+});
+
+export const patch = createRoute({
+  path: "/banners/{id}",
+  method: "patch",
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.BANNERS, operation: OperationType.UPDATE },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    params: idParams,
+    body: jsonContentRequired(
+      updateBannersRequestSchema,
+      "The banners to update",
+    ),
+  },
+  tags,
+  summary: "Update a banners",
+  description: "Update a banners",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(createBannersResponseSchema),
+      "The updated banners",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNPROCESSABLE_ENTITY,
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.FORBIDDEN,
+        HttpStatusCodes.NOT_FOUND,
+        HttpStatusCodes.BAD_REQUEST,
+        HttpStatusCodes.CONFLICT,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      idParams,
+    ),
+  },
+});
+
+export const removeSelected = createRoute({
+  path: "/banners",
+  method: "delete",
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.BANNERS, operation: OperationType.DELETE },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    body: jsonContentRequired(
+      z.object({
+        ids: z.array(z.number()),
+      }),
+      "The banners IDs to remove",
+    ),
+  },
+  tags,
+  summary: "Delete multiple banners",
+  description: "Delete multiple banners by their IDs",
+  responses: {
+    [HttpStatusCodes.NO_CONTENT]: {
+      description: "Banners removed successfully",
+    },
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNPROCESSABLE_ENTITY,
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.FORBIDDEN,
+        HttpStatusCodes.NOT_FOUND,
+        HttpStatusCodes.BAD_REQUEST,
+        HttpStatusCodes.CONFLICT,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      idParams,
+    ),
+  },
+});
+
+export type ListRoute = typeof list;
+export type CreateRoute = typeof create;
+export type GetOneRoute = typeof getOne;
+export type PatchRoute = typeof patch;
+export type RemoveSelectedRoute = typeof removeSelected;
