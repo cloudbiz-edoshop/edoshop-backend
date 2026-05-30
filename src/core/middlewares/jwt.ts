@@ -5,6 +5,7 @@ import type {
   JWTAccessTokenPayload,
   JWTRefreshTokenPayload,
 } from "@/lib/types";
+import { webcrypto } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 
@@ -19,6 +20,12 @@ import * as HttpStatusPhrases from "@/lib/http-status-phrases";
 import { jsonContent } from "@/lib/openapi/helpers";
 import { createErrorResponseSchema } from "@/lib/openapi/schemas";
 import { JWTAccessTokenPayloadSchema } from "@/lib/types";
+
+if (!globalThis.crypto) {
+  Object.defineProperty(globalThis, "crypto", {
+    value: webcrypto,
+  });
+}
 
 // JWT Secret management with rotation support
 const JWT_SECRETS = {
