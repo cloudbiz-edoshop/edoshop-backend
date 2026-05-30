@@ -27,6 +27,12 @@ if (!globalThis.crypto) {
   });
 }
 
+if (!globalThis.CryptoKey) {
+  Object.defineProperty(globalThis, "CryptoKey", {
+    value: webcrypto.CryptoKey,
+  });
+}
+
 // JWT Secret management with rotation support
 const JWT_SECRETS = {
   current: env.JWT_SECRET,
