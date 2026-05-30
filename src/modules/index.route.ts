@@ -42,6 +42,28 @@ const router = createRouter()
     },
   )
   /**
+   * Health endpoint - Used by deploy platforms and reverse proxies.
+   */
+  .openapi(
+    createRoute({
+      tags: ["Index"],
+      method: "get",
+      path: "/health",
+      responses: {
+        [HttpStatusCodes.OK]: jsonContent(
+          createMessageObjectSchema("OK"),
+          "Health check",
+        ),
+      },
+    }),
+    (c: Context) => {
+      return c.json({
+        success: true,
+        message: "OK",
+      });
+    },
+  )
+  /**
    * Test endpoint - Simple test endpoint
    *
    * Used for testing that the API can handle requests correctly.
