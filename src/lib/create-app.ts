@@ -35,6 +35,11 @@ export default function createApp() {
   // Create a new app
   const app = createRouter();
 
+  // Register error handling before other middleware so startup/request
+  // middleware failures produce JSON instead of an empty 500 response.
+  app.onError(onError);
+  app.use(errorHandler);
+
   // Apply middleware
   app.use(
     cors({
@@ -79,10 +84,6 @@ export default function createApp() {
   app.use(serveEmojiFavicon("🚀"));
   app.use(ipAndUserAgent);
   app.use(pinoLogger());
-
-  // Apply error handling middleware
-  app.onError(onError);
-  app.use(errorHandler);
 
   // Apply final middleware
   app.notFound(notFound);

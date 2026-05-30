@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { pinoLogger as logger } from "hono-pino";
 import pino from "pino";
 
@@ -45,7 +47,7 @@ export function pinoLogger() {
       transport,
     ),
     http: {
-      reqId: () => crypto.randomUUID(),
+      reqId: () => randomUUID(),
       async onReqMessage(c) {
         const contentType = c.req.header("content-type") || "";
 

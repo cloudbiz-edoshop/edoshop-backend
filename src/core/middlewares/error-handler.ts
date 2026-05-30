@@ -131,15 +131,22 @@ export const errorHandler = async (c: AppContext, next: Next) => {
     await next();
   } catch (error) {
     const details = error instanceof Error ? error.stack : undefined;
-    // Log the error with context
-    c.var.logger.error({
+    const logPayload = {
       message: "Request failed",
       error: error instanceof Error ? error.message : String(error),
       stack: details,
       path: c.req.path,
       method: c.req.method,
       ip: c.var.ipAddress,
-    });
+    };
+
+    // Log the error with context. The logger itself is middleware-provided, so
+    // fall back to console if the request fails before logger initialization.
+    if (c.var.logger) {
+      c.var.logger.error(logPayload);
+    } else {
+      console.error(logPayload);
+    }
 
     // Check for DB constraint errors first
     const dbError = handleDbConstraintError(error);
@@ -177,7 +184,16 @@ export const errorHandler = async (c: AppContext, next: Next) => {
  * @param _err - The error that occurred
  * @param _c - The application context
  */
-export const onError: ErrorHandler = (_err, _c) => {
-  // Let errorHandler middleware handle this
-  throw _err;
+export const onError: ErrorHandler = (err, c) => {
+  const details = err instanceof Error ? err.stack : undefined;
+  const { message, statusCode } = mapErrorToResponse(err);
+
+  return c.json(
+    errorResponse(
+      statusCode,
+      message,
+      appConfig.isDevelopment ? details : undefined,
+    ),
+    statusCode as ContentfulStatusCode,
+  );
 };
