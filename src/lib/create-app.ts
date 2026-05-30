@@ -38,7 +38,9 @@ export default function createApp() {
   // Apply middleware
   app.use(
     cors({
-      origin: appConfig.isProduction ? ["https://edoshop.online"] : "*",
+      origin: appConfig.isProduction
+        ? ["https://edoshop.online", "https://admin.edoshop.online"]
+        : "*",
       allowMethods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
       allowHeaders: ["Content-Type", "Authorization", "X-CSRF-Token"],
       exposeHeaders: [

@@ -1,0 +1,12 @@
+node_modules
+dist
+coverage
+logs
+.git
+.env
+.env.*
+!.env.example
+tools/minio/data
+tools/minio/minio
+tools/minio/minio.exe
+npm-debug.log*
