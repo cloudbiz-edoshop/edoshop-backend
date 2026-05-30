@@ -5,11 +5,9 @@ import type {
   JWTAccessTokenPayload,
   JWTRefreshTokenPayload,
 } from "@/lib/types";
-import { webcrypto } from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
-
-import { sign, verify } from "hono/jwt";
 
 import { env } from "@/config";
 import { db } from "@/db";
@@ -21,22 +19,52 @@ import { jsonContent } from "@/lib/openapi/helpers";
 import { createErrorResponseSchema } from "@/lib/openapi/schemas";
 import { JWTAccessTokenPayloadSchema } from "@/lib/types";
 
-if (!globalThis.crypto) {
-  Object.defineProperty(globalThis, "crypto", {
-    value: webcrypto,
-  });
-}
-
-if (!globalThis.CryptoKey) {
-  Object.defineProperty(globalThis, "CryptoKey", {
-    value: webcrypto.CryptoKey,
-  });
-}
-
 // JWT Secret management with rotation support
 const JWT_SECRETS = {
   current: env.JWT_SECRET,
   previous: env.JWT_SECRET_PREVIOUS,
+};
+
+const base64UrlEncode = (value: string | Buffer) =>
+  Buffer.from(value).toString("base64url");
+
+const signHs256 = (payload: Record<string, unknown>, secret: string) => {
+  const header = { alg: "HS256", typ: "JWT" };
+  const encodedHeader = base64UrlEncode(JSON.stringify(header));
+  const encodedPayload = base64UrlEncode(JSON.stringify(payload));
+  const data = `${encodedHeader}.${encodedPayload}`;
+  const signature = createHmac("sha256", secret).update(data).digest("base64url");
+  return `${data}.${signature}`;
+};
+
+const verifyHs256 = <T>(token: string, secret: string): T => {
+  const [encodedHeader, encodedPayload, signature] = token.split(".");
+  if (!encodedHeader || !encodedPayload || !signature) {
+    throw new Error("invalid token");
+  }
+
+  const data = `${encodedHeader}.${encodedPayload}`;
+  const expectedSignature = createHmac("sha256", secret)
+    .update(data)
+    .digest("base64url");
+  const actual = Buffer.from(signature);
+  const expected = Buffer.from(expectedSignature);
+  if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) {
+    throw new Error("signature verification failed");
+  }
+
+  const payload = JSON.parse(
+    Buffer.from(encodedPayload, "base64url").toString("utf8"),
+  ) as Record<string, unknown>;
+  const now = Math.floor(Date.now() / 1000);
+  if (typeof payload.exp === "number" && payload.exp <= now) {
+    throw new Error("token expired");
+  }
+  if (typeof payload.nbf === "number" && payload.nbf > now) {
+    throw new Error("token nbf");
+  }
+
+  return payload as T;
 };
 
 /**
@@ -55,7 +83,7 @@ export const signJwtToken = async (
     iat: Math.floor(Date.now() / 1000),
     exp: Math.floor(Date.now() / 1000) + expiresIn,
   };
-  return await sign(token, JWT_SECRETS.current);
+  return signHs256(token, JWT_SECRETS.current);
 };
 
 /**
@@ -72,7 +100,7 @@ export const signRefreshToken = async (
     iat: Math.floor(Date.now() / 1000),
     exp: Math.floor(Date.now() / 1000) + env.REFRESH_TOKEN_EXPIRY,
   };
-  return await sign(token, JWT_SECRETS.current);
+  return signHs256(token, JWT_SECRETS.current);
 };
 
 /**
@@ -86,11 +114,11 @@ export const signRefreshToken = async (
 export const verifyJwtToken = async <T>(token: string): Promise<T> => {
   try {
     // Try with current secret first
-    return (await verify(token, JWT_SECRETS.current, "HS256")) as T;
+    return verifyHs256<T>(token, JWT_SECRETS.current);
   } catch (error) {
     // If failed, try with previous secret (supports rotation)
     try {
-      return (await verify(token, JWT_SECRETS.previous, "HS256")) as T;
+      return verifyHs256<T>(token, JWT_SECRETS.previous);
     } catch {
       throw error; // Re-throw original error if both attempts fail
     }
