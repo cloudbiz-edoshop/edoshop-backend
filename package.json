@@ -18,7 +18,8 @@
     "db:seed": "cross-env DB_SEEDING=true tsx src/db/seed.ts",
     "db:reset-sequences": "tsx src/db/run-reset-sequences.ts",
     "db:drop": "tsx src/db/drop.ts",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "users:upsert-team": "tsx src/scripts/upsert-team-admin-users.ts"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^8.5.0",
