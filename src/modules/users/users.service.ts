@@ -261,16 +261,6 @@ export class UsersService {
       throw new UnauthorizedError("Invalid refresh token");
     }
 
-    // Check if token exists in database
-    const storedToken = await this.userRepository.findRefreshToken(
-      payload.userId,
-      payload.tokenVersion,
-    );
-
-    if (!storedToken || storedToken.isRevoked) {
-      throw new UnauthorizedError("Invalid refresh token");
-    }
-
     // Get user
     const user = await this.userRepository.findById(payload.userId);
 
@@ -291,26 +281,6 @@ export class UsersService {
       userId: user.id,
       username: user.username,
       tokenVersion: newTokenVersion,
-    });
-
-    // Save new refresh token
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7); // 7 days from now
-
-    await db.transaction(async (tx) => {
-      await this.userRepository.saveRefreshToken(
-        tx,
-        user.id,
-        newTokenVersion,
-        expiresAt,
-      );
-
-      // Revoke old refresh token
-      await this.userRepository.revokeRefreshToken(
-        tx,
-        payload.userId,
-        payload.tokenVersion,
-      );
     });
 
     return {
