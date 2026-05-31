@@ -55,7 +55,7 @@ for (const email of TEAM_EMAILS) {
       .set({
         username,
         email,
-        fullName: existingUser.fullName || fullName,
+        fullName,
         password: passwordHash,
         isAdmin: true,
         isActive: true,
