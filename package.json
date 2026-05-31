@@ -19,7 +19,8 @@
     "db:reset-sequences": "tsx src/db/run-reset-sequences.ts",
     "db:drop": "tsx src/db/drop.ts",
     "db:studio": "drizzle-kit studio",
-    "users:upsert-team": "tsx src/scripts/upsert-team-admin-users.ts"
+    "users:upsert-team": "tsx src/scripts/upsert-team-admin-users.ts",
+    "rayons:repair-bins": "tsx src/scripts/repair-rayon-bin-layouts.ts"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^8.5.0",
