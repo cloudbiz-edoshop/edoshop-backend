@@ -20,7 +20,8 @@
     "db:drop": "tsx src/db/drop.ts",
     "db:studio": "drizzle-kit studio",
     "users:upsert-team": "tsx src/scripts/upsert-team-admin-users.ts",
-    "rayons:repair-bins": "tsx src/scripts/repair-rayon-bin-layouts.ts"
+    "rayons:repair-bins": "tsx src/scripts/repair-rayon-bin-layouts.ts",
+    "rayons:normalize-rows": "tsx src/scripts/normalize-rayon-bin-rows.ts"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^8.5.0",
