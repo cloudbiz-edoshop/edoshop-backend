@@ -334,6 +334,27 @@ export type AssignEntryToBinResponseSchema = z.infer<
   typeof assignEntryToBinResponseSchema
 >;
 
+export const unassignEntryFromBinRequestSchema = z.object({
+  entryId: z.number().min(1).describe("Entry ID to unassign from its current bin"),
+  warehouseId: z.number().min(1).describe("Warehouse ID that owns the entry"),
+});
+
+export type UnassignEntryFromBinRequestSchema = z.infer<
+  typeof unassignEntryFromBinRequestSchema
+>;
+
+export const unassignEntryFromBinResponseSchema = z.object({
+  entryId: z.number(),
+  binId: z.number(),
+  locationCode: z.string(),
+  updatedAt: z.string(),
+  updatedBy: z.number(),
+});
+
+export type UnassignEntryFromBinResponseSchema = z.infer<
+  typeof unassignEntryFromBinResponseSchema
+>;
+
 /**
  * Enum for Bin movement direction
  */

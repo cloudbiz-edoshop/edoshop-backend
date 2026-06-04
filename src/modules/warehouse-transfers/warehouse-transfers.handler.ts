@@ -13,6 +13,7 @@ import type {
   ReverseSentEntriesRoute,
   SendTransferableEntriesRoute,
   UndoReceivedEntriesRoute,
+  UnassignEntryFromBinRoute,
   UpdateBinLocationsForWarehouseTransfersRoute,
 } from "./warehouse-transfers.route";
 
@@ -315,6 +316,24 @@ export const assignEntryToBin: AppRouteHandler<AssignEntryToBinRoute> = async (
 
   return c.json(
     successResponse(result, "Entry assigned to bin successfully"),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const unassignEntryFromBin: AppRouteHandler<UnassignEntryFromBinRoute> = async (
+  c,
+) => {
+  const payload = c.get("accessTokenPayload");
+  const { entryId, warehouseId } = c.req.valid("json");
+
+  const result = await transfersService.unassignEntryFromBin(
+    entryId,
+    warehouseId,
+    payload.userId,
+  );
+
+  return c.json(
+    successResponse(result, "Entry unassigned from bin successfully"),
     HttpStatusCodes.OK,
   );
 };

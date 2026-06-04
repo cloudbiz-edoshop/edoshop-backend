@@ -35,6 +35,8 @@ import {
   sendTransferableEntriesResponseSchema,
   undoReceivedEntriesRequestSchema,
   undoReceivedEntriesResponseSchema,
+  unassignEntryFromBinRequestSchema,
+  unassignEntryFromBinResponseSchema,
   updateBinLocationForWarehouseTransfersResponseSchema,
   updateBinLocationsForWarehouseTransfersRequestSchema,
 } from "./warehouse-transfers.schema";
@@ -582,6 +584,47 @@ export const assignEntryToBin = createRoute({
 });
 
 export type AssignEntryToBinRoute = typeof assignEntryToBin;
+
+export const unassignEntryFromBin = createRoute({
+  path: "/warehouse-store/unassign-entry-bin",
+  method: "patch",
+  tags,
+  summary: "Unassign a warehouse entry from its bin",
+  description:
+    "Remove the current bin assignment for a Warehouse 1 series or item entry",
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.ENTRIES, operation: OperationType.UPDATE },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    body: jsonContentRequired(
+      unassignEntryFromBinRequestSchema,
+      "Entry unassignment details",
+    ),
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(unassignEntryFromBinResponseSchema),
+      "Entry unassigned from bin successfully",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNPROCESSABLE_ENTITY,
+        HttpStatusCodes.BAD_REQUEST,
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.FORBIDDEN,
+        HttpStatusCodes.NOT_FOUND,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      unassignEntryFromBinRequestSchema,
+    ),
+  },
+});
+
+export type UnassignEntryFromBinRoute = typeof unassignEntryFromBin;
 
 /**
  * GET Bin Movement History

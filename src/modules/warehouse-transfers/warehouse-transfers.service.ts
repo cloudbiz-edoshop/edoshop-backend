@@ -662,6 +662,37 @@ export class WarehouseTransfersService {
     return result;
   }
 
+  async unassignEntryFromBin(entryId: number, warehouseId: number, userId: number) {
+    const warehouse = await this.warehouseRepository.findById(warehouseId);
+    if (!warehouse) {
+      throw new NotFoundError(`Warehouse not found, with id: ${warehouseId}`);
+    }
+
+    const entry = await this.entriesRepository.findById(entryId);
+    if (!entry) {
+      throw new NotFoundError(`Entry with ID ${entryId} not found`);
+    }
+
+    if (entry.warehouseId !== warehouseId) {
+      throw new ValidationError(`Entry ${entryId} does not belong to warehouse ${warehouseId}`);
+    }
+
+    if (![EntryTypeIds.SERIES, EntryTypeIds.ITEM].includes(entry.entryTypeId)) {
+      throw new ValidationError("Only series and item entries can be unassigned from store management");
+    }
+
+    const result = await this.transfersRepository.unassignEntryFromBin(
+      entryId,
+      userId,
+    );
+
+    if (!result) {
+      throw new NotFoundError(`Entry ${entryId} does not have an assigned bin`);
+    }
+
+    return result;
+  }
+
   async getRayonsStatsForAWarehouse(warehouseId: number) {
     const warehouse = await this.warehouseRepository.findById(warehouseId);
     if (!warehouse) {

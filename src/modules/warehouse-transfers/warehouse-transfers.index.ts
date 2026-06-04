@@ -44,6 +44,11 @@ router.openapi(
 );
 
 router.openapi(
+  routes.unassignEntryFromBin,
+  handlers.unassignEntryFromBin,
+);
+
+router.openapi(
   routes.getAllBinsMovementHistory,
   handlers.getAllBinsMovementHistory,
 );

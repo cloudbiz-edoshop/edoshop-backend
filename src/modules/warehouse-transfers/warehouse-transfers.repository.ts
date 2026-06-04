@@ -637,6 +637,38 @@ export class WarehouseTransfersRepository {
     });
   }
 
+  async unassignEntryFromBin(entryId: number, userId: number) {
+    return await db.transaction(async (tx) => {
+      const [existingStorage] = await tx
+        .select({
+          id: storage.id,
+          binId: storage.binId,
+          locationCode: bins.locationCode,
+        })
+        .from(storage)
+        .innerJoin(bins, eq(bins.id, storage.binId))
+        .where(and(eq(storage.entryId, entryId), eq(storage.action, true)))
+        .orderBy(sql`${storage.createdAt} desc`)
+        .limit(1);
+
+      if (!existingStorage) {
+        return undefined;
+      }
+
+      await tx
+        .delete(storage)
+        .where(eq(storage.id, existingStorage.id));
+
+      return {
+        entryId,
+        binId: existingStorage.binId,
+        locationCode: existingStorage.locationCode,
+        updatedAt: new Date().toISOString(),
+        updatedBy: userId,
+      };
+    });
+  }
+
   async getRayonsStatsForAWarehouse(warehouseId: number) {
     return await db.query.rayons.findMany({
       where: (rayons, { eq }) =>
