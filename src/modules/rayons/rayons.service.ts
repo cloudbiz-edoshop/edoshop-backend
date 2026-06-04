@@ -308,6 +308,20 @@ export class RayonsService {
       );
     }
 
+    if (rowNumber > 1) {
+      const previousRowBin =
+        await this.rayonsRepository.findBinByShelfAndRowNumber(
+          shelfId,
+          rowNumber - 1,
+        );
+
+      if (!previousRowBin) {
+        throw new ConflictError(
+          `Cannot create row ${rowNumber} before row ${rowNumber - 1} exists for shelf ${shelfId}`,
+        );
+      }
+    }
+
     const existingLocationBin =
       await this.rayonsRepository.findBinByLocationCode(resolvedLocationCode);
     if (existingLocationBin) {
