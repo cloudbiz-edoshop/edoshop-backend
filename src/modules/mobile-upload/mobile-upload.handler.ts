@@ -14,6 +14,14 @@ import { MobileUploadService } from "./mobile-upload.service";
 
 const mobileUploadService = new MobileUploadService();
 
+const isUploadedFile = (value: FormDataEntryValue): value is File => (
+  typeof value === "object"
+  && value !== null
+  && "arrayBuffer" in value
+  && "name" in value
+  && "type" in value
+);
+
 export const uploadImages: AppRouteHandler<MobileUploadRoute> = async (c) => {
   const { token } = c.req.valid("param");
 
@@ -21,7 +29,7 @@ export const uploadImages: AppRouteHandler<MobileUploadRoute> = async (c) => {
   const fileList: File[] = [];
 
   for (const [key, value] of formData.entries()) {
-    if (key === "files" && value instanceof File) {
+    if (key === "files" && isUploadedFile(value)) {
       fileList.push(value);
     }
   }

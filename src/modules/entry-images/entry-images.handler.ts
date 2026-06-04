@@ -15,6 +15,14 @@ import { EntryImagesService } from "./entry-images.service";
 
 const entryImagesService = new EntryImagesService();
 
+const isUploadedFile = (value: FormDataEntryValue): value is File => (
+  typeof value === "object"
+  && value !== null
+  && "arrayBuffer" in value
+  && "name" in value
+  && "type" in value
+);
+
 export const listImages: AppRouteHandler<ListEntryImagesRoute> = async (c) => {
   const { entryId } = c.req.valid("param");
 
@@ -33,7 +41,7 @@ export const uploadImages: AppRouteHandler<UploadEntryImagesRoute> = async (c) =
   const fileList: File[] = [];
 
   for (const [key, value] of formData.entries()) {
-    if (key === "files" && value instanceof File) {
+    if (key === "files" && isUploadedFile(value)) {
       fileList.push(value);
     }
   }
@@ -61,7 +69,7 @@ export const replaceImages: AppRouteHandler<ReplaceEntryImagesRoute> = async (c)
   const existingFileNames: string[] = [];
 
   for (const [key, value] of formData.entries()) {
-    if (key === "files" && value instanceof File) {
+    if (key === "files" && isUploadedFile(value)) {
       fileList.push(value);
     } else if (key === "existingFileNames" && typeof value === "string") {
       existingFileNames.push(value);
