@@ -16,6 +16,34 @@ const buildLocationPrefix = (name: string | null) => {
   return (compact || fallback).toUpperCase();
 };
 
+const getAvailableLocationCode = async (
+  currentBinId: number,
+  baseLocationCode: string,
+  warehouseScopedLocationCode: string,
+) => {
+  const [existingBaseLocation] = await db
+    .select({ id: bins.id })
+    .from(bins)
+    .where(eq(bins.locationCode, baseLocationCode))
+    .limit(1);
+
+  if (!existingBaseLocation || existingBaseLocation.id === currentBinId) {
+    return baseLocationCode;
+  }
+
+  const [existingScopedLocation] = await db
+    .select({ id: bins.id })
+    .from(bins)
+    .where(eq(bins.locationCode, warehouseScopedLocationCode))
+    .limit(1);
+
+  if (existingScopedLocation && existingScopedLocation.id !== currentBinId) {
+    return null;
+  }
+
+  return warehouseScopedLocationCode;
+};
+
 const getOperatorUserId = async () => {
   const [adminUser] = await db
     .select({ id: users.id })
@@ -62,16 +90,17 @@ for (const rayon of rayonRows) {
       const normalizedRowNumber = rowMap.get(bin.rowNumber);
       if (!normalizedRowNumber || normalizedRowNumber === bin.rowNumber) continue;
 
-      const normalizedLocationCode = `${locationPrefix}${shelf.columnLabel}${normalizedRowNumber}`;
-      const [existingLocation] = await db
-        .select({ id: bins.id })
-        .from(bins)
-        .where(eq(bins.locationCode, normalizedLocationCode))
-        .limit(1);
+      const baseLocationCode = `${locationPrefix}${shelf.columnLabel}${normalizedRowNumber}`;
+      const scopedLocationCode = `W${rayon.warehouseId}-${baseLocationCode}`;
+      const normalizedLocationCode = await getAvailableLocationCode(
+        bin.id,
+        baseLocationCode,
+        scopedLocationCode,
+      );
 
-      if (existingLocation && existingLocation.id !== bin.id) {
+      if (!normalizedLocationCode) {
         console.warn(
-          `Skipping ${bin.locationCode}: target ${normalizedLocationCode} already exists on bin ${existingLocation.id}.`,
+          `Skipping ${bin.locationCode}: both ${baseLocationCode} and ${scopedLocationCode} are already in use.`,
         );
         skippedCount++;
         continue;
