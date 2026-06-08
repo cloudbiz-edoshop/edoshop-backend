@@ -55,6 +55,17 @@ export class ReviewsService {
     return reviewWithRelations;
   }
 
+  async listReviews(params: {
+    search?: string;
+    page: number;
+    limit: number;
+    sortBy?: string;
+    sortOrder?: "asc" | "desc";
+    filters?: Record<string, any>;
+  }) {
+    return await this.reviewsRepository.list(params);
+  }
+
   async getReviewById(id: number) {
     const review = await this.reviewsRepository.findById(id);
     if (!review) {
@@ -106,5 +117,16 @@ export class ReviewsService {
     });
 
     return updatedReview;
+  }
+
+  async deleteReview(id: number) {
+    const review = await this.reviewsRepository.findById(id);
+    if (!review) {
+      throw new NotFoundError("Review not found");
+    }
+
+    await db.transaction(async (tx) => {
+      await this.reviewsRepository.delete(tx, id);
+    });
   }
 }

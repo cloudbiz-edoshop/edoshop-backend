@@ -1,5 +1,3 @@
-import type { NewNewArrivals } from "@/db/models/new-arrivals";
-
 import type { TX } from "@/lib/types";
 import { and, count, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 
@@ -114,7 +112,15 @@ export class NewArrivalsRepository {
    * @param newArrivalData - New arrival data
    * @returns The created new arrival object
    */
-  async create(tx: TX, newArrivalData: NewNewArrivals) {
+  async create(
+    tx: TX,
+    newArrivalData: {
+      startDate: string;
+      endDate: string;
+      createdBy: number;
+      updatedBy: number;
+    },
+  ) {
     const [result] = await tx
       .insert(newArrivals)
       .values({
@@ -135,7 +141,11 @@ export class NewArrivalsRepository {
   async update(
     tx: TX,
     id: number,
-    newArrivalData: Partial<NewNewArrivals> & { updatedBy: number },
+    newArrivalData: Partial<{
+      startDate: string;
+      endDate: string;
+      updatedBy: number;
+    }> & { updatedBy: number },
   ) {
     const [result] = await tx
       .update(newArrivals)
@@ -287,13 +297,7 @@ export class NewArrivalsRepository {
           newArrivals,
           eq(productNewArrivals.newArrivalId, newArrivals.id),
         )
-        .where(
-          and(
-            sql`${newArrivals.startDate} <= CURRENT_DATE`,
-            sql`${newArrivals.endDate} >= CURRENT_DATE`,
-            isNull(productNewArrivals.removedAt),
-          ),
-        );
+        .where(isNull(productNewArrivals.removedAt));
 
       const productIds = newArrivalProductIds.map((p) => p.productId);
 
@@ -331,13 +335,19 @@ export class NewArrivalsRepository {
               newArrivals,
               eq(productNewArrivals.newArrivalId, newArrivals.id),
             )
-            .where(eq(productNewArrivals.productId, product.id))
+            .where(
+              and(
+                eq(productNewArrivals.productId, product.id),
+                isNull(productNewArrivals.removedAt),
+              ),
+            )
             .limit(1);
 
           const newArrivalData = newArrivalInfo[0];
 
           return {
             ...product,
+            newArrivalId: newArrivalData?.newArrivalId || undefined,
             isNewArrival: true,
             newArrivalStartDate: newArrivalData?.startDate || undefined,
             newArrivalEndDate: newArrivalData?.endDate || undefined,

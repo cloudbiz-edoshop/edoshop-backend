@@ -66,6 +66,10 @@ export type RemoveProductFromNewArrivalsRequest = z.infer<
 
 // Product with new arrivals info schema
 export const productWithNewArrivalsSchema = productsSchema.extend({
+  newArrivalId: z
+    .number()
+    .optional()
+    .describe("New arrival period ID linked to the product"),
   isNewArrival: z
     .boolean()
     .describe("Whether the product is marked as new arrival"),

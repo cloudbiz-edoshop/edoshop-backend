@@ -23,19 +23,89 @@ export class CustomersRepository {
   async getNextCustomerCode() {
     const result = await db
       .execute(sql`SELECT next_customer_code()`)
-      .catch((err) => {
-        throw new Error(`Error in getNextCustomerCode : ${err}`);
+      .catch(() => {
+        return null;
       });
 
     if (!result || result.length === 0) {
-      console.error(
-        "-------------------No result returned from getNextCustomerCode",
-      );
-      console.error(result);
-      return null;
+      return this.getNextCustomerCodeFromExistingRows();
     }
 
     return result[0].next_customer_code as string;
+  }
+
+  private async getNextCustomerCodeFromExistingRows() {
+    const existingCodes = await db
+      .select({ customerCode: customers.customerCode })
+      .from(customers);
+
+    const sequences = existingCodes
+      .map(({ customerCode }) => this.extractCustomerSequence(customerCode))
+      .filter((sequence): sequence is string => Boolean(sequence));
+
+    const lastSequence = sequences.sort(
+      (a, b) => this.customerSequenceValue(b) - this.customerSequenceValue(a),
+    )[0];
+
+    return this.incrementCustomerSequence(lastSequence);
+  }
+
+  private extractCustomerSequence(customerCode: string) {
+    const sequence = customerCode.split(/[-_]/).pop();
+    return sequence && /^[A-Z]{1,2}[0-9]{2}$/.test(sequence)
+      ? sequence
+      : null;
+  }
+
+  private customerSequenceValue(sequence: string) {
+    const [, letters, digits] = sequence.match(/^([A-Z]{1,2})([0-9]{2})$/) ?? [];
+    if (!letters || !digits) {
+      return 0;
+    }
+
+    const letterValue = letters
+      .split("")
+      .reduce((value, letter) => value * 26 + letter.charCodeAt(0) - 64, 0);
+
+    return letterValue * 100 + Number(digits);
+  }
+
+  private incrementCustomerSequence(sequence?: string) {
+    if (!sequence) {
+      return "A01";
+    }
+
+    const [, letters, digits] = sequence.match(/^([A-Z]{1,2})([0-9]{2})$/) ?? [];
+    let number = Number(digits) + 1;
+    let nextLetters = letters;
+
+    if (number > 99) {
+      nextLetters = this.incrementLetters(letters);
+      number = 1;
+    }
+
+    return `${nextLetters}${String(number).padStart(2, "0")}`;
+  }
+
+  private incrementLetters(letters: string) {
+    if (letters.length === 1) {
+      return letters === "Z"
+        ? "AA"
+        : String.fromCharCode(letters.charCodeAt(0) + 1);
+    }
+
+    const first = letters.charCodeAt(0);
+    const second = letters.charCodeAt(1);
+
+    if (second < 90) {
+      return `${letters[0]}${String.fromCharCode(second + 1)}`;
+    }
+
+    if (first >= 90) {
+      throw new Error("Customer code limit reached (ZZ99)");
+    }
+
+    return `${String.fromCharCode(first + 1)}A`;
   }
 
   /**

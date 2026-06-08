@@ -111,8 +111,8 @@ export class DiscountsRepository {
       minimumPurchaseAmount?: string;
       seriesId: number;
       isActive: boolean;
-      startsAt: Date;
-      endsAt: Date;
+      startsAt?: Date;
+      endsAt?: Date;
       createdBy: number;
       updatedBy: number;
     },

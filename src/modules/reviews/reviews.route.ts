@@ -14,11 +14,44 @@ import {
   jsonContentRequired,
 } from "@/lib/openapi/helpers";
 import { createSuccessResponseSchema, idParams } from "@/lib/openapi/schemas";
+import { createSuccessResponseSchemaWithPagination } from "@/lib/openapi/schemas/create-api-response";
+import commonQueryParamsSchema from "@/lib/openapi/schemas/query-params-schema";
 import { jwtHeaderSchema } from "@/lib/zod-schemas";
 
 import { createReviewSchema, updateReviewStatusSchema } from "./reviews.schema";
 
 const tags = ["Reviews"];
+
+export const listAll = createRoute({
+  method: "get",
+  path: "/reviews",
+  tags,
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.REVIEWS, operation: OperationType.READ },
+    ]),
+  ] as const,
+  request: {
+    query: commonQueryParamsSchema,
+    headers: jwtHeaderSchema,
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchemaWithPagination(z.array(reviewsSchema)),
+      "List of reviews",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNPROCESSABLE_ENTITY,
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.FORBIDDEN,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      commonQueryParamsSchema,
+    ),
+  },
+});
 
 export const list = createRoute({
   method: "get",
@@ -151,7 +184,39 @@ export const updateStatus = createRoute({
   },
 });
 
+export const remove = createRoute({
+  method: "delete",
+  path: "/reviews/:id",
+  tags,
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.REVIEWS, operation: OperationType.DELETE },
+    ]),
+  ] as const,
+  request: {
+    params: idParams,
+    headers: jwtHeaderSchema,
+  },
+  responses: {
+    [HttpStatusCodes.NO_CONTENT]: {
+      description: "Review deleted successfully",
+    },
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.FORBIDDEN,
+        HttpStatusCodes.NOT_FOUND,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      idParams,
+    ),
+  },
+});
+
+export type ListAllRoute = typeof listAll;
 export type ListRoute = typeof list;
 export type GetOneRoute = typeof getOne;
 export type CreateRoute = typeof create;
 export type UpdateStatusRoute = typeof updateStatus;
+export type RemoveRoute = typeof remove;

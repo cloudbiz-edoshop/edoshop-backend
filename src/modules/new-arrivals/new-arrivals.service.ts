@@ -118,13 +118,6 @@ export class NewArrivalsService {
       throw new AppError("New arrival period is not properly configured");
     }
 
-    const now = new Date();
-    const startDate = new Date(newArrival.startDate);
-    const endDate = new Date(newArrival.endDate);
-    if (now < startDate || now > endDate) {
-      throw new AppError("Cannot mark products as new arrivals outside the valid period");
-    }
-
     const result = await db.transaction(async (tx) => {
       await this.newArrivalsRepository.addProductsToNewArrivals(
         tx,

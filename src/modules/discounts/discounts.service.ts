@@ -3,6 +3,7 @@ import type {
   CreateDiscountResponse,
   UpdateDiscountRequest,
 } from "./discounts.schema";
+import { DiscountTypeIds } from "@/constants/discount-types.constants";
 import { NotFoundError } from "@/core/errors";
 import { AppError } from "@/core/errors/app-error";
 
@@ -22,13 +23,17 @@ export class DiscountsService {
   ): Promise<CreateDiscountResponse> {
     const discount = await db.transaction(async (tx) => {
       const createdDiscount = await this.discountsRepository.create(tx, {
-        ...data,
-        discountValue: data.discountValue.toString(),
+        name: data.name ?? `Discount ${data.discountRate}%`,
+        description: data.description,
+        discountTypeId: data.discountTypeId ?? DiscountTypeIds.PERCENTAGE,
+        discountValue: data.discountRate.toString(),
         minimumPurchaseAmount: data.minimumPurchaseAmount?.toString(),
         isActive: data.isActive ?? true,
-        startsAt: new Date(data.startsAt),
-        endsAt: new Date(data.endsAt),
+        startsAt: data.startsAt ? new Date(data.startsAt) : undefined,
+        endsAt: data.endsAt ? new Date(data.endsAt) : undefined,
+        seriesId: data.seriesId,
         updatedBy: data.createdBy,
+        createdBy: data.createdBy,
       });
 
       return createdDiscount;
@@ -57,15 +62,21 @@ export class DiscountsService {
     id: number,
     data: UpdateDiscountRequest & { updatedBy: number },
   ): Promise<CreateDiscountResponse> {
+    const updateData = {
+      ...data,
+      discountValue:
+        data.discountRate !== undefined
+          ? data.discountRate.toString()
+          : data.discountValue?.toString(),
+      minimumPurchaseAmount: data.minimumPurchaseAmount?.toString(),
+      startsAt: data.startsAt ? new Date(data.startsAt) : undefined,
+      endsAt: data.endsAt ? new Date(data.endsAt) : undefined,
+      updatedBy: data.updatedBy,
+    };
+    delete updateData.discountRate;
+
     const discount = await db.transaction(async (tx) => {
-      const updatedDiscount = await this.discountsRepository.update(tx, id, {
-        ...data,
-        discountValue: data.discountValue?.toString(),
-        minimumPurchaseAmount: data.minimumPurchaseAmount?.toString(),
-        startsAt: data.startsAt ? new Date(data.startsAt) : undefined,
-        endsAt: data.endsAt ? new Date(data.endsAt) : undefined,
-        updatedBy: data.updatedBy,
-      });
+      const updatedDiscount = await this.discountsRepository.update(tx, id, updateData);
 
       if (!updatedDiscount) {
         throw new NotFoundError("Discount not found");
