@@ -8,18 +8,26 @@ import { serve } from "@hono/node-server";
 
 import app from "./app";
 import { appConfig } from "./config";
+import { ensureRuntimeMigrations } from "./db/runtime-migrations";
 
 const port = appConfig.port;
-// eslint-disable-next-line no-console
-console.log(`Server is running on port http://localhost:${port}`);
 
 /**
  * Start the HTTP server
  *
  * Configuration is loaded from environment variables via appConfig
  */
-serve({
-  fetch: app.fetch,
-  hostname: "0.0.0.0",
-  port,
-});
+async function startServer() {
+  await ensureRuntimeMigrations();
+
+  // eslint-disable-next-line no-console
+  console.log(`Server is running on port http://localhost:${port}`);
+
+  serve({
+    fetch: app.fetch,
+    hostname: "0.0.0.0",
+    port,
+  });
+}
+
+void startServer();
