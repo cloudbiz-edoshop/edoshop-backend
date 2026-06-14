@@ -9,8 +9,10 @@ import { generateUsername } from "@/common";
 import { AddressTypeIds } from "@/constants";
 import { NotFoundError, ValidationError } from "@/core/errors";
 import { AppError } from "@/core/errors/app-error";
+import { eq } from "drizzle-orm";
 
 import db from "@/db";
+import { customers } from "@/db/models";
 
 import { AddressService } from "../addresses/addresses.service";
 import { UserRepository } from "../users/users.repository";
@@ -137,6 +139,81 @@ export class RetailersService {
       throw new AppError("Retailer could not be fetched after creation");
     }
     return retailerWithAddresses as CreateRetailerResponse;
+  }
+
+  async becomeRetailer(userId: number, shop?: string) {
+    const existingRetailer = await this.retailerRepository.findByUserId(userId);
+    if (existingRetailer) {
+      return existingRetailer as CreateRetailerResponse;
+    }
+
+    const customer = await db.query.customers.findFirst({
+      where: eq(customers.userId, userId),
+      with: {
+        user: {
+          with: {
+            addresses: {
+              with: {
+                country: true,
+                city: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!customer) {
+      throw new NotFoundError("Customer account not found");
+    }
+
+    const address = customer.user.addresses[0];
+    if (!address?.country) {
+      throw new NotFoundError("Customer address country not found");
+    }
+
+    const retailerSequence =
+      await this.retailerRepository.getNextRetailerCode();
+    if (!retailerSequence) {
+      throw new AppError("Failed to generate retailer code");
+    }
+
+    const retailerCode = `R${address.country.isoCode}-${retailerSequence}`;
+    const shopName = shop || `${customer.user.fullName} Shop`;
+
+    const retailer = await db.transaction(async (tx) => {
+      return this.retailerRepository.create(tx, {
+        userId,
+        shopName,
+        retailerCode,
+        status: false,
+        createdBy: userId,
+        updatedBy: userId,
+      } as any);
+    });
+
+    const retailerWithDetails = await this.retailerRepository.findById(
+      retailer.id,
+    );
+    if (!retailerWithDetails) {
+      throw new AppError("Retailer could not be fetched after creation");
+    }
+
+    return retailerWithDetails as CreateRetailerResponse;
+  }
+
+  async getCurrentRetailer(userId: number) {
+    const retailer = await this.retailerRepository.findByUserId(userId);
+    if (!retailer) {
+      return null;
+    }
+
+    return {
+      id: retailer.id,
+      retailerCode: retailer.retailerCode,
+      shopName: retailer.shopName,
+      status: retailer.status,
+    };
   }
 
   /**

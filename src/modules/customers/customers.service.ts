@@ -1,6 +1,7 @@
 import type {
   CreateCustomerRequest,
   CreateCustomerResponse,
+  PublicCustomerSignupRequest,
   UpdateCustomerRequest,
 } from "./customers.schema";
 
@@ -9,10 +10,14 @@ import { generateUsername } from "@/common";
 import { AddressTypeIds } from "@/constants";
 import { NotFoundError, ValidationError } from "@/core/errors";
 import { AppError } from "@/core/errors/app-error";
+import { eq } from "drizzle-orm";
+import argon2 from "argon2";
 
 import db from "@/db";
+import { countries } from "@/db/models";
 
 import { AddressService } from "../addresses/addresses.service";
+import { RetailersService } from "../retailers/retailers.service";
 import { UserRepository } from "../users/users.repository";
 import { UsersService } from "../users/users.service";
 import { CustomersRepository } from "./customers.repository";
@@ -22,6 +27,7 @@ export class CustomersService {
   private readonly addressService: AddressService;
   private readonly customerRepository: CustomersRepository;
   private readonly usersService: UsersService;
+  private readonly retailersService: RetailersService;
 
   /**
    * Create a new CustomersService
@@ -30,6 +36,7 @@ export class CustomersService {
   constructor() {
     this.userRepository = new UserRepository();
     this.usersService = new UsersService();
+    this.retailersService = new RetailersService();
     this.addressService = new AddressService();
     this.customerRepository = new CustomersRepository();
   }
@@ -92,10 +99,12 @@ export class CustomersService {
 
     const customer = await db.transaction(async (tx) => {
       const user = await this.userRepository.createWithPhoneNumber(tx, {
-        ...customerData,
+        fullName: customerData.fullName,
+        email: customerData.email,
+        phoneNumber: customerData.phoneNumber,
         username,
         createdBy: customerData.createdBy,
-      });
+      } as any);
 
       const customer: NewCustomer = {
         userId: user.id,
@@ -130,7 +139,95 @@ export class CustomersService {
     if (!customerWithAddresses) {
       throw new AppError("Customer could not be fetched after creation");
     }
+    if (customerData.accountType === "retailer") {
+      await this.retailersService.becomeRetailer(customer.userId);
+    }
     return customerWithAddresses as CreateCustomerResponse;
+  }
+
+  async createPublicCustomerSignup(customerData: PublicCustomerSignupRequest) {
+    const username = generateUsername(customerData.fullName);
+
+    const existingUser = await this.userRepository.findByUsername(username);
+    if (existingUser) {
+      throw new ValidationError("Username is already taken");
+    }
+
+    if (customerData.email) {
+      const existingEmail = await this.userRepository.findByEmail(
+        customerData.email,
+      );
+      if (existingEmail) {
+        throw new ValidationError("Email is already taken");
+      }
+    }
+
+    const existingPhoneNumber = await this.userRepository.findByPhoneNumber(
+      customerData.phoneNumber,
+    );
+    if (existingPhoneNumber) {
+      throw new ValidationError("Phone number is already taken");
+    }
+
+    const country = await db.query.countries.findFirst({
+      where: eq(countries.isoCode, customerData.countryCode),
+    });
+    if (!country) {
+      throw new NotFoundError(
+        `Country with code ${customerData.countryCode} not found`,
+      );
+    }
+
+    const customerSequence =
+      await this.customerRepository.getNextCustomerCode();
+    if (!customerSequence) {
+      throw new AppError("Failed to generate customer code");
+    }
+
+    const customerCode = `C${country.isoCode}-${customerSequence}`;
+    const hashedPassword = await argon2.hash(customerData.password);
+
+    const customer = await db.transaction(async (tx) => {
+      const user = await this.userRepository.createWithPhoneNumber(tx, {
+        fullName: customerData.fullName,
+        username,
+        email: customerData.email || undefined,
+        phoneNumber: customerData.phoneNumber,
+        password: hashedPassword,
+      } as any);
+
+      const createdCustomer = await this.customerRepository.create(tx, {
+        userId: user.id,
+        customerCode,
+        createdBy: user.id,
+        updatedBy: user.id,
+      });
+
+      await this.addressService.createAddress(tx, {
+        userId: user.id,
+        addressTypeId: AddressTypeIds.CUSTOMER,
+        streetAddress: customerData.address,
+        countryId: country.id,
+        createdBy: user.id,
+        updatedBy: user.id,
+      } as any);
+
+      return createdCustomer;
+    });
+
+    if (customerData.accountType === "retailer") {
+      await this.retailersService.becomeRetailer(customer.userId);
+    }
+
+    return {
+      id: customer.id,
+      customerCode: customer.customerCode,
+      userId: customer.userId,
+      ...(await this.usersService.login({
+        phoneNumber: customerData.phoneNumber,
+        password: customerData.password,
+      })),
+    };
   }
 
   /**

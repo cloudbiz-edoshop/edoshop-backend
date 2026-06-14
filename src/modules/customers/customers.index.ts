@@ -4,6 +4,7 @@ import * as routes from "@/modules/customers/customers.route";
 
 const router = createRouter();
 
+router.openapi(routes.publicSignup, handlers.publicSignup);
 router.openapi(routes.list, handlers.list);
 router.openapi(routes.create, handlers.create);
 router.openapi(routes.getAllCustomerCodes, handlers.getAllCustomerCodes);

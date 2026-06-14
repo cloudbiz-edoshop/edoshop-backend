@@ -116,6 +116,7 @@ export class ReviewsRepository {
       itemsReceived?: number;
       itemsRejected?: number;
       reviewDate: string;
+      approvedDate?: string;
       createdBy: number;
       updatedBy: number;
     },
@@ -132,7 +133,7 @@ export class ReviewsRepository {
         updatedBy,
         updatedAt: new Date().toISOString(),
         ...(statusId === ReviewStatusIds.APPROVED
-          ? { approvedDate: new Date().toISOString() }
+          ? { approvedDate: new Date().toISOString().slice(0, 10) }
           : {}),
       })
       .where(eq(reviews.id, id))

@@ -2,12 +2,14 @@ import type { AppRouteHandler } from "@/lib/types";
 
 import type {
   ForgotPasswordRoute,
+  GetCurrentUserRoute,
   ListAllEmailsRoute,
   ListAllUserNamesRoute,
   LoginRoute,
   RefreshTokenRoute,
   RegisterUserWithoutRolesRoute,
   ResetPasswordRoute,
+  UpdateCurrentUserRoute,
   UpdatePasswordRoute,
   VerifyOtpRoute,
 } from "@/modules/users/users.route";
@@ -44,6 +46,25 @@ export const login: AppRouteHandler<LoginRoute> = async (c) => {
     successResponse(response, STANDARD_MESSAGES.AUTH.LOGIN_SUCCESS),
     HttpStatusCodes.OK,
   );
+};
+
+export const getCurrentUser: AppRouteHandler<GetCurrentUserRoute> = async (
+  c,
+) => {
+  const payload = c.get("accessTokenPayload");
+  const result = await usersService.getCurrentUser(payload.userId);
+
+  return c.json(successResponse(result, STANDARD_MESSAGES.SUCCESS.FETCHED));
+};
+
+export const updateCurrentUser: AppRouteHandler<
+  UpdateCurrentUserRoute
+> = async (c) => {
+  const payload = c.get("accessTokenPayload");
+  const data = c.req.valid("json");
+  const result = await usersService.updateCurrentUser(payload.userId, data);
+
+  return c.json(successResponse(result, STANDARD_MESSAGES.SUCCESS.UPDATED));
 };
 
 // Refresh token handler to generate new access tokens

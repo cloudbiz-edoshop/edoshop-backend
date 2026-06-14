@@ -159,6 +159,21 @@ export const loginResponseSchema = z.object({
 // Login response type
 export type LoginResponse = z.infer<typeof loginResponseSchema>;
 
+export const currentUserResponseSchema = userSchema.describe("Current user");
+
+export const updateCurrentUserRequestSchema = z
+  .object({
+    fullName: fullNameSchema.optional(),
+    email: emailSchema.optional().or(z.literal("")),
+    phoneNumber: phoneSchema.optional(),
+    profilePhotoUrl: z.string().trim().optional().or(z.literal("")),
+  })
+  .partial();
+
+export type UpdateCurrentUserRequest = z.infer<
+  typeof updateCurrentUserRequestSchema
+>;
+
 // Refresh token request schema
 export const refreshTokenRequestSchema = z.object({
   refreshToken: jwtTokenSchema,

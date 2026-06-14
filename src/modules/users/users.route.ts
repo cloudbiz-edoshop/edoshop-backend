@@ -18,6 +18,7 @@ import {
   forgotPasswordResponseSchema,
   loginRequestSchema,
   loginResponseSchema,
+  currentUserResponseSchema,
   refreshTokenRequestSchema,
   refreshTokenResponseSchema,
   registerUserAdminPanelRequestSchema,
@@ -26,6 +27,7 @@ import {
   resetPasswordResponseSchema,
   updatePasswordRequestSchema,
   updatePasswordResponseSchema,
+  updateCurrentUserRequestSchema,
   verifyOtpRequestSchema,
   verifyOtpResponseSchema,
 } from "@/modules/users/users.schema";
@@ -58,6 +60,53 @@ export const loginRoute = createRoute({
         HttpStatusCodes.INTERNAL_SERVER_ERROR,
       ],
       loginRequestSchema,
+    ),
+  },
+});
+
+export const getCurrentUserRoute = createRoute({
+  method: "get",
+  path: "/users/me",
+  tags,
+  summary: "Get current user profile",
+  middleware: [jwtMiddleware()] as const,
+  request: {
+    headers: jwtHeaderSchema,
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(currentUserResponseSchema),
+      "Current user profile",
+    ),
+    ...commonErrorResponses(
+      [HttpStatusCodes.UNAUTHORIZED, HttpStatusCodes.NOT_FOUND],
+      z.object({}),
+    ),
+  },
+});
+
+export const updateCurrentUserRoute = createRoute({
+  method: "patch",
+  path: "/users/me",
+  tags,
+  summary: "Update current user profile",
+  middleware: [jwtMiddleware()] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    body: jsonContentRequired(updateCurrentUserRequestSchema, "Profile update"),
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(currentUserResponseSchema),
+      "Current user profile updated",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.UNPROCESSABLE_ENTITY,
+        HttpStatusCodes.NOT_FOUND,
+      ],
+      updateCurrentUserRequestSchema,
     ),
   },
 });
@@ -315,6 +364,8 @@ export const registerUserWithoutRolesRoute = createRoute({
 });
 
 export type LoginRoute = typeof loginRoute;
+export type GetCurrentUserRoute = typeof getCurrentUserRoute;
+export type UpdateCurrentUserRoute = typeof updateCurrentUserRoute;
 export type ListAllUserNamesRoute = typeof getAllUserNames;
 export type ListAllEmailsRoute = typeof getAllEmails;
 export type RefreshTokenRoute = typeof refreshTokenRoute;

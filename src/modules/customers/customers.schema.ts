@@ -19,9 +19,38 @@ export const createCustomerRequestSchema = z.object({
   phoneNumber: phoneSchema.describe("Customer phone number"),
   countryId: idSchema.describe("Country ID"),
   address: streetAddressSchema.describe("Customer address"),
+  accountType: z.enum(["customer", "retailer"]).optional().default("customer"),
 });
 
 export type CreateCustomerRequest = z.infer<typeof createCustomerRequestSchema>;
+
+export const publicCustomerSignupRequestSchema = z.object({
+  fullName: nameSchema.describe("Customer name"),
+  email: emailSchema.optional().or(z.literal("")).describe("Customer email"),
+  phoneNumber: phoneSchema.describe("Customer WhatsApp phone number"),
+  countryCode: z.string().min(2).describe("Customer country ISO code"),
+  address: z
+    .string()
+    .trim()
+    .min(2, "Address must be at least 2 characters")
+    .max(255, "Address must be 255 characters or less")
+    .describe("Customer town, area, or reference point"),
+  password: z.string().min(8).describe("Customer password"),
+  accountType: z.enum(["customer", "retailer"]).optional().default("customer"),
+});
+
+export type PublicCustomerSignupRequest = z.infer<
+  typeof publicCustomerSignupRequestSchema
+>;
+
+export const publicCustomerSignupResponseSchema = z.object({
+  id: idSchema,
+  customerCode: z.string(),
+  userId: idSchema,
+  accessToken: z.string(),
+  refreshToken: z.string(),
+  user: userSchema,
+});
 
 export const createCustomerResponseSchema = customerSchema.extend({
   user: userSchema.extend({

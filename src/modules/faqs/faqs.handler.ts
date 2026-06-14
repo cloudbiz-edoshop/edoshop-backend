@@ -53,13 +53,14 @@ export const list: AppRouteHandler<ListRoute> = async (c) => {
 };
 
 export const create: AppRouteHandler<CreateRoute> = async (c) => {
-  const { order, question, answer } = c.req.valid("json");
+  const { order, storeId, question, answer } = c.req.valid("json");
 
   const payload = c.get("accessTokenPayload");
   const createdBy = payload.userId;
 
   const result = await faqsService.createFaqs({
     order,
+    storeId,
     question,
     answer,
     createdBy,

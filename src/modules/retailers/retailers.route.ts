@@ -15,8 +15,10 @@ import commonQueryParamsSchema from "@/lib/openapi/schemas/query-params-schema";
 import { jwtHeaderSchema } from "@/lib/zod-schemas";
 
 import {
+  becomeRetailerRequestSchema,
   createRetailerRequestSchema,
   createRetailerResponseSchema,
+  currentRetailerResponseSchema,
   getRetailerResponseSchema,
   listRetailersResponseSchema,
   updateRetailerRequestSchema,
@@ -86,6 +88,59 @@ export const create = createRoute({
         HttpStatusCodes.FORBIDDEN,
         HttpStatusCodes.INTERNAL_SERVER_ERROR,
       ],
+      z.object({}),
+    ),
+  },
+});
+
+export const becomeRetailer = createRoute({
+  path: "/retailers/become",
+  method: "post",
+  tags,
+  summary: "Become a retailer",
+  description: "Create a retailer request for the authenticated storefront customer",
+  request: {
+    headers: jwtHeaderSchema,
+    body: jsonContentRequired(becomeRetailerRequestSchema, "Become Retailer"),
+  },
+  middleware: [jwtMiddleware()] as const,
+  responses: {
+    [HttpStatusCodes.CREATED]: jsonContent(
+      createSuccessResponseSchema(
+        createRetailerResponseSchema,
+        "Retailer request submitted successfully",
+      ),
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.NOT_FOUND,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      becomeRetailerRequestSchema,
+    ),
+  },
+});
+
+export const getCurrentRetailer = createRoute({
+  path: "/retailers/me",
+  method: "get",
+  tags,
+  summary: "Get current retailer request",
+  description: "Get retailer status for the authenticated storefront customer",
+  request: {
+    headers: jwtHeaderSchema,
+  },
+  middleware: [jwtMiddleware()] as const,
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(
+        currentRetailerResponseSchema,
+        "Current retailer request",
+      ),
+    ),
+    ...commonErrorResponses(
+      [HttpStatusCodes.UNAUTHORIZED, HttpStatusCodes.INTERNAL_SERVER_ERROR],
       z.object({}),
     ),
   },
@@ -207,6 +262,8 @@ export const removeMany = createRoute({
 
 export type ListRoute = typeof list;
 export type CreateRoute = typeof create;
+export type BecomeRetailerRoute = typeof becomeRetailer;
+export type GetCurrentRetailerRoute = typeof getCurrentRetailer;
 export type GetOneRoute = typeof getOne;
 export type PatchRoute = typeof patch;
 export type RemoveManyRoute = typeof removeMany;

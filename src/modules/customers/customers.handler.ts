@@ -6,6 +6,7 @@ import type {
   GetOneRoute,
   ListRoute,
   PatchRoute,
+  PublicSignupRoute,
   RemoveRoute,
   RemoveSelectedRoute,
 } from "./customers.route";
@@ -58,7 +59,7 @@ export const list: AppRouteHandler<ListRoute> = async (c) => {
 };
 
 export const create: AppRouteHandler<CreateRoute> = async (c) => {
-  const { fullName, email, phoneNumber, countryId, address } =
+  const { fullName, email, phoneNumber, countryId, address, accountType } =
     c.req.valid("json");
 
   const payload = c.get("accessTokenPayload");
@@ -70,6 +71,7 @@ export const create: AppRouteHandler<CreateRoute> = async (c) => {
     phoneNumber,
     countryId,
     address,
+    accountType,
     createdBy,
   });
 
@@ -78,6 +80,16 @@ export const create: AppRouteHandler<CreateRoute> = async (c) => {
   return c.json(
     successResponse(response, STANDARD_MESSAGES.AUTH.CUSTOMER_CREATED),
     HttpStatusCodes.OK,
+  );
+};
+
+export const publicSignup: AppRouteHandler<PublicSignupRoute> = async (c) => {
+  const data = c.req.valid("json");
+  const result = await customersService.createPublicCustomerSignup(data);
+
+  return c.json(
+    successResponse(result, "Customer registered successfully"),
+    HttpStatusCodes.CREATED,
   );
 };
 

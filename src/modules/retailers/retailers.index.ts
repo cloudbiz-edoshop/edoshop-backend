@@ -4,6 +4,8 @@ import * as routes from "@/modules/retailers/retailers.route";
 
 const router = createRouter();
 
+router.openapi(routes.becomeRetailer, handlers.becomeRetailer);
+router.openapi(routes.getCurrentRetailer, handlers.getCurrentRetailer);
 router.openapi(routes.create, handlers.create);
 router.openapi(routes.getOne, handlers.getOne);
 router.openapi(routes.list, handlers.list);

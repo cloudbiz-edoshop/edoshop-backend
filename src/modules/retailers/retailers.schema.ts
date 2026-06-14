@@ -25,6 +25,22 @@ export const createRetailerRequestSchema = z.object({
 
 export type CreateRetailerRequest = z.infer<typeof createRetailerRequestSchema>;
 
+export const becomeRetailerRequestSchema = z
+  .object({
+    shop: z.string().min(1).optional().describe("Optional shop name"),
+  })
+  .optional()
+  .default({});
+
+export const currentRetailerResponseSchema = z
+  .object({
+    id: idSchema,
+    retailerCode: z.string(),
+    shopName: z.string(),
+    status: z.boolean(),
+  })
+  .nullable();
+
 // Schema for creating a retailer response
 export const createRetailerResponseSchema = z.object({
   id: idSchema,

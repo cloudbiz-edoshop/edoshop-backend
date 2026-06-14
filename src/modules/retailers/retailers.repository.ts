@@ -64,6 +64,26 @@ export class RetailerRepository {
     return result;
   }
 
+  async findByUserId(userId: number) {
+    const result = await db.query.retailers.findFirst({
+      where: eq(retailers.userId, userId),
+      with: {
+        user: {
+          with: {
+            addresses: {
+              with: {
+                country: true,
+                city: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return result;
+  }
+
   /**
    * List retailers with pagination, filtering, and sorting
    *

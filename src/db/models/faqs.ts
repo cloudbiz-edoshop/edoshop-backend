@@ -11,11 +11,16 @@ import {
 } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 
+import { stores } from "./stores";
 import { users } from "./users";
 
 export const faqs = pgTable("faqs", {
   id: serial().primaryKey(),
   order: integer().notNull(),
+  storeId: integer()
+    .references(() => stores.id)
+    .notNull()
+    .default(2),
   question: varchar({ length: 255 }).notNull(),
   answer: varchar({ length: 255 }).notNull(),
   createdAt: timestamp({ mode: "string" }).notNull().defaultNow(),
@@ -48,6 +53,10 @@ export type NewFaqs = z.infer<typeof insertFaqsSchema>;
 export default faqs;
 
 export const faqsRelations = relations(faqs, ({ one }) => ({
+  store: one(stores, {
+    fields: [faqs.storeId],
+    references: [stores.id],
+  }),
   createdBy: one(users, {
     fields: [faqs.createdBy],
     references: [users.id],

@@ -1,8 +1,8 @@
 import type { TX } from "@/lib/types";
-import { and, count, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray, isNull, lte, sql } from "drizzle-orm";
 
 import db from "@/db";
-import { newArrivals, productNewArrivals, products } from "@/db/models";
+import { newArrivals, productNewArrivals, products, variants } from "@/db/models";
 import {
   createFilterConditions,
   createSearchCondition,
@@ -261,6 +261,7 @@ export class NewArrivalsRepository {
     filters?: Record<string, any>;
   }) {
     const { search, page, limit, sortBy, sortOrder, filters } = params;
+    const today = new Date().toISOString().slice(0, 10);
 
     const searchableFields = ["name", "shortDescription", "fullDescription"];
 
@@ -289,71 +290,53 @@ export class NewArrivalsRepository {
     const sortCondition = createSortCondition(products, sortBy, sortOrder);
 
     return await db.transaction(async (tx) => {
-      // Get products that are marked as new arrivals
-      const newArrivalProductIds = await tx
-        .select({ productId: productNewArrivals.productId })
-        .from(productNewArrivals)
-        .leftJoin(
-          newArrivals,
-          eq(productNewArrivals.newArrivalId, newArrivals.id),
-        )
-        .where(isNull(productNewArrivals.removedAt));
+      const activeNewArrival = await tx.query.newArrivals.findFirst({
+        where: and(
+          lte(newArrivals.startDate, today),
+          gte(newArrivals.endDate, today),
+        ),
+        orderBy: [desc(newArrivals.createdAt)],
+      });
 
-      const productIds = newArrivalProductIds.map((p) => p.productId);
-
-      if (productIds.length === 0) {
+      if (!activeNewArrival) {
         return { data: [], total: 0, searchableFields };
       }
+
+      const activeDateRangeClause = and(
+        whereClause || sql`TRUE`,
+        gte(products.createdAt, `${activeNewArrival.startDate} 00:00:00`),
+        lte(products.createdAt, `${activeNewArrival.endDate} 23:59:59.999`),
+      );
 
       const [{ value: totalCount }] = await tx
         .select({ value: count() })
         .from(products)
-        .where(and(whereClause || sql`TRUE`, inArray(products.id, productIds)));
+        .where(activeDateRangeClause);
 
       const productsData = await tx.query.products.findMany({
-        where: and(whereClause || sql`TRUE`, inArray(products.id, productIds)),
+        where: activeDateRangeClause,
         limit: limitVal,
         offset,
         orderBy: sortCondition ? [sortCondition] : [desc(products.createdAt)],
         with: {
           store: true,
           series: true,
+          variants: {
+            where: eq(variants.isDeleted, false),
+            with: {
+              size: true,
+            },
+          },
         },
       });
 
-      const productsWithNewArrivalsInfo = await Promise.all(
-        productsData.map(async (product) => {
-          // Get new arrival info
-          const newArrivalInfo = await tx
-            .select({
-              newArrivalId: productNewArrivals.newArrivalId,
-              startDate: newArrivals.startDate,
-              endDate: newArrivals.endDate,
-            })
-            .from(productNewArrivals)
-            .leftJoin(
-              newArrivals,
-              eq(productNewArrivals.newArrivalId, newArrivals.id),
-            )
-            .where(
-              and(
-                eq(productNewArrivals.productId, product.id),
-                isNull(productNewArrivals.removedAt),
-              ),
-            )
-            .limit(1);
-
-          const newArrivalData = newArrivalInfo[0];
-
-          return {
-            ...product,
-            newArrivalId: newArrivalData?.newArrivalId || undefined,
-            isNewArrival: true,
-            newArrivalStartDate: newArrivalData?.startDate || undefined,
-            newArrivalEndDate: newArrivalData?.endDate || undefined,
-          };
-        }),
-      );
+      const productsWithNewArrivalsInfo = productsData.map((product) => ({
+        ...product,
+        newArrivalId: activeNewArrival.id,
+        isNewArrival: true,
+        newArrivalStartDate: activeNewArrival.startDate || undefined,
+        newArrivalEndDate: activeNewArrival.endDate || undefined,
+      }));
 
       return {
         data: productsWithNewArrivalsInfo,

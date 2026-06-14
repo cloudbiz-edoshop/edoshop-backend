@@ -306,6 +306,7 @@ export class ProductsRepository {
               size: true,
               materialType: true,
               designPattern: true,
+              images: true,
               createdBy: true,
               updatedBy: true,
             },

@@ -15,6 +15,7 @@ import type {
   RefreshTokenResponse,
   ResetPasswordRequest,
   ResetPasswordResponse,
+  UpdateCurrentUserRequest,
   UpdatePasswordRequest,
   UpdatePasswordResponse,
   UpdateUser,
@@ -232,6 +233,29 @@ export class UsersService {
     };
 
     return userDto;
+  }
+
+  async getCurrentUser(userId: number) {
+    const user = await this.userRepository.findById(userId);
+    if (!user) {
+      throw new NotFoundError("User not found");
+    }
+
+    const { password: _, ...userWithoutPassword } = user;
+    return userWithoutPassword;
+  }
+
+  async updateCurrentUser(userId: number, userData: UpdateCurrentUserRequest) {
+    const updatedUser = await db.transaction(async (tx) => {
+      return await this.userRepository.updateUser(tx, userId, {
+        ...userData,
+        email: userData.email || undefined,
+        updatedBy: userId,
+      } as any);
+    });
+
+    const { password: _, ...userWithoutPassword } = updatedUser;
+    return userWithoutPassword;
   }
 
   /**

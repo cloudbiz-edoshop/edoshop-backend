@@ -1,0 +1,319 @@
+import { ReviewStatusIds } from "@/constants/review-statuses.constants";
+import { successResponseWithPagination } from "@/lib/api-response";
+import * as HttpStatusCodes from "@/lib/http-status-codes";
+import { createPagination } from "@/lib/searching-sorting";
+import { BannersService } from "@/modules/banners/banners.service";
+import { CategoriesService } from "@/modules/categories/categories.service";
+import { CustomersService } from "@/modules/customers/customers.service";
+import { DiscountsService } from "@/modules/discounts/discounts.service";
+import { FaqsService } from "@/modules/faqs/faqs.service";
+import { FiltersService } from "@/modules/filters/filters.service";
+import { NewArrivalsService } from "@/modules/new-arrivals/new-arrivals.service";
+import { ProductsService } from "@/modules/products/products.service";
+import { RetailersService } from "@/modules/retailers/retailers.service";
+import { ReviewsService } from "@/modules/reviews/reviews.service";
+
+const bannersService = new BannersService();
+const faqsService = new FaqsService();
+const filtersService = new FiltersService();
+const categoriesService = new CategoriesService();
+const newArrivalsService = new NewArrivalsService();
+const productsService = new ProductsService();
+const discountsService = new DiscountsService();
+const reviewsService = new ReviewsService();
+const customersService = new CustomersService();
+const retailersService = new RetailersService();
+
+type ListParams = {
+  search?: string;
+  page: number;
+  limit: number;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
+  filters?: Record<string, any>;
+};
+
+const getListParams = (c: any) => {
+  const queryParams = c.req.valid("query");
+  const filters =
+    typeof queryParams.filters === "string"
+      ? JSON.parse(queryParams.filters)
+      : queryParams.filters;
+
+  return {
+    search: queryParams.search,
+    page: queryParams.page,
+    limit: queryParams.limit,
+    sortBy: queryParams.sortBy,
+    sortOrder: queryParams.sortOrder,
+    filters,
+  } satisfies ListParams;
+};
+
+const sendPublicList = <T>(
+  c: any,
+  data: T[],
+  total: number,
+  searchableFields: string[],
+  page: number,
+  limit: number,
+  message: string,
+) =>
+  c.json(
+    successResponseWithPagination(
+      data,
+      createPagination(total, page, limit),
+      searchableFields,
+      message,
+    ),
+    HttpStatusCodes.OK,
+  );
+
+const getProductImageUrl = (product: any) =>
+  product.imageUrls?.find(Boolean) ||
+  product.variants
+    ?.flatMap((variant: any) => variant.images || [])
+    ?.find((image: any) => image?.imageUrl)?.imageUrl || null;
+
+export const listBanners = async (c: any) => {
+  const params = getListParams(c);
+  const result = await bannersService.listBanners(params);
+
+  return sendPublicList(
+    c,
+    result.data,
+    result.total,
+    result.searchableFields,
+    params.page,
+    params.limit,
+    "Public banners retrieved successfully",
+  );
+};
+
+export const listFaqs = async (c: any) => {
+  const params = getListParams(c);
+  const result = await faqsService.listFaqs(params);
+
+  return sendPublicList(
+    c,
+    result.data,
+    result.total,
+    result.searchableFields,
+    params.page,
+    params.limit,
+    "Public FAQs retrieved successfully",
+  );
+};
+
+export const listFilters = async (c: any) => {
+  const params = getListParams(c);
+  const result = await filtersService.listFilters(params);
+
+  return sendPublicList(
+    c,
+    result.data,
+    result.total,
+    result.searchableFields,
+    params.page,
+    params.limit,
+    "Public filters retrieved successfully",
+  );
+};
+
+export const listCategories = async (c: any) => {
+  const params = getListParams(c);
+  const result = await categoriesService.listCategories({
+    ...params,
+    limit: Math.max(params.limit, 100),
+  });
+  const publicCategories = result.data.map((category) => ({
+    id: category.id,
+    name: category.name,
+    description: category.description,
+    parentId: category.parentId,
+    level: category.level,
+  }));
+
+  return sendPublicList(
+    c,
+    publicCategories,
+    result.total,
+    result.searchableFields,
+    params.page,
+    Math.max(params.limit, 100),
+    "Public categories retrieved successfully",
+  );
+};
+
+export const listNewArrivalProducts = async (c: any) => {
+  const params = getListParams(c);
+  const result = await newArrivalsService.getOnlyNewArrivalProducts(params);
+  const publicProducts = result.data.map((product) => ({
+    id: product.id,
+    name: product.name,
+    price: product.price,
+    imageUrl: getProductImageUrl(product),
+    imageUrls: product.imageUrls || [],
+    shortDescription: product.shortDescription,
+    fullDescription: product.fullDescription,
+    storeId: product.storeId,
+    seriesId: product.seriesId,
+    categoryIds: product.categories?.map((category) => category.id).filter(Boolean) || [],
+    categories: product.categories || [],
+    isNewArrival: product.isNewArrival,
+    newArrivalId: product.newArrivalId,
+    newArrivalStartDate: product.newArrivalStartDate,
+    newArrivalEndDate: product.newArrivalEndDate,
+    sizes:
+      product.variants
+        ?.map((variant) => variant.size?.name)
+        .filter((size): size is string => Boolean(size)) || [],
+  }));
+
+  return sendPublicList(
+    c,
+    publicProducts,
+    result.total,
+    result.searchableFields,
+    params.page,
+    params.limit,
+    "Public new arrival products retrieved successfully",
+  );
+};
+
+export const listProducts = async (c: any) => {
+  const params = getListParams(c);
+  const result = await productsService.listProducts(params);
+  const publicProducts = result.data.map((product) => ({
+    id: product.id,
+    name: product.name,
+    price: product.price,
+    imageUrl: getProductImageUrl(product),
+    imageUrls: product.imageUrls || [],
+    shortDescription: product.shortDescription,
+    fullDescription: product.fullDescription,
+    storeId: product.storeId,
+    seriesId: product.seriesId,
+    categoryIds: product.categories?.map((category) => category.id).filter(Boolean) || [],
+    categories: product.categories || [],
+    isNewArrival: product.isNewArrival,
+    sizes:
+      product.variants
+        ?.map((variant) => variant.size?.name)
+        .filter((size): size is string => Boolean(size)) || [],
+  }));
+
+  return sendPublicList(
+    c,
+    publicProducts,
+    result.total,
+    result.searchableFields,
+    params.page,
+    params.limit,
+    "Public products retrieved successfully",
+  );
+};
+
+export const listDiscounts = async (c: any) => {
+  const params = getListParams(c);
+  const result = await discountsService.listDiscounts({
+    ...params,
+    filters: { ...params.filters, isActive: true },
+  });
+  const publicDiscounts = result.data.map((discount) => ({
+    id: discount.id,
+    seriesId: discount.seriesId,
+    discountRate: discount.discountValue,
+    name: discount.name,
+    description: discount.description,
+    isActive: discount.isActive,
+    startsAt: discount.startsAt,
+    endsAt: discount.endsAt,
+    discountValue: discount.discountValue,
+  }));
+
+  return sendPublicList(
+    c,
+    publicDiscounts,
+    result.total,
+    result.searchableFields,
+    params.page,
+    params.limit,
+    "Public discounts retrieved successfully",
+  );
+};
+
+export const listReviews = async (c: any) => {
+  const params = getListParams(c);
+  const result = await reviewsService.listReviews({
+    ...params,
+    filters: { ...params.filters, statusId: ReviewStatusIds.APPROVED },
+  });
+  const publicReviews = result.data.map((review) => ({
+    id: review.id,
+    productId: review.productId,
+    rating: review.rating,
+    review: review.review,
+    reviewDate: review.reviewDate,
+    statusId: review.statusId,
+    customerName: review.createdBy?.fullName || null,
+    imageUrl: review.createdBy?.profilePhotoUrl || null,
+  }));
+
+  return sendPublicList(
+    c,
+    publicReviews,
+    result.total,
+    result.searchableFields,
+    params.page,
+    params.limit,
+    "Public reviews retrieved successfully",
+  );
+};
+
+export const listCustomers = async (c: any) => {
+  const params = getListParams(c);
+  const result = await customersService.listCustomers({
+    ...params,
+    filters: { ...params.filters, isActive: true },
+  });
+  const publicCustomers = result.data.map((customer) => ({
+    id: customer.id,
+    customerCode: customer.customerCode,
+    isActive: customer.isActive,
+  }));
+
+  return sendPublicList(
+    c,
+    publicCustomers,
+    result.total,
+    result.searchableFields,
+    params.page,
+    params.limit,
+    "Public customer summaries retrieved successfully",
+  );
+};
+
+export const listRetailers = async (c: any) => {
+  const params = getListParams(c);
+  const result = await retailersService.listRetailers({
+    ...params,
+    filters: { ...params.filters, status: true },
+  });
+  const publicRetailers = result.data.map((retailer) => ({
+    id: retailer.id,
+    retailerCode: retailer.retailerCode,
+    shopName: retailer.shopName,
+    status: retailer.status,
+  }));
+
+  return sendPublicList(
+    c,
+    publicRetailers,
+    result.total,
+    result.searchableFields,
+    params.page,
+    params.limit,
+    "Public retailer summaries retrieved successfully",
+  );
+};

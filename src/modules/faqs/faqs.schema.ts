@@ -5,6 +5,7 @@ import { faqsSchema } from "@/db/models/faqs";
 // Create faqs request schema
 export const createFaqsRequestSchema = z.object({
   order: z.number().describe("Faqs order"),
+  storeId: z.number().int().positive().describe("Store addressed by this FAQ"),
   question: z.string().describe("Faqs question"),
   answer: z.string().describe("Faqs answer"),
 });

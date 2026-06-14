@@ -21,6 +21,8 @@ import {
   createCustomerResponseSchema,
   getCustomerResponseSchema,
   listCustomersResponseSchema,
+  publicCustomerSignupRequestSchema,
+  publicCustomerSignupResponseSchema,
   updateCustomerRequestSchema,
 } from "./customers.schema";
 
@@ -89,6 +91,37 @@ export const create = createRoute({
         HttpStatusCodes.INTERNAL_SERVER_ERROR,
       ],
       z.object({}),
+    ),
+  },
+});
+
+export const publicSignup = createRoute({
+  path: "/customers/register",
+  method: "post",
+  tags,
+  summary: "Public customer signup",
+  description: "Register a storefront customer without admin authentication",
+  request: {
+    body: jsonContentRequired(
+      publicCustomerSignupRequestSchema,
+      "Public Customer Signup",
+    ),
+  },
+  responses: {
+    [HttpStatusCodes.CREATED]: jsonContent(
+      createSuccessResponseSchema(
+        publicCustomerSignupResponseSchema,
+        "Customer registered successfully",
+      ),
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNPROCESSABLE_ENTITY,
+        HttpStatusCodes.BAD_REQUEST,
+        HttpStatusCodes.CONFLICT,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      publicCustomerSignupRequestSchema,
     ),
   },
 });
@@ -331,6 +364,7 @@ export const getAllCustomerNames = createRoute({
 
 export type ListRoute = typeof list;
 export type CreateRoute = typeof create;
+export type PublicSignupRoute = typeof publicSignup;
 export type RemoveSelectedRoute = typeof removeSelected;
 export type GetAllCustomerCodesRoute = typeof getAllCustomerCodes;
 export type GetAllCustomerIdsRoute = typeof getAllCustomerIds;

@@ -26,12 +26,14 @@ import orders from "@/modules/orders/orders.index";
 import packages from "@/modules/packages/packages.index";
 import paymentMethods from "@/modules/payment-methods/payment-methods.index";
 import products from "@/modules/products/products.index";
+import publicStorefront from "@/modules/public-storefront/public-storefront.index";
 import rayons from "@/modules/rayons/rayons.index";
 import retailers from "@/modules/retailers/retailers.index";
 import reviews from "@/modules/reviews/reviews.index";
 import roles from "@/modules/roles/roles.index";
 import sizes from "@/modules/sizes/sizes.index";
 import stores from "@/modules/stores/stores.index";
+import supportChat from "@/modules/support-chat/support-chat.index";
 import suppliers from "@/modules/suppliers/suppliers.index";
 import tags from "@/modules/tags/tags.index";
 import testimonials from "@/modules/testimonials/testimonials.index";
@@ -100,6 +102,7 @@ const routes = [
   colors,
   sizes,
   stores,
+  supportChat,
   faqs,
   filters,
   testimonials,
@@ -117,6 +120,7 @@ const routes = [
   orders,
   packages,
   uploads,
+  publicStorefront,
 ] as const;
 // Register the index route
 app.route("/", index);

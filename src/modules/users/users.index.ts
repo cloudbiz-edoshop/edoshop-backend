@@ -5,6 +5,8 @@ import * as routes from "@/modules/users/users.route";
 const router = createRouter();
 
 router.openapi(routes.loginRoute, handlers.login);
+router.openapi(routes.getCurrentUserRoute, handlers.getCurrentUser);
+router.openapi(routes.updateCurrentUserRoute, handlers.updateCurrentUser);
 router.openapi(routes.getAllUserNames, handlers.getAllUserNames);
 router.openapi(routes.getAllEmails, handlers.getAllEmails);
 router.openapi(routes.forgotPasswordRoute, handlers.forgotPassword);

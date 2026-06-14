@@ -1,5 +1,7 @@
 import type {
+  BecomeRetailerRoute,
   CreateRoute,
+  GetCurrentRetailerRoute,
   GetOneRoute,
   ListRoute,
   PatchRoute,
@@ -76,6 +78,34 @@ export const create: AppRouteHandler<CreateRoute> = async (c) => {
 
   return c.json(
     successResponse(response, "Retailer created successfully"),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const becomeRetailer: AppRouteHandler<BecomeRetailerRoute> = async (
+  c,
+) => {
+  const payload = c.get("accessTokenPayload");
+  const body = c.req.valid("json") ?? {};
+  const result = await retailersService.becomeRetailer(
+    payload.userId,
+    body.shop,
+  );
+
+  return c.json(
+    successResponse(result, "Retailer request submitted successfully"),
+    HttpStatusCodes.CREATED,
+  );
+};
+
+export const getCurrentRetailer: AppRouteHandler<
+  GetCurrentRetailerRoute
+> = async (c) => {
+  const payload = c.get("accessTokenPayload");
+  const result = await retailersService.getCurrentRetailer(payload.userId);
+
+  return c.json(
+    successResponse(result, "Current retailer request"),
     HttpStatusCodes.OK,
   );
 };

@@ -11,6 +11,8 @@ import { reviews } from "@/db/models";
 
 import { ReviewsRepository } from "./reviews.repository";
 
+const todayDate = () => new Date().toISOString().slice(0, 10);
+
 export class ReviewsService {
   private readonly reviewsRepository: ReviewsRepository;
 
@@ -38,7 +40,8 @@ export class ReviewsService {
       const createdReview = await this.reviewsRepository.create(tx, {
         ...reviewData,
         rating,
-        reviewDate: new Date().toISOString(),
+        reviewDate: todayDate(),
+        ...(reviewData.statusId === 2 ? { approvedDate: todayDate() } : {}),
         updatedBy: reviewData.createdBy,
       });
 
