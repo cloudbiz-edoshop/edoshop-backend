@@ -401,34 +401,68 @@ export class EntriesRepository {
     return result.length > 0;
   }
 
-  async getAllBundleIds(): Promise<{ id: number; bundleCode: string }[]> {
-    const result = await db
-      .select({
-        id: bundles.id,
-        bundleCode: bundles.bundleCode,
-      })
-      .from(bundles);
-    return result;
+  async getAllBundleIds(): Promise<{
+    id: number;
+    bundleCode: string;
+    supplierCode: string | null;
+  }[]> {
+    const result = await db.execute(sql`
+      select
+        b.id,
+        b.bundle_code as "bundleCode",
+        s.supplier_code as "supplierCode"
+      from bundles b
+      left join entries e on b.entry_id = e.id
+      left join suppliers s on e.supplier_id = s.id
+      order by b.id
+    `);
+    return result as unknown as {
+      id: number;
+      bundleCode: string;
+      supplierCode: string | null;
+    }[];
   }
 
-  async getAllSeriesIds(): Promise<{ id: number; seriesCode: string }[]> {
-    const result = await db
-      .select({
-        id: series.id,
-        seriesCode: series.seriesCode,
-      })
-      .from(series);
-    return result;
+  async getAllSeriesIds(): Promise<{
+    id: number;
+    seriesCode: string;
+    bundleCode: string | null;
+  }[]> {
+    const result = await db.execute(sql`
+      select
+        s.id,
+        s.series_code as "seriesCode",
+        b.bundle_code as "bundleCode"
+      from series s
+      left join bundles b on s.bundle_id = b.id
+      order by s.id
+    `);
+    return result as unknown as {
+      id: number;
+      seriesCode: string;
+      bundleCode: string | null;
+    }[];
   }
 
-  async getAllItemIds(): Promise<{ id: number; itemCode: string }[]> {
-    const result = await db
-      .select({
-        id: items.id,
-        itemCode: items.itemCode,
-      })
-      .from(items);
-    return result;
+  async getAllItemIds(): Promise<{
+    id: number;
+    itemCode: string;
+    seriesCode: string | null;
+  }[]> {
+    const result = await db.execute(sql`
+      select
+        i.id,
+        i.item_code as "itemCode",
+        s.series_code as "seriesCode"
+      from items i
+      left join series s on i.series_id = s.id
+      order by i.id
+    `);
+    return result as unknown as {
+      id: number;
+      itemCode: string;
+      seriesCode: string | null;
+    }[];
   }
 
   async getAllPackageIds(): Promise<{ id: number; packageCode: string }[]> {
