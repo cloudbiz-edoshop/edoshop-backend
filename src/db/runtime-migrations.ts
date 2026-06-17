@@ -35,40 +35,58 @@ export async function ensureRuntimeMigrations() {
 
   await db.execute(
     sql.raw(`
-      INSERT INTO "colors" ("name", "description", "is_predefined")
-      VALUES
-        ('red', '#FF0000', true),
-        ('blue', '#0000FF', true),
-        ('green', '#008000', true),
-        ('yellow', '#FFFF00', true),
-        ('orange', '#FFA500', true),
-        ('purple', '#800080', true),
-        ('pink', '#FFC0CB', true),
-        ('brown', '#8B4513', true),
-        ('black', '#000000', true),
-        ('white', '#FFFFFF', true),
-        ('gray', '#808080', true),
-        ('navy', '#000080', true),
-        ('beige', '#F5F5DC', true)
+      WITH actor AS (
+        SELECT "id" FROM "users" ORDER BY "id" LIMIT 1
+      )
+      INSERT INTO "colors" ("name", "description", "is_predefined", "created_by", "updated_by")
+      SELECT seed."name", seed."description", true, actor."id", actor."id"
+      FROM (
+        VALUES
+          ('red', '#FF0000'),
+          ('blue', '#0000FF'),
+          ('green', '#008000'),
+          ('yellow', '#FFFF00'),
+          ('orange', '#FFA500'),
+          ('purple', '#800080'),
+          ('pink', '#FFC0CB'),
+          ('brown', '#8B4513'),
+          ('black', '#000000'),
+          ('white', '#FFFFFF'),
+          ('gray', '#808080'),
+          ('navy', '#000080'),
+          ('beige', '#F5F5DC')
+      ) AS seed("name", "description")
+      CROSS JOIN actor
       ON CONFLICT ("name") DO UPDATE SET
         "description" = EXCLUDED."description",
-        "is_predefined" = true
+        "is_predefined" = true,
+        "updated_by" = EXCLUDED."updated_by",
+        "updated_at" = now()
     `),
   );
 
   await db.execute(
     sql.raw(`
-      INSERT INTO "sizes" ("name", "description", "is_predefined")
-      VALUES
-        ('xs', 'Extra Small', true),
-        ('s', 'Small', true),
-        ('m', 'Medium', true),
-        ('l', 'Large', true),
-        ('xl', 'Extra Large', true),
-        ('xxl', 'Extra Extra Large', true)
+      WITH actor AS (
+        SELECT "id" FROM "users" ORDER BY "id" LIMIT 1
+      )
+      INSERT INTO "sizes" ("name", "description", "is_predefined", "created_by", "updated_by")
+      SELECT seed."name", seed."description", true, actor."id", actor."id"
+      FROM (
+        VALUES
+          ('xs', 'Extra Small'),
+          ('s', 'Small'),
+          ('m', 'Medium'),
+          ('l', 'Large'),
+          ('xl', 'Extra Large'),
+          ('xxl', 'Extra Extra Large')
+      ) AS seed("name", "description")
+      CROSS JOIN actor
       ON CONFLICT ("name") DO UPDATE SET
         "description" = EXCLUDED."description",
-        "is_predefined" = true
+        "is_predefined" = true,
+        "updated_by" = EXCLUDED."updated_by",
+        "updated_at" = now()
     `),
   );
 }
