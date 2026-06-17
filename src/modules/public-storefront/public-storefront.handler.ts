@@ -156,6 +156,8 @@ export const listNewArrivalProducts = async (c: any) => {
     imageUrls: product.imageUrls || [],
     shortDescription: product.shortDescription,
     fullDescription: product.fullDescription,
+    specifications: product.specifications,
+    totalItems: product.totalItems,
     storeId: product.storeId,
     seriesId: product.seriesId,
     categoryIds: product.categories?.map((category) => category.id).filter(Boolean) || [],
@@ -164,10 +166,20 @@ export const listNewArrivalProducts = async (c: any) => {
     newArrivalId: product.newArrivalId,
     newArrivalStartDate: product.newArrivalStartDate,
     newArrivalEndDate: product.newArrivalEndDate,
-    sizes:
-      product.variants
-        ?.map((variant) => variant.size?.name)
-        .filter((size): size is string => Boolean(size)) || [],
+    colors: Array.from(
+      new Set(
+        product.variants
+          ?.map((variant) => variant.color?.description || variant.color?.name)
+          .filter((color): color is string => Boolean(color)) || [],
+      ),
+    ),
+    sizes: Array.from(
+      new Set(
+        product.variants
+          ?.map((variant) => variant.size?.description || variant.size?.name)
+          .filter((size): size is string => Boolean(size)) || [],
+      ),
+    ),
   }));
 
   return sendPublicList(
@@ -192,15 +204,27 @@ export const listProducts = async (c: any) => {
     imageUrls: product.imageUrls || [],
     shortDescription: product.shortDescription,
     fullDescription: product.fullDescription,
+    specifications: product.specifications,
+    totalItems: product.totalItems,
     storeId: product.storeId,
     seriesId: product.seriesId,
     categoryIds: product.categories?.map((category) => category.id).filter(Boolean) || [],
     categories: product.categories || [],
     isNewArrival: product.isNewArrival,
-    sizes:
-      product.variants
-        ?.map((variant) => variant.size?.name)
-        .filter((size): size is string => Boolean(size)) || [],
+    colors: Array.from(
+      new Set(
+        product.variants
+          ?.map((variant) => variant.color?.description || variant.color?.name)
+          .filter((color): color is string => Boolean(color)) || [],
+      ),
+    ),
+    sizes: Array.from(
+      new Set(
+        product.variants
+          ?.map((variant) => variant.size?.description || variant.size?.name)
+          .filter((size): size is string => Boolean(size)) || [],
+      ),
+    ),
   }));
 
   return sendPublicList(

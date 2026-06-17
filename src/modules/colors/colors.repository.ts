@@ -32,6 +32,13 @@ export class ColorsRepository {
     return result;
   }
 
+  async findManyByIds(ids: number[]) {
+    if (!ids.length) return [];
+    return db.query.colors.findMany({
+      where: inArray(colors.id, ids),
+    });
+  }
+
   /**
    * List colors with pagination, filtering, and sorting
    *

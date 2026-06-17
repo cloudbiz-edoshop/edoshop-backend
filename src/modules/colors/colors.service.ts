@@ -133,6 +133,17 @@ export class ColorsService {
    * @returns True if all deletions were successful
    */
   async deleteColors(ids: number[], deletedBy: number) {
+    const colors = await this.colorsRepository.findManyByIds(ids);
+    const predefinedColors = colors.filter((color) => color.isPredefined);
+
+    if (predefinedColors.length) {
+      throw new AppError(
+        `Predefined colors cannot be deleted: ${predefinedColors
+          .map((color) => color.name)
+          .join(", ")}`,
+      );
+    }
+
     const result = await db.transaction(async (tx) => {
       return await this.colorsRepository.softDeleteMany(tx, ids, deletedBy);
     });

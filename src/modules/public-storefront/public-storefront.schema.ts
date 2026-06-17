@@ -47,6 +47,8 @@ export const publicNewArrivalProductSchema = z.object({
   imageUrls: z.array(z.string()).optional(),
   shortDescription: z.string().nullable().optional(),
   fullDescription: z.string().nullable().optional(),
+  specifications: z.string().nullable().optional(),
+  totalItems: z.number().nullable().optional(),
   storeId: z.number().nullable().optional(),
   seriesId: z.number().nullable().optional(),
   categoryIds: z.array(z.number()).optional(),
@@ -62,6 +64,7 @@ export const publicNewArrivalProductSchema = z.object({
   newArrivalId: z.number().optional(),
   newArrivalStartDate: z.string().optional(),
   newArrivalEndDate: z.string().optional(),
+  colors: z.array(z.string()).optional(),
   sizes: z.array(z.string()).optional(),
 });
 

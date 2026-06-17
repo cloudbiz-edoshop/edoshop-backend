@@ -6,17 +6,17 @@ import type {
 
 import { eq, inArray, sql } from "drizzle-orm";
 import { StoreIds } from "@/constants/stores.constants";
-import { NotFoundError } from "@/core/errors";
+import { ConflictError, NotFoundError } from "@/core/errors";
 import { AppError } from "@/core/errors/app-error";
 import db from "@/db";
 
 import {
   categories,
+  directOrderProducts,
   dropshippingProducts,
   productCategories,
   products,
   productTags,
-  series,
   tags,
 } from "@/db/models";
 
@@ -40,88 +40,25 @@ export class ProductsService {
   }
 
   /**
-   * Generate direct order product code
-   * Format: DO_PK_A01_B1_P1
-   * Where: DO = Direct Order, PK_A01_B1 = Bundle Code, P1 = Incremental
-   */
-  private async generateDirectOrderProductCode(
-    seriesId: number,
-  ): Promise<string> {
-    // Get the series and its bundle
-    const seriesRecord = await db.query.series.findFirst({
-      where: eq(series.id, seriesId),
-      with: {
-        bundle: true,
-      },
-    });
-
-    if (!seriesRecord || !seriesRecord.bundle) {
-      throw new AppError("Series or bundle not found for direct order product");
-    }
-
-    const result = await db.execute(
-      sql`SELECT next_direct_order_product_code(${seriesRecord.bundle.bundleCode})`,
-    );
-    return result[0].next_direct_order_product_code as string;
-  }
-
-  /**
    * Generate dropshipping product code
-   * Format: DS_PK_A01_Category_P1
-   * Where: DS = Dropshipping, PK_A01 = Supplier Code, Category = Category Code, P1 = Incremental
+   * Format: YYX where YY is current year and X is the next yearly sequence.
    */
-  private async generateDropshippingProductCode(
-    seriesId: number,
-    categoryIds: number[],
-  ): Promise<string> {
-    // Get the series and its bundle, then get the entry and supplier
-    const seriesRecord = await db.query.series.findFirst({
-      where: eq(series.id, seriesId),
-      with: {
-        bundle: {
-          with: {
-            entry: {
-              with: {
-                supplier: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (!seriesRecord?.bundle?.entry?.supplier) {
-      throw new AppError(
-        "Series, bundle, entry, or supplier not found for dropshipping product",
-      );
-    }
-
-    // Get the first category (assuming one category per product for code generation)
-    const category = await db.query.categories.findFirst({
-      where: eq(categories.id, categoryIds[0]),
-    });
-
-    if (!category) {
-      throw new AppError("Category not found for dropshipping product");
-    }
-
+  private async generateDropshippingProductCode(): Promise<string> {
+    const yearPrefix = new Date().getFullYear().toString().slice(-2);
     const result = await db.execute(
-      sql`SELECT next_dropshipping_product_code(${seriesRecord.bundle.entry.supplier.supplierCode}, ${category.name})`,
+      sql`
+        SELECT COALESCE(MAX(CAST(SUBSTRING("dropshippingCode" FROM 3) AS INTEGER)), 0) + 1 AS next_increment
+        FROM dropshipping_products
+        WHERE "dropshippingCode" LIKE ${`${yearPrefix}%`}
+      `,
     );
-    return result[0].next_dropshipping_product_code as string;
+    const nextIncrement = Number(result[0]?.next_increment) || 1;
+    return `${yearPrefix}${nextIncrement}`;
   }
 
   async createProduct(
     productData: CreateProductRequest & { createdBy: number },
   ): Promise<CreateProductResponse> {
-    // Validate that series exists
-    const seriesRecord = await db.query.series.findFirst({
-      where: eq(series.id, productData.seriesId),
-    });
-    if (!seriesRecord) {
-      throw new AppError("Series not found");
-    }
-
     // Validate that categories exist if provided
     if (productData.categoryIds?.length) {
       const categoryRecords = await db.query.categories.findMany({
@@ -147,24 +84,39 @@ export class ProductsService {
     let dropshippingCode: string | undefined;
 
     if (productData.storeId === StoreIds.direct) {
-      directOrderCode = await this.generateDirectOrderProductCode(
-        productData.seriesId,
-      );
+      directOrderCode = productData.directOrderCode?.trim();
+      if (!directOrderCode) {
+        throw new AppError("Direct Order Product ID is required");
+      }
+
+      const existingDirectOrderProduct =
+        await db.query.directOrderProducts.findFirst({
+          where: eq(directOrderProducts.directOrderCode, directOrderCode),
+          with: {
+            product: true,
+          },
+        });
+
+      if (
+        existingDirectOrderProduct?.product &&
+        !existingDirectOrderProduct.product.isDeleted
+      ) {
+        throw new ConflictError(
+          `Direct Order Product ID ${directOrderCode} is already used by ${existingDirectOrderProduct.product.name}`,
+        );
+      }
     } else if (productData.storeId === StoreIds.dropshipping) {
       if (!productData.categoryIds?.length) {
         throw new AppError("Category is required for dropshipping products");
       }
-      dropshippingCode = await this.generateDropshippingProductCode(
-        productData.seriesId,
-        productData.categoryIds,
-      );
+      dropshippingCode = await this.generateDropshippingProductCode();
     }
 
     const product = await db.transaction(async (tx) => {
       const createdProduct = await this.productsRepository.create(tx, {
         ...productData,
         updatedBy: productData.createdBy,
-      });
+      } as any);
 
       switch (productData.storeId) {
         case StoreIds.direct: {
@@ -173,6 +125,7 @@ export class ProductsService {
             createdProduct.id,
             {
               directOrderCode: directOrderCode!,
+              totalItems: productData.totalItems ?? null,
               createdBy: productData.createdBy,
             },
           );
@@ -272,12 +225,21 @@ export class ProductsService {
       throw new NotFoundError("Product not found");
     }
 
+    const productUpdateData = { ...(productData as Record<string, unknown>) };
+    delete productUpdateData.directOrderCode;
+    delete productUpdateData.dropshippingCode;
+    delete productUpdateData.totalItems;
+    delete productUpdateData.groupCriteriaId;
+    delete productUpdateData.completionCriteria;
+    delete productUpdateData.tagIds;
+    delete productUpdateData.categoryIds;
+
     const updatedProduct = await db.transaction(async (tx) => {
       // Update main product
       await tx
         .update(products)
         .set({
-          ...productData,
+          ...(productUpdateData as any),
           updatedBy: productData.updatedBy,
           updatedAt: new Date().toISOString(),
         })
@@ -301,6 +263,25 @@ export class ProductsService {
             })
             .where(eq(dropshippingProducts.productId, id));
         }
+      }
+
+      if (
+        product.storeId === StoreIds.direct &&
+        (productData.directOrderCode?.trim() || productData.totalItems !== undefined)
+      ) {
+        await tx
+          .update(directOrderProducts)
+          .set({
+            ...(productData.directOrderCode?.trim()
+              ? { directOrderCode: productData.directOrderCode.trim() }
+              : {}),
+            ...(productData.totalItems !== undefined
+              ? { totalItems: productData.totalItems }
+              : {}),
+            updatedAt: new Date().toISOString(),
+            updatedBy: productData.updatedBy,
+          })
+          .where(eq(directOrderProducts.productId, id));
       }
 
       // Handle tags

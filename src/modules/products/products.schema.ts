@@ -15,7 +15,7 @@ export type GetAllGroupCriteriaTypesResponse = z.infer<typeof getAllGroupCriteri
 // Base schema
 export const baseProductSchema = z.object({
   storeId: z.number(),
-  seriesId: z.number(),
+  seriesId: z.number().optional().nullable(),
   name: z.string(),
   price: z.string(),
   shortDescription: z.string().optional(),
@@ -56,6 +56,18 @@ export const createProductRequestSchema = baseProductSchema
     {
       message: "At least one category is required for all products",
       path: ["categoryIds"],
+    },
+  )
+  .refine(
+    (data) => {
+      if (data.storeId === StoreIds.direct) {
+        return Boolean(data.directOrderCode?.trim());
+      }
+      return true;
+    },
+    {
+      message: "Direct Order Product ID is required",
+      path: ["directOrderCode"],
     },
   )
   .refine(
@@ -150,6 +162,7 @@ export const productResponseSchema = productsSchema.extend({
     .optional(),
   series: seriesSchema.nullable().optional(),
   directOrderCode: z.string().nullable().optional(),
+  totalItems: z.number().nullable().optional(),
   dropshippingDetails: z
     .object({
       dropshippingCode: z.string().nullable(),

@@ -114,6 +114,7 @@ export class ProductsRepository {
       tags: productTagRecords,
       categories: productCategoryRecords,
       directOrderCode: directProduct?.directOrderCode ?? null,
+      totalItems: directProduct?.totalItems ?? dropshippingProduct?.totalItems ?? null,
       dropshippingDetails: dropshippingProduct
         ? {
             dropshippingCode: dropshippingProduct.dropshippingCode,
@@ -318,6 +319,7 @@ export class ProductsRepository {
             tags: productTagRecords,
             categories: productCategoryRecords,
             directOrderCode: directProduct?.directOrderCode ?? null,
+            totalItems: directProduct?.totalItems ?? dropshippingProduct?.totalItems ?? null,
             dropshippingDetails: dropshippingProduct
               ? {
                   dropshippingCode: dropshippingProduct.dropshippingCode,
@@ -348,11 +350,18 @@ export class ProductsRepository {
    * @returns The created product object
    */
   async create(tx: TX, productData: NewProducts) {
+    const productInsertData = { ...(productData as Record<string, unknown>) };
+    delete productInsertData.directOrderCode;
+    delete productInsertData.dropshippingCode;
+    delete productInsertData.totalItems;
+    delete productInsertData.groupCriteriaId;
+    delete productInsertData.completionCriteria;
+    delete productInsertData.tagIds;
+    delete productInsertData.categoryIds;
+
     const [result] = await tx
       .insert(products)
-      .values({
-        ...productData,
-      })
+      .values(productInsertData as any)
       .returning();
     return result;
   }
@@ -369,11 +378,12 @@ export class ProductsRepository {
   async insertDirectProduct(
     tx: TX,
     productId: number,
-    data: { directOrderCode: string; createdBy: number },
+    data: { directOrderCode: string; totalItems?: number | null; createdBy: number },
   ) {
     await tx.insert(directOrderProducts).values({
       productId,
       directOrderCode: data.directOrderCode,
+      totalItems: data.totalItems ?? null,
       createdAt: new Date().toISOString(),
       createdBy: data.createdBy,
     });
@@ -426,10 +436,19 @@ export class ProductsRepository {
     id: number,
     productData: UpdateProductRequest & { updatedBy: number },
   ) {
+    const productUpdateData = { ...(productData as Record<string, unknown>) };
+    delete productUpdateData.directOrderCode;
+    delete productUpdateData.dropshippingCode;
+    delete productUpdateData.totalItems;
+    delete productUpdateData.groupCriteriaId;
+    delete productUpdateData.completionCriteria;
+    delete productUpdateData.tagIds;
+    delete productUpdateData.categoryIds;
+
     const [result] = await tx
       .update(products)
       .set({
-        ...productData,
+        ...(productUpdateData as any),
         updatedBy: productData.updatedBy,
         updatedAt: new Date().toISOString(),
       })

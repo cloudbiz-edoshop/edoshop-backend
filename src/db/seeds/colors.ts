@@ -1,5 +1,7 @@
 import type { Database } from "@/db";
 
+import { sql } from "drizzle-orm";
+
 import { Colors, COLORS_DESCRIPTIONS } from "@/constants";
 
 import { colors as colorsTable } from "../models";
@@ -14,9 +16,20 @@ export default async function seed(db: Database) {
       .map((color) => ({
         name: color,
         description: COLORS_DESCRIPTIONS[color],
+        isPredefined: true,
         createdBy: 1,
         updatedBy: 1,
       }));
-    await db.insert(colorsTable).values(chunk);
+    await db
+      .insert(colorsTable)
+      .values(chunk)
+      .onConflictDoUpdate({
+        target: colorsTable.name,
+        set: {
+          description: sql`excluded.description`,
+          isPredefined: true,
+          updatedBy: 1,
+        },
+      });
   }
 }

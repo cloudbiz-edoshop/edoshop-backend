@@ -14,9 +14,19 @@ export default async function seed(db: Database) {
       .map((size) => ({
         name: size,
         description: SIZES_DESCRIPTIONS[size],
+        isPredefined: true,
         createdBy: 1,
         updatedBy: 1,
       }));
-    await db.insert(sizesTable).values(chunk);
+    await db
+      .insert(sizesTable)
+      .values(chunk)
+      .onConflictDoUpdate({
+        target: sizesTable.name,
+        set: {
+          isPredefined: true,
+          updatedBy: 1,
+        },
+      });
   }
 }

@@ -133,6 +133,17 @@ export class SizesService {
    * @returns True if all deletions were successful
    */
   async deleteSizes(ids: number[], deletedBy: number) {
+    const sizes = await this.sizesRepository.findManyByIds(ids);
+    const predefinedSizes = sizes.filter((size) => size.isPredefined);
+
+    if (predefinedSizes.length) {
+      throw new AppError(
+        `Predefined sizes cannot be deleted: ${predefinedSizes
+          .map((size) => size.name)
+          .join(", ")}`,
+      );
+    }
+
     const result = await db.transaction(async (tx) => {
       return await this.sizesRepository.softDeleteMany(tx, ids, deletedBy);
     });

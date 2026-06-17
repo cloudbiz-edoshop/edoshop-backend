@@ -13,20 +13,26 @@ export enum Colors {
   BROWN = "brown",
   BLACK = "black",
   WHITE = "white",
+  GRAY = "gray",
+  NAVY = "navy",
+  BEIGE = "beige",
 }
 
 /**
  * Provides descriptions for colors
  */
 export const COLORS_DESCRIPTIONS: Record<Colors, string> = {
-  [Colors.RED]: "Red",
-  [Colors.BLUE]: "Blue",
-  [Colors.GREEN]: "Green",
-  [Colors.YELLOW]: "Yellow",
-  [Colors.ORANGE]: "Orange",
-  [Colors.PURPLE]: "Purple",
-  [Colors.PINK]: "Pink",
-  [Colors.BROWN]: "Brown",
-  [Colors.BLACK]: "Black",
-  [Colors.WHITE]: "White",
+  [Colors.RED]: "#FF0000",
+  [Colors.BLUE]: "#0000FF",
+  [Colors.GREEN]: "#008000",
+  [Colors.YELLOW]: "#FFFF00",
+  [Colors.ORANGE]: "#FFA500",
+  [Colors.PURPLE]: "#800080",
+  [Colors.PINK]: "#FFC0CB",
+  [Colors.BROWN]: "#8B4513",
+  [Colors.BLACK]: "#000000",
+  [Colors.WHITE]: "#FFFFFF",
+  [Colors.GRAY]: "#808080",
+  [Colors.NAVY]: "#000080",
+  [Colors.BEIGE]: "#F5F5DC",
 };

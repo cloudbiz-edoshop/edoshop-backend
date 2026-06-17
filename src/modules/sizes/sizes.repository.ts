@@ -32,6 +32,13 @@ export class SizesRepository {
     return result;
   }
 
+  async findManyByIds(ids: number[]) {
+    if (!ids.length) return [];
+    return db.query.sizes.findMany({
+      where: inArray(sizes.id, ids),
+    });
+  }
+
   /**
    * List sizes with pagination, filtering, and sorting
    *

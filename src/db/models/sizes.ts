@@ -17,6 +17,7 @@ export const sizes = pgTable("sizes", {
   id: serial().primaryKey(),
   name: varchar({ length: 255 }).unique().notNull(),
   description: varchar({ length: 255 }),
+  isPredefined: boolean().notNull().default(false),
   createdAt: timestamp({ mode: "string" }).notNull().defaultNow(),
   updatedAt: timestamp({ mode: "string" }).notNull().defaultNow(),
   createdBy: integer()
