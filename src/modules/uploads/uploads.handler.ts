@@ -16,6 +16,14 @@ import { successResponse } from "@/lib/api-response";
 
 import * as HttpStatus from "@/lib/http-status-codes";
 
+const isUploadedFile = (value: FormDataEntryValue): value is File => (
+  typeof value === "object"
+  && value !== null
+  && "arrayBuffer" in value
+  && "name" in value
+  && "type" in value
+);
+
 export const getPresignedUrl: AppRouteHandler<PresignedUrlRoute> = async (c) => {
   const { fileName } = c.req.valid("json");
 
@@ -46,7 +54,7 @@ export const uploadFiles: AppRouteHandler<UploadFilesRoute> = async (c) => {
 
   // Extract all files from the 'files' field
   for (const [key, value] of formData.entries()) {
-    if (key === "files" && value instanceof File) {
+    if (key === "files" && isUploadedFile(value)) {
       fileList.push(value);
     }
   }
@@ -153,7 +161,7 @@ export const replaceFiles: AppRouteHandler<ReplaceFilesRoute> = async (c) => {
 
   // Extract files and existing file names
   for (const [key, value] of formData.entries()) {
-    if (key === "files" && value instanceof File) {
+    if (key === "files" && isUploadedFile(value)) {
       fileList.push(value);
     } else if (key === "existingFileNames" && typeof value === "string") {
       existingFileNames.push(value);
