@@ -246,6 +246,38 @@ export class UsersService {
   }
 
   async updateCurrentUser(userId: number, userData: UpdateCurrentUserRequest) {
+    const duplicate = await this.userRepository.findDuplicateIdentity({
+      fullName: userData.fullName,
+      email: userData.email,
+      phoneNumber: userData.phoneNumber,
+      excludeUserId: userId,
+    });
+
+    if (duplicate) {
+      if (
+        userData.fullName?.trim() &&
+        duplicate.fullName.trim().toLowerCase() ===
+          userData.fullName.trim().toLowerCase()
+      ) {
+        throw new ValidationError("Full name is already used by another account");
+      }
+
+      if (
+        userData.email?.trim() &&
+        duplicate.email?.trim().toLowerCase() ===
+          userData.email.trim().toLowerCase()
+      ) {
+        throw new ValidationError("Email is already taken");
+      }
+
+      if (
+        userData.phoneNumber?.trim() &&
+        duplicate.phoneNumber === userData.phoneNumber.trim()
+      ) {
+        throw new ValidationError("Phone number is already taken");
+      }
+    }
+
     const updatedUser = await db.transaction(async (tx) => {
       return await this.userRepository.updateUser(tx, userId, {
         ...userData,
@@ -618,9 +650,9 @@ export class UsersService {
   ) {
     // if password is provided, hash it
     if (userData.password) {
-      userData.password = await argon2.hash(userData.password);
+      (userData as any).password = await argon2.hash(userData.password);
     }
-    return await this.userRepository.updateUser(tx, userId, userData);
+    return await this.userRepository.updateUser(tx, userId, userData as any);
   }
 
   async getAllUserNames() {

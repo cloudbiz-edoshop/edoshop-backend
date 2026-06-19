@@ -31,6 +31,23 @@ export class WarehouseTransfersService {
     this.warehouseRepository = new WarehouseRepository();
   }
 
+  private assertEntryAllowedInWarehouse(entryTypeId: number, warehouseId: number) {
+    if (warehouseId === 1 && entryTypeId === EntryTypeIds.PACKAGE) {
+      throw new ValidationError("Packages cannot be stored in Warehouse 1. Send packages to Warehouse 2 before assigning a bin.");
+    }
+
+    if (
+      warehouseId === 2
+      && [
+        EntryTypeIds.BUNDLE,
+        EntryTypeIds.SERIES,
+        EntryTypeIds.ITEM,
+      ].includes(entryTypeId)
+    ) {
+      throw new ValidationError("Products, series, and items cannot be stored in Warehouse 2. Warehouse 2 is for packages only.");
+    }
+  }
+
   /**
    * List transferable entries for a specific warehouse
    */
@@ -603,6 +620,12 @@ export class WarehouseTransfersService {
       throw new NotFoundError(`Transfer with ID ${transferId} not found for warehouse ${warehouseId}`);
     }
 
+    const entry = await this.entriesRepository.findById(transfer.entryId);
+    if (!entry) {
+      throw new NotFoundError(`Entry with ID ${transfer.entryId} not found`);
+    }
+    this.assertEntryAllowedInWarehouse(entry.entryTypeId, warehouseId);
+
     const result = await this.transfersRepository.updateTransferBin(
       transferId,
       binId,
@@ -631,6 +654,8 @@ export class WarehouseTransfersService {
     if (entry.warehouseId !== warehouseId) {
       throw new ValidationError(`Entry ${entryId} does not belong to warehouse ${warehouseId}`);
     }
+
+    this.assertEntryAllowedInWarehouse(entry.entryTypeId, warehouseId);
 
     if (![EntryTypeIds.SERIES, EntryTypeIds.ITEM].includes(entry.entryTypeId)) {
       throw new ValidationError("Only series and item entries can be assigned from store management");

@@ -1,7 +1,14 @@
 import type { z } from "zod";
 
 import { relations } from "drizzle-orm";
-import { integer, pgTable, serial, timestamp, varchar } from "drizzle-orm/pg-core";
+import {
+  integer,
+  pgTable,
+  serial,
+  timestamp,
+  uniqueIndex,
+  varchar,
+} from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 
 import { shelves } from "./shelves";
@@ -14,12 +21,16 @@ export const bins = pgTable("bins", {
   shelfId: integer().notNull().references(() => shelves.id),
   warehouseId: integer().notNull().references(() => warehouses.id),
   rowNumber: integer().notNull(),
-  locationCode: varchar({ length: 20 }).notNull().unique(),
+  locationCode: varchar({ length: 20 }).notNull(),
   createdAt: timestamp({ mode: "string" }).notNull().defaultNow(),
   updatedAt: timestamp({ mode: "string" }).defaultNow(),
   createdBy: integer().references(() => users.id).notNull(),
   updatedBy: integer().references(() => users.id),
-});
+}, (table) => ({
+  warehouseLocationCodeUnique: uniqueIndex(
+    "bins_warehouse_location_code_unique",
+  ).on(table.warehouseId, table.locationCode),
+}));
 
 export const binsSchema = createSelectSchema(bins);
 export type Bins = z.infer<typeof binsSchema>;

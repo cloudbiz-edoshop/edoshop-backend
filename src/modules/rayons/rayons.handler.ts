@@ -1,5 +1,6 @@
 import type {
   CreateBinsForShelfRoute,
+  DeleteRayonForWarehouseRoute,
   CreateRayonsForWarehouseRoute,
   CreateShelvesForRayonRoute,
   GetAllShelvesForRayonRoute,
@@ -10,7 +11,7 @@ import type {
   UpdateShelvesForRayonRoute,
 } from "./rayons.route";
 
-import type { CreateBinsResponseSchema, CreateShelvesForRayonResponseSchema, GetAllShelvesForRayonResponseSchema, GetRayonsForWarehouseResponseSchema, GetRayonsStatsForAWarehouseResponseSchema, UpdateShelvesResponseSchema } from "./rayons.schema";
+import type { CreateBinsResponseSchema, CreateShelvesForRayonResponseSchema, DeleteRayonResponseSchema, GetAllShelvesForRayonResponseSchema, GetRayonsForWarehouseResponseSchema, GetRayonsStatsForAWarehouseResponseSchema, UpdateShelvesResponseSchema } from "./rayons.schema";
 
 import type { AppRouteHandler } from "@/lib/types";
 import { successResponse, successResponseWithPagination } from "@/lib/api-response";
@@ -161,6 +162,22 @@ export const updateRayonForWarehouse: AppRouteHandler<
     successResponse(
       result,
       `Rayon updated successfully for rayon ${rayonId}`,
+    ),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const deleteRayonForWarehouse: AppRouteHandler<
+  DeleteRayonForWarehouseRoute
+> = async (c) => {
+  const { id: rayonId } = c.req.valid("param");
+
+  const result: DeleteRayonResponseSchema = await rayonsService.deleteRayonForWarehouse(rayonId);
+
+  return c.json(
+    successResponse(
+      result,
+      `Rayon deleted successfully for rayon ${rayonId}`,
     ),
     HttpStatusCodes.OK,
   );

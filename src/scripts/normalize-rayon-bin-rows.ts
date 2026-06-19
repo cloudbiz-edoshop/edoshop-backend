@@ -18,30 +18,23 @@ const buildLocationPrefix = (name: string | null) => {
 
 const getAvailableLocationCode = async (
   currentBinId: number,
+  warehouseId: number,
   baseLocationCode: string,
-  warehouseScopedLocationCode: string,
 ) => {
   const [existingBaseLocation] = await db
     .select({ id: bins.id })
     .from(bins)
-    .where(eq(bins.locationCode, baseLocationCode))
+    .where(and(
+      eq(bins.warehouseId, warehouseId),
+      eq(bins.locationCode, baseLocationCode),
+    ))
     .limit(1);
 
   if (!existingBaseLocation || existingBaseLocation.id === currentBinId) {
     return baseLocationCode;
   }
 
-  const [existingScopedLocation] = await db
-    .select({ id: bins.id })
-    .from(bins)
-    .where(eq(bins.locationCode, warehouseScopedLocationCode))
-    .limit(1);
-
-  if (existingScopedLocation && existingScopedLocation.id !== currentBinId) {
-    return null;
-  }
-
-  return warehouseScopedLocationCode;
+  return null;
 };
 
 const getOperatorUserId = async () => {
@@ -88,19 +81,23 @@ for (const rayon of rayonRows) {
   for (const shelf of rayon.shelves) {
     for (const bin of shelf.bins) {
       const normalizedRowNumber = rowMap.get(bin.rowNumber);
-      if (!normalizedRowNumber || normalizedRowNumber === bin.rowNumber) continue;
+      if (!normalizedRowNumber) continue;
 
       const baseLocationCode = `${locationPrefix}${shelf.columnLabel}${normalizedRowNumber}`;
-      const scopedLocationCode = `W${rayon.warehouseId}-${baseLocationCode}`;
       const normalizedLocationCode = await getAvailableLocationCode(
         bin.id,
+        rayon.warehouseId,
         baseLocationCode,
-        scopedLocationCode,
       );
+
+      const needsUpdate = normalizedRowNumber !== bin.rowNumber
+        || normalizedLocationCode !== bin.locationCode;
+
+      if (!needsUpdate) continue;
 
       if (!normalizedLocationCode) {
         console.warn(
-          `Skipping ${bin.locationCode}: both ${baseLocationCode} and ${scopedLocationCode} are already in use.`,
+          `Skipping ${bin.locationCode}: ${baseLocationCode} is already in use in warehouse ${rayon.warehouseId}.`,
         );
         skippedCount++;
         continue;

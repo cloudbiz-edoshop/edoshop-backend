@@ -18,6 +18,8 @@ import {
   createOngoingGroupRequestSchema,
   ongoingGroupRequestResponseSchema,
   ongoingGroupRequestsQueryParamsSchema,
+  groupageProductSummaryParamsSchema,
+  groupageProductSummaryResponseSchema,
   paginatedOngoingGroupRequestsResponseSchema,
   patchOngoingGroupRequestSchema,
 } from "./ongoing-groups.schema";
@@ -69,9 +71,6 @@ export const create = createRoute({
   },
   middleware: [
     jwtMiddleware(),
-    rolesAndPermissionsMiddleware([
-      { entity: EntityType.ONGOING_GROUP_REQUESTS, operation: OperationType.CREATE },
-    ]),
   ] as const,
   responses: {
     [HttpStatusCodes.CREATED]: jsonContent(
@@ -89,6 +88,35 @@ export const create = createRoute({
         HttpStatusCodes.INTERNAL_SERVER_ERROR,
       ],
       z.object({}),
+    ),
+  },
+});
+
+export const productSummary = createRoute({
+  path: "/ongoing-group-requests/product/{productId}/summary",
+  method: "get",
+  tags,
+  middleware: [
+    jwtMiddleware(),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    params: groupageProductSummaryParamsSchema,
+  },
+  summary: "Get customer-safe groupage summary for a product",
+  description: "Returns group completion and variant slot status for storefront groupage product details.",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      groupageProductSummaryResponseSchema,
+      "Groupage product summary",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNPROCESSABLE_ENTITY,
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      groupageProductSummaryParamsSchema,
     ),
   },
 });
@@ -169,9 +197,6 @@ export const remove = createRoute({
   method: "delete",
   middleware: [
     jwtMiddleware(),
-    rolesAndPermissionsMiddleware([
-      { entity: EntityType.ONGOING_GROUP_REQUESTS, operation: OperationType.DELETE },
-    ]),
   ] as const,
   request: {
     headers: jwtHeaderSchema,
@@ -275,3 +300,4 @@ export type PatchRoute = typeof patch;
 export type RemoveRoute = typeof remove;
 export type UndoRoute = typeof undo;
 export type OngoingRequestsByUserRoute = typeof ongoingRequestsByUser;
+export type ProductSummaryRoute = typeof productSummary;

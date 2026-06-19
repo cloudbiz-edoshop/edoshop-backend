@@ -1,8 +1,8 @@
 import type { CommonQueryParams } from "@/lib/openapi/schemas/query-params-schema";
 import type { TX } from "@/lib/types";
-import { and, count, desc, eq, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, sql } from "drizzle-orm";
 import db from "@/db";
-import { bins, items, rayons, shelves } from "@/db/models";
+import { bins, rayons, shelves, storage, warehouseTransfers } from "@/db/models";
 import {
   createFilterConditions,
   createSearchCondition,
@@ -226,9 +226,15 @@ export class RayonsRepository {
     });
   }
 
-  async findBinByLocationCode(locationCode: string) {
+  async findBinByLocationCode(locationCode: string, warehouseId?: number) {
     return db.query.bins.findFirst({
-      where: (bins, { eq }) => eq(bins.locationCode, locationCode),
+      where: (bins, { eq, and }) =>
+        warehouseId
+          ? and(
+              eq(bins.locationCode, locationCode),
+              eq(bins.warehouseId, warehouseId),
+            )
+          : eq(bins.locationCode, locationCode),
     });
   }
 
@@ -367,6 +373,71 @@ export class RayonsRepository {
     ).returning();
 
     return updatedBin;
+  }
+
+  async getRayonDeletionUsage(rayonId: number) {
+    const rayon = await db.query.rayons.findFirst({
+      where: (rayons, { eq }) => eq(rayons.id, rayonId),
+      with: {
+        shelves: {
+          with: {
+            bins: true,
+          },
+        },
+      },
+    });
+
+    if (!rayon) {
+      return null;
+    }
+
+    const binIds = rayon.shelves.flatMap(shelf => shelf.bins.map(bin => bin.id));
+
+    if (binIds.length === 0) {
+      return {
+        rayon,
+        binIds,
+        storageCount: 0,
+        transferCount: 0,
+      };
+    }
+
+    const [{ value: storageCount }] = await db
+      .select({ value: count() })
+      .from(storage)
+      .where(inArray(storage.binId, binIds));
+
+    const [{ value: transferCount }] = await db
+      .select({ value: count() })
+      .from(warehouseTransfers)
+      .where(inArray(warehouseTransfers.binId, binIds));
+
+    return {
+      rayon,
+      binIds,
+      storageCount,
+      transferCount,
+    };
+  }
+
+  async deleteRayonForWarehouse(tx: TX, rayonId: number) {
+    const shelfRows = await tx
+      .select({ id: shelves.id })
+      .from(shelves)
+      .where(eq(shelves.rayonId, rayonId));
+    const shelfIds = shelfRows.map(shelf => shelf.id);
+
+    if (shelfIds.length > 0) {
+      await tx.delete(bins).where(inArray(bins.shelfId, shelfIds));
+      await tx.delete(shelves).where(inArray(shelves.id, shelfIds));
+    }
+
+    const [deletedRayon] = await tx
+      .delete(rayons)
+      .where(eq(rayons.id, rayonId))
+      .returning();
+
+    return deletedRayon;
   }
 
   async createRayonsForWarehouse(tx: TX, warehouseId: number, name: string, description: string, createdBy: number, updatedBy: number) {

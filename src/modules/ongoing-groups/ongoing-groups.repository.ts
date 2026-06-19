@@ -192,7 +192,7 @@ export class OngoingGroupRequestsRepository {
    * @returns The created ongoing group request
    */
   async create(tx: TX, requestData: NewOngoingGroupRequests) {
-    const [request] = await tx.insert(ongoingGroupRequests).values(requestData).returning();
+    const [request] = await tx.insert(ongoingGroupRequests).values(requestData as any).returning();
     return request;
   }
 

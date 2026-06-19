@@ -41,6 +41,43 @@ export class CustomersService {
     this.customerRepository = new CustomersRepository();
   }
 
+  private async assertUniqueCustomerIdentity(params: {
+    fullName?: string | null;
+    email?: string | null;
+    phoneNumber?: string | null;
+    excludeUserId?: number;
+  }) {
+    const duplicate = await this.userRepository.findDuplicateIdentity(params);
+    if (!duplicate) return;
+
+    if (
+      params.fullName?.trim() &&
+      duplicate.fullName.trim().toLowerCase() ===
+        params.fullName.trim().toLowerCase()
+    ) {
+      throw new ValidationError("Full name is already used by another account");
+    }
+
+    if (
+      params.email?.trim() &&
+      duplicate.email?.trim().toLowerCase() ===
+        params.email.trim().toLowerCase()
+    ) {
+      throw new ValidationError("Email is already taken");
+    }
+
+    if (
+      params.phoneNumber?.trim() &&
+      duplicate.phoneNumber === params.phoneNumber.trim()
+    ) {
+      throw new ValidationError("Phone number is already taken");
+    }
+
+    throw new ValidationError(
+      "Full name, email, or phone number is already used by another account",
+    );
+  }
+
   /**
    * Create a new customer
    *
@@ -53,6 +90,12 @@ export class CustomersService {
     },
   ): Promise<CreateCustomerResponse> {
     const username = generateUsername(customerData.fullName);
+
+    await this.assertUniqueCustomerIdentity({
+      fullName: customerData.fullName,
+      email: customerData.email,
+      phoneNumber: customerData.phoneNumber,
+    });
 
     // Check if username is already taken
     const existingUser = await this.userRepository.findByUsername(username);
@@ -127,7 +170,7 @@ export class CustomersService {
         countryId: customerData.countryId,
         createdBy: customerData.createdBy,
         updatedBy: customerData.createdBy,
-      });
+      } as any);
 
       return createdCustomer;
     });
@@ -147,6 +190,12 @@ export class CustomersService {
 
   async createPublicCustomerSignup(customerData: PublicCustomerSignupRequest) {
     const username = generateUsername(customerData.fullName);
+
+    await this.assertUniqueCustomerIdentity({
+      fullName: customerData.fullName,
+      email: customerData.email,
+      phoneNumber: customerData.phoneNumber,
+    });
 
     const existingUser = await this.userRepository.findByUsername(username);
     if (existingUser) {
@@ -291,6 +340,13 @@ export class CustomersService {
       throw new NotFoundError("User not found");
     }
 
+    await this.assertUniqueCustomerIdentity({
+      fullName: customerData.fullName,
+      email: customerData.email,
+      phoneNumber: customerData.phoneNumber,
+      excludeUserId: user.id,
+    });
+
     if (customerData.email && customerData.email !== user.email) {
       const existingEmail = await this.userRepository.findByEmail(
         customerData.email,
@@ -339,7 +395,7 @@ export class CustomersService {
         await this.usersService.updateUserWithEmailInTransaction(
           tx,
           customer.userId,
-          userData,
+          userData as any,
         );
       }
 
@@ -354,7 +410,7 @@ export class CustomersService {
           await this.addressService.updateAddress(
             tx,
             customerAddressId,
-            addressData,
+            addressData as any,
           );
         }
       }
@@ -383,7 +439,15 @@ export class CustomersService {
     }
 
     return await db.transaction(async (tx) => {
-      return await this.customerRepository.softDeleteMany(tx, [id], deletedBy);
+      const deleted = await this.customerRepository.softDeleteMany(
+        tx,
+        [id],
+        deletedBy,
+      );
+      if (!deleted) return false;
+
+      await this.userRepository.softDelete(tx, customer.userId, deletedBy);
+      return true;
     });
   }
 
@@ -395,8 +459,27 @@ export class CustomersService {
    * @returns True if all deletions were successful
    */
   async deleteCustomers(ids: number[], deletedBy: number) {
+    const customersToDelete = await Promise.all(
+      ids.map((id) => this.customerRepository.findById(id)),
+    );
+    const userIds = customersToDelete
+      .map((customer) => customer?.userId)
+      .filter((userId): userId is number => Boolean(userId));
+
     const result = await db.transaction(async (tx) => {
-      return await this.customerRepository.softDeleteMany(tx, ids, deletedBy);
+      const deleted = await this.customerRepository.softDeleteMany(
+        tx,
+        ids,
+        deletedBy,
+      );
+
+      if (deleted) {
+        for (const userId of userIds) {
+          await this.userRepository.softDelete(tx, userId, deletedBy);
+        }
+      }
+
+      return deleted;
     });
     if (!result) {
       throw new AppError("Failed to delete customers");

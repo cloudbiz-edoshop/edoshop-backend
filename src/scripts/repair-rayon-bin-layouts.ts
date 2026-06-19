@@ -73,12 +73,15 @@ for (const rayon of rayonRows) {
       const [existingLocation] = await db
         .select({ id: bins.id })
         .from(bins)
-        .where(eq(bins.locationCode, locationCode))
+        .where(and(
+          eq(bins.warehouseId, shelf.warehouseId),
+          eq(bins.locationCode, locationCode),
+        ))
         .limit(1);
 
       if (existingLocation) {
         console.warn(
-          `Skipping ${locationCode}: location code already exists on bin ${existingLocation.id}.`,
+          `Skipping ${locationCode}: location code already exists on bin ${existingLocation.id} in warehouse ${shelf.warehouseId}.`,
         );
         skippedCount++;
         continue;

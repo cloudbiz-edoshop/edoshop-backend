@@ -4,6 +4,7 @@ import type {
   ListRoute,
   OngoingRequestsByUserRoute,
   PatchRoute,
+  ProductSummaryRoute,
   RemoveRoute,
   UndoRoute,
 } from "./ongoing-groups.route";
@@ -145,8 +146,9 @@ export const patch: AppRouteHandler<PatchRoute> = async (c) => {
  */
 export const remove: AppRouteHandler<RemoveRoute> = async (c) => {
   const { id } = c.req.valid("param");
+  const user = c.get("user");
 
-  await service.deleteOngoingGroupRequest(id);
+  await service.deleteOngoingGroupRequest(id, user.id);
 
   return c.json(
     {
@@ -207,4 +209,11 @@ export const ongoingRequestsByUser: AppRouteHandler<OngoingRequestsByUserRoute> 
           : null,
     })),
   }, HttpStatusCodes.OK);
+};
+
+export const productSummary: AppRouteHandler<ProductSummaryRoute> = async (c) => {
+  const { productId } = c.req.valid("param");
+  const user = c.get("user");
+  const result = await service.getProductGroupageSummary(productId, user.id);
+  return c.json(result, HttpStatusCodes.OK);
 };

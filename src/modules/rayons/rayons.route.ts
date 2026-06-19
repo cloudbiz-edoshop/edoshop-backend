@@ -15,7 +15,7 @@ import { idParams } from "@/lib/openapi/schemas";
 import { createSuccessResponseSchema, createSuccessResponseSchemaWithPagination } from "@/lib/openapi/schemas/create-api-response";
 import commonQueryParamsSchema from "@/lib/openapi/schemas/query-params-schema";
 import { jwtHeaderSchema } from "@/lib/zod-schemas";
-import { createBinsRequestSchema, createBinsResponseSchema, createRayonsRequestSchema, createShelvesForRayonResponseSchema, createShelvesForRayonsRequestSchema, getAllShelvesForRayonResponseSchema, getRayonsForWarehouseResponseSchema, getRayonsStatsForAWarehouseResponseSchema, updateBinsRequestSchema, updateBinsResponseSchema, updateRayonRequestSchema, updateRayonResponseSchema, updateShelvesRequestSchema, updateShelvesResponseSchema } from "./rayons.schema";
+import { createBinsRequestSchema, createBinsResponseSchema, createRayonsRequestSchema, createShelvesForRayonResponseSchema, createShelvesForRayonsRequestSchema, deleteRayonResponseSchema, getAllShelvesForRayonResponseSchema, getRayonsForWarehouseResponseSchema, getRayonsStatsForAWarehouseResponseSchema, updateBinsRequestSchema, updateBinsResponseSchema, updateRayonRequestSchema, updateRayonResponseSchema, updateShelvesRequestSchema, updateShelvesResponseSchema } from "./rayons.schema";
 
 const tags = ["Rayons"];
 
@@ -316,6 +316,43 @@ export const updateRayonForWarehouse = createRoute({
   },
 });
 export type UpdateRayonForWarehouseRoute = typeof updateRayonForWarehouse;
+
+export const deleteRayonForWarehouse = createRoute({
+  path: "/rayons/{id}",
+  method: "delete",
+  tags,
+  summary: "Delete a rayon for a warehouse",
+  description:
+    "Delete a rayon, its shelves, and its bins only when no bin has stored entries or transfer assignments",
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.WAREHOUSE_TRANSFERS, operation: OperationType.DELETE },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    params: idParams,
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(deleteRayonResponseSchema),
+      "The deleted rayon",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.FORBIDDEN,
+        HttpStatusCodes.UNPROCESSABLE_ENTITY,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+        HttpStatusCodes.NOT_FOUND,
+        HttpStatusCodes.CONFLICT,
+      ],
+      idParams,
+    ),
+  },
+});
+export type DeleteRayonForWarehouseRoute = typeof deleteRayonForWarehouse;
 
 export const updateShelvesForRayon = createRoute({
   path: "/rayons/shelves/{id}",

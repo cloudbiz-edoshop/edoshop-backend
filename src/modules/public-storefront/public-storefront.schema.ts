@@ -66,6 +66,26 @@ export const publicNewArrivalProductSchema = z.object({
   newArrivalEndDate: z.string().optional(),
   colors: z.array(z.string()).optional(),
   sizes: z.array(z.string()).optional(),
+  variants: z
+    .array(
+      z.object({
+        id: z.number(),
+        variantCode: z.string().nullable().optional(),
+        quantity: z.number().nullable().optional(),
+        color: z.string().nullable().optional(),
+        size: z.string().nullable().optional(),
+      }),
+    )
+    .optional(),
+  dropshippingDetails: z
+    .object({
+      dropshippingCode: z.string().nullable().optional(),
+      totalItems: z.number().nullable().optional(),
+      groupCriteriaId: z.number().nullable().optional(),
+      completionCriteria: z.union([z.string(), z.number()]).nullable().optional(),
+    })
+    .nullable()
+    .optional(),
 });
 
 export const publicProductSchema = publicNewArrivalProductSchema

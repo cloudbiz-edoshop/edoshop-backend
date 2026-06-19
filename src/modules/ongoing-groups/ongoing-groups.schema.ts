@@ -256,6 +256,38 @@ export const paginatedOngoingGroupRequestsResponseSchema = z.object({
 });
 export type PaginatedOngoingGroupRequestsResponse = z.infer<typeof paginatedOngoingGroupRequestsResponseSchema>;
 
+export const groupageProductSummaryParamsSchema = z.object({
+  productId: z.coerce.number().min(1),
+});
+
+export const groupageProductSummaryResponseSchema = z.object({
+  productId: z.number(),
+  group: z
+    .object({
+      id: z.number(),
+      orderedItems: z.number(),
+      totalItems: z.number(),
+      thresholdToValidate: z.number(),
+      statusId: z.number(),
+      completionRate: z.number(),
+      isReadyForApproval: z.boolean(),
+    })
+    .nullable(),
+  slots: z.array(
+    z.object({
+      variantId: z.number(),
+      variantCode: z.string().nullable(),
+      size: z.string().nullable(),
+      color: z.string().nullable(),
+      requestedQuantity: z.number(),
+      isFilled: z.boolean(),
+      isMine: z.boolean(),
+      status: z.string().nullable(),
+    }),
+  ),
+});
+export type GroupageProductSummaryResponse = z.infer<typeof groupageProductSummaryResponseSchema>;
+
 // PATCH schema: only approval/rejection allowed
 export const patchOngoingGroupRequestSchema = z.object({
   approvalStatusId: z.number().describe("Approval status ID"),

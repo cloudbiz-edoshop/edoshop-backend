@@ -115,6 +115,12 @@ export type UpdateRayonResponseSchema = z.infer<
   typeof updateRayonResponseSchema
 >;
 
+export const deleteRayonResponseSchema = updateRayonResponseSchema;
+
+export type DeleteRayonResponseSchema = z.infer<
+  typeof deleteRayonResponseSchema
+>;
+
 export const createShelvesForRayonsRequestSchema = z.object({
   rayonId: z.number(),
   columnLabel: z.string().trim().min(1, "Column label cannot be empty").max(5, "Column label must be 5 characters or less"),

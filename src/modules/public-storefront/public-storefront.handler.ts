@@ -75,6 +75,24 @@ const getProductImageUrl = (product: any) =>
     ?.flatMap((variant: any) => variant.images || [])
     ?.find((image: any) => image?.imageUrl)?.imageUrl || null;
 
+const getPublicCategories = (product: any) => product.categories || [];
+
+const getPublicVariants = (product: any) => product.variants || [];
+
+const getVariantColor = (variant: any) =>
+  variant.color?.description || variant.color?.name || null;
+
+const getVariantSize = (variant: any) =>
+  variant.size?.description || variant.size?.name || null;
+
+const mapPublicVariant = (variant: any) => ({
+  id: variant.id,
+  variantCode: variant.variantCode,
+  quantity: variant.quantity,
+  color: getVariantColor(variant),
+  size: getVariantSize(variant),
+});
+
 export const listBanners = async (c: any) => {
   const params = getListParams(c);
   const result = await bannersService.listBanners(params);
@@ -148,7 +166,7 @@ export const listCategories = async (c: any) => {
 export const listNewArrivalProducts = async (c: any) => {
   const params = getListParams(c);
   const result = await newArrivalsService.getOnlyNewArrivalProducts(params);
-  const publicProducts = result.data.map((product) => ({
+  const publicProducts = result.data.map((product: any) => ({
     id: product.id,
     name: product.name,
     price: product.price,
@@ -160,26 +178,28 @@ export const listNewArrivalProducts = async (c: any) => {
     totalItems: product.totalItems,
     storeId: product.storeId,
     seriesId: product.seriesId,
-    categoryIds: product.categories?.map((category) => category.id).filter(Boolean) || [],
-    categories: product.categories || [],
+    categoryIds: getPublicCategories(product).map((category: any) => category.id).filter(Boolean),
+    categories: getPublicCategories(product),
     isNewArrival: product.isNewArrival,
     newArrivalId: product.newArrivalId,
     newArrivalStartDate: product.newArrivalStartDate,
     newArrivalEndDate: product.newArrivalEndDate,
     colors: Array.from(
       new Set(
-        product.variants
-          ?.map((variant) => variant.color?.description || variant.color?.name)
+        getPublicVariants(product)
+          .map((variant: any) => getVariantColor(variant))
           .filter((color): color is string => Boolean(color)) || [],
       ),
     ),
     sizes: Array.from(
       new Set(
-        product.variants
-          ?.map((variant) => variant.size?.description || variant.size?.name)
+        getPublicVariants(product)
+          .map((variant: any) => getVariantSize(variant))
           .filter((size): size is string => Boolean(size)) || [],
       ),
     ),
+    variants: getPublicVariants(product).map(mapPublicVariant),
+    dropshippingDetails: product.dropshippingDetails || null,
   }));
 
   return sendPublicList(
@@ -196,7 +216,7 @@ export const listNewArrivalProducts = async (c: any) => {
 export const listProducts = async (c: any) => {
   const params = getListParams(c);
   const result = await productsService.listProducts(params);
-  const publicProducts = result.data.map((product) => ({
+  const publicProducts = result.data.map((product: any) => ({
     id: product.id,
     name: product.name,
     price: product.price,
@@ -208,23 +228,25 @@ export const listProducts = async (c: any) => {
     totalItems: product.totalItems,
     storeId: product.storeId,
     seriesId: product.seriesId,
-    categoryIds: product.categories?.map((category) => category.id).filter(Boolean) || [],
-    categories: product.categories || [],
+    categoryIds: getPublicCategories(product).map((category: any) => category.id).filter(Boolean),
+    categories: getPublicCategories(product),
     isNewArrival: product.isNewArrival,
     colors: Array.from(
       new Set(
-        product.variants
-          ?.map((variant) => variant.color?.description || variant.color?.name)
+        getPublicVariants(product)
+          .map((variant: any) => getVariantColor(variant))
           .filter((color): color is string => Boolean(color)) || [],
       ),
     ),
     sizes: Array.from(
       new Set(
-        product.variants
-          ?.map((variant) => variant.size?.description || variant.size?.name)
+        getPublicVariants(product)
+          .map((variant: any) => getVariantSize(variant))
           .filter((size): size is string => Boolean(size)) || [],
       ),
     ),
+    variants: getPublicVariants(product).map(mapPublicVariant),
+    dropshippingDetails: product.dropshippingDetails || null,
   }));
 
   return sendPublicList(

@@ -1,7 +1,7 @@
 import type { NewCustomer } from "@/db/models/customers";
 
 import type { TX } from "@/lib/types";
-import { and, count, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, or, sql } from "drizzle-orm";
 
 import db from "@/db";
 import { customers, users } from "@/db/models";
@@ -161,15 +161,27 @@ export class CustomersRepository {
     const { search, page, limit, sortBy, sortOrder, filters } = params;
 
     // Define searchable fields for global search
-    const searchableFields = ["customer_code", "name"];
+    const searchableFields = ["customer_code", "full_name", "email", "phone_number"];
 
     // Prepare where conditions
     const filterCondition = createFilterConditions(customers, filters);
-    const searchCondition = createSearchCondition(
-      searchableFields,
+    const customerSearchCondition = createSearchCondition(
+      ["customerCode"],
       customers,
       search,
     );
+    const userSearchCondition = search?.trim()
+      ? sql`exists (
+          select 1
+          from ${users}
+          where ${users.id} = ${customers.userId}
+          and (
+            lower(${users.fullName}) like lower(${"%" + search.trim() + "%"})
+            or lower(${users.email}) like lower(${"%" + search.trim() + "%"})
+            or ${users.phoneNumber} like ${"%" + search.trim() + "%"}
+          )
+        )`
+      : undefined;
 
     // Combine conditions
     const whereConditions = [];
@@ -178,6 +190,10 @@ export class CustomersRepository {
     if (filterCondition) {
       whereConditions.push(filterCondition);
     }
+    const searchCondition =
+      customerSearchCondition && userSearchCondition
+        ? or(customerSearchCondition, userSearchCondition)
+        : customerSearchCondition || userSearchCondition;
     if (searchCondition) {
       whereConditions.push(searchCondition);
     }

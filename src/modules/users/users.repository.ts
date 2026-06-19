@@ -5,7 +5,7 @@ import type {
   CreateUserDataWithPhoneNumber,
   UpdateUser,
 } from "@/modules/users/users.schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne, or, sql } from "drizzle-orm";
 
 import { formatISODate } from "@/common/date-utils";
 import { db } from "@/db";
@@ -113,6 +113,46 @@ export class UserRepository {
     }
 
     return result[0];
+  }
+
+  async findDuplicateIdentity(params: {
+    fullName?: string | null;
+    email?: string | null;
+    phoneNumber?: string | null;
+    excludeUserId?: number;
+  }) {
+    const conditions = [];
+
+    if (params.fullName?.trim()) {
+      conditions.push(
+        sql`lower(trim(${users.fullName})) = lower(trim(${params.fullName}))`,
+      );
+    }
+
+    if (params.email?.trim()) {
+      conditions.push(
+        sql`lower(trim(${users.email})) = lower(trim(${params.email}))`,
+      );
+    }
+
+    if (params.phoneNumber?.trim()) {
+      conditions.push(eq(users.phoneNumber, params.phoneNumber.trim()));
+    }
+
+    if (conditions.length === 0) return null;
+
+    const whereConditions = [or(...conditions)];
+    if (params.excludeUserId) {
+      whereConditions.push(ne(users.id, params.excludeUserId));
+    }
+
+    const result = await db
+      .select()
+      .from(users)
+      .where(and(...whereConditions))
+      .limit(1);
+
+    return result[0] || null;
   }
 
   /**

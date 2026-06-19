@@ -8,7 +8,7 @@ import { NotFoundError } from "@/core/errors";
 import { AppError } from "@/core/errors/app-error";
 import db from "@/db";
 
-import { groupApprovalStatuses, ongoingGroups, products, variants } from "@/db/models";
+import { groupApprovalStatuses, ongoingGroupRequests, ongoingGroups, products, variants } from "@/db/models";
 
 import { OngoingGroupRequestsRepository } from "./ongoing-groups.repository";
 
@@ -72,7 +72,7 @@ export class OngoingGroupRequestsService {
         approvalStatusId: requestData.approvalStatusId || 1, // Default to pending
         createdBy: requestData.createdBy,
         updatedBy: requestData.createdBy,
-      });
+      } as any);
     });
 
     return this.repository.findById(request.id);
@@ -141,15 +141,33 @@ export class OngoingGroupRequestsService {
   /**
    * Delete an ongoing group request
    */
-  async deleteOngoingGroupRequest(id: number) {
+  async deleteOngoingGroupRequest(id: number, userId: number) {
     // Check if request exists
     const existingRequest = await this.repository.findById(id);
     if (!existingRequest) {
       throw new NotFoundError("Ongoing group request not found");
     }
+    const requestedBy = existingRequest.requestedBy as any;
+    const requestedById = typeof requestedBy === "object"
+      ? requestedBy?.id
+      : requestedBy;
+    if (requestedById !== userId) {
+      throw new AppError("You can only cancel your own groupage request");
+    }
 
     await db.transaction(async (tx) => {
       await this.repository.delete(tx, id);
+      await tx
+        .update(ongoingGroups)
+        .set({
+          orderedItems: Math.max(
+            0,
+            (existingRequest.ongoingGroup?.orderedItems ?? 0) - existingRequest.quantity,
+          ),
+          updatedBy: userId,
+          updatedAt: new Date().toISOString(),
+        } as any)
+        .where(eq(ongoingGroups.id, existingRequest.ongoingGroupId));
     });
   }
 
@@ -165,6 +183,81 @@ export class OngoingGroupRequestsService {
    */
   async checkConcurrentRequestsLimit(productId: number) {
     return this.repository.checkConcurrentRequestsLimit(productId);
+  }
+
+  async getProductGroupageSummary(productId: number, userId: number) {
+    const product = await db.query.products.findFirst({
+      where: eq(products.id, productId),
+    });
+    if (!product) {
+      throw new NotFoundError("Product not found");
+    }
+
+    const group = await db.query.ongoingGroups.findFirst({
+      where: eq(ongoingGroups.productId, productId),
+    });
+
+    const productVariants = await db.query.variants.findMany({
+      where: eq(variants.productId, productId),
+      with: {
+        color: true,
+        size: true,
+      },
+    });
+
+    const requests = await db.query.ongoingGroupRequests.findMany({
+      where: eq(ongoingGroupRequests.productId, productId),
+      with: {
+        approvalStatus: true,
+      },
+    });
+
+    const requestsByVariant = requests.reduce((acc, request) => {
+      const current = acc.get(request.variantId) ?? {
+        requestedQuantity: 0,
+        isMine: false,
+        status: request.approvalStatus?.name ?? null,
+      };
+      current.requestedQuantity += request.quantity;
+      current.isMine = current.isMine || request.requestedBy === userId;
+      current.status = request.approvalStatus?.name ?? current.status;
+      acc.set(request.variantId, current);
+      return acc;
+    }, new Map<number, { requestedQuantity: number; isMine: boolean; status: string | null }>());
+
+    const totalItems = group?.totalItems || productVariants.length || 0;
+    const orderedItems = group?.orderedItems || requests.reduce((sum, request) => sum + request.quantity, 0);
+    const completionRate = totalItems > 0
+      ? Math.min(100, Math.round((orderedItems / totalItems) * 100))
+      : 0;
+
+    return {
+      productId,
+      group: group
+        ? {
+            id: group.id,
+            orderedItems,
+            totalItems,
+            thresholdToValidate: group.thresholdToValidate,
+            statusId: group.statusId,
+            completionRate,
+            isReadyForApproval: orderedItems >= group.thresholdToValidate,
+          }
+        : null,
+      slots: productVariants.map((variant) => {
+        const slotRequest = requestsByVariant.get(variant.id);
+        return {
+          variantId: variant.id,
+          variantCode: variant.variantCode,
+          size: variant.size?.description || variant.size?.name || null,
+          color: variant.color?.description || variant.color?.name || null,
+          requestedQuantity: slotRequest?.requestedQuantity ?? 0,
+          isFilled: Boolean(slotRequest?.requestedQuantity),
+          isMine: Boolean(slotRequest?.isMine),
+          status: slotRequest?.status ?? null,
+        };
+      }),
+    };
   }
 
   /**

@@ -37,6 +37,11 @@ router.openapi(
 );
 
 router.openapi(
+  routes.deleteRayonForWarehouse,
+  handlers.deleteRayonForWarehouse,
+);
+
+router.openapi(
   routes.updateShelvesForRayon,
   handlers.updateShelvesForRayon,
 );

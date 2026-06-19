@@ -18,6 +18,35 @@ export class RayonsService {
     return value?.trim().toLowerCase() ?? "";
   }
 
+  private normalizeColumnLabel(value: string) {
+    return value.trim().toUpperCase();
+  }
+
+  private columnLabelToNumber(value: string) {
+    return this.normalizeColumnLabel(value)
+      .split("")
+      .reduce((total, char) => {
+        const code = char.charCodeAt(0);
+        if (code < 65 || code > 90) {
+          return Number.NaN;
+        }
+        return total * 26 + code - 64;
+      }, 0);
+  }
+
+  private numberToColumnLabel(value: number) {
+    let number = value;
+    let label = "";
+
+    while (number > 0) {
+      const remainder = (number - 1) % 26;
+      label = String.fromCharCode(65 + remainder) + label;
+      number = Math.floor((number - 1) / 26);
+    }
+
+    return label;
+  }
+
   private matchesBinSearch(params: {
     searchTerm: string;
     rayonName?: string | null;
@@ -245,16 +274,39 @@ export class RayonsService {
     }
 
     const warehouseId = rayon.warehouseId;
+    const normalizedColumnLabel = this.normalizeColumnLabel(columnLabel);
+    const columnNumber = this.columnLabelToNumber(normalizedColumnLabel);
 
-    if (columnLabel !== undefined) {
+    if (!Number.isFinite(columnNumber) || columnNumber < 1) {
+      throw new ConflictError(
+        `Column label '${columnLabel}' is invalid. Use A, B, C...`,
+      );
+    }
+
+    if (normalizedColumnLabel !== undefined) {
       const existingShelves =
         await this.rayonsRepository.findShelvesByColumnLabelAndRayonId(
-          columnLabel,
+          normalizedColumnLabel,
           rayonId,
         );
       if (existingShelves) {
         throw new ConflictError(
-          `Shelf with column label '${columnLabel}' already exists in rayon ${rayonId}`,
+          `Shelf with column label '${normalizedColumnLabel}' already exists in rayon ${rayonId}`,
+        );
+      }
+    }
+
+    if (columnNumber > 1) {
+      const previousColumnLabel = this.numberToColumnLabel(columnNumber - 1);
+      const previousShelf =
+        await this.rayonsRepository.findShelvesByColumnLabelAndRayonId(
+          previousColumnLabel,
+          rayonId,
+        );
+
+      if (!previousShelf) {
+        throw new ConflictError(
+          `Cannot create column ${normalizedColumnLabel} before column ${previousColumnLabel} exists for rayon ${rayonId}`,
         );
       }
     }
@@ -263,7 +315,7 @@ export class RayonsService {
       return await this.rayonsRepository.createShelvesForRayon(
         tx,
         rayonId,
-        columnLabel,
+        normalizedColumnLabel,
         warehouseId,
         description,
         createdBy,
@@ -323,10 +375,13 @@ export class RayonsService {
     }
 
     const existingLocationBin =
-      await this.rayonsRepository.findBinByLocationCode(resolvedLocationCode);
+      await this.rayonsRepository.findBinByLocationCode(
+        resolvedLocationCode,
+        warehouseId,
+      );
     if (existingLocationBin) {
       throw new ConflictError(
-        `Location code '${resolvedLocationCode}' is already in use by another bin`,
+        `Location code '${resolvedLocationCode}' is already in use in warehouse ${warehouseId}`,
       );
     }
 
@@ -355,6 +410,15 @@ export class RayonsService {
     }
 
     if (columnLabel !== undefined) {
+      columnLabel = this.normalizeColumnLabel(columnLabel);
+      const columnNumber = this.columnLabelToNumber(columnLabel);
+
+      if (!Number.isFinite(columnNumber) || columnNumber < 1) {
+        throw new ConflictError(
+          `Column label '${columnLabel}' is invalid. Use A, B, C...`,
+        );
+      }
+
       const existingShelves =
         await this.rayonsRepository.findShelvesByColumnLabelAndRayonId(
           columnLabel,
@@ -364,6 +428,21 @@ export class RayonsService {
         throw new ConflictError(
           `Shelf with column label '${columnLabel}' already exists in rayon ${shelf.rayonId}`,
         );
+      }
+
+      if (columnNumber > 1) {
+        const previousColumnLabel = this.numberToColumnLabel(columnNumber - 1);
+        const previousShelf =
+          await this.rayonsRepository.findShelvesByColumnLabelAndRayonId(
+            previousColumnLabel,
+            shelf.rayonId,
+          );
+
+        if (!previousShelf || previousShelf.id === shelfId) {
+          throw new ConflictError(
+            `Cannot set column ${columnLabel} before column ${previousColumnLabel} exists for rayon ${shelf.rayonId}`,
+          );
+        }
       }
     }
 
@@ -391,10 +470,13 @@ export class RayonsService {
     if (locationCode) {
       const normalizedLocationCode = locationCode.trim().toUpperCase();
       const existingLocationBin =
-        await this.rayonsRepository.findBinByLocationCode(normalizedLocationCode);
+        await this.rayonsRepository.findBinByLocationCode(
+          normalizedLocationCode,
+          bin.warehouseId,
+        );
       if (existingLocationBin && existingLocationBin.id !== binId) {
         throw new ConflictError(
-          `Location code '${normalizedLocationCode}' is already in use by another bin`,
+          `Location code '${normalizedLocationCode}' is already in use in warehouse ${bin.warehouseId}`,
         );
       }
 
@@ -444,6 +526,23 @@ export class RayonsService {
         description,
         updatedBy,
       );
+    });
+  }
+
+  async deleteRayonForWarehouse(rayonId: number) {
+    const usage = await this.rayonsRepository.getRayonDeletionUsage(rayonId);
+    if (!usage) {
+      throw new NotFoundError(`Rayon not found, with id: ${rayonId}`);
+    }
+
+    if (usage.storageCount > 0 || usage.transferCount > 0) {
+      throw new ConflictError(
+        `Cannot delete rayon ${usage.rayon.name ?? rayonId}. Unassign or move all stored entries first.`,
+      );
+    }
+
+    return await db.transaction(async (tx) => {
+      return await this.rayonsRepository.deleteRayonForWarehouse(tx, rayonId);
     });
   }
 }
