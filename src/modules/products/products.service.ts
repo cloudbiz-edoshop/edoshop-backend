@@ -47,9 +47,9 @@ export class ProductsService {
     const yearPrefix = new Date().getFullYear().toString().slice(-2);
     const result = await db.execute(
       sql`
-        SELECT COALESCE(MAX(CAST(SUBSTRING("dropshippingCode" FROM 3) AS INTEGER)), 0) + 1 AS next_increment
+        SELECT COALESCE(MAX(CAST(SUBSTRING(dropshipping_code FROM 3) AS INTEGER)), 0) + 1 AS next_increment
         FROM dropshipping_products
-        WHERE "dropshippingCode" LIKE ${`${yearPrefix}%`}
+        WHERE dropshipping_code LIKE ${`${yearPrefix}%`}
       `,
     );
     const nextIncrement = Number(result[0]?.next_increment) || 1;
