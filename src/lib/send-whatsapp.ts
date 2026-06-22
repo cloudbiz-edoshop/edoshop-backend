@@ -1,20 +1,48 @@
-/**
- * Sends a WhatsApp message to the specified phone number
- *
- * Currently a placeholder that logs the message details to the console.
- * Implementation should be replaced with actual WhatsApp API integration.
- *
- * @param options - WhatsApp message options
- * @param options.phoneNumber - Recipient phone number
- * @param options.message - Message content to send
- * @returns A Promise that resolves when the message is sent or logged
- */
 export async function sendWhatsapp(options: {
   phoneNumber: string;
   message: string;
 }) {
-  // eslint-disable-next-line no-console
-  console.log(options);
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+  const apiVersion = process.env.WHATSAPP_API_VERSION || "v21.0";
+  const apiUrl =
+    process.env.WHATSAPP_API_URL ||
+    (phoneNumberId
+      ? `https://graph.facebook.com/${apiVersion}/${phoneNumberId}/messages`
+      : "");
+
+  if (!apiUrl || !accessToken) {
+    // eslint-disable-next-line no-console
+    console.warn("WhatsApp message skipped: missing WhatsApp API configuration", {
+      phoneNumber: options.phoneNumber,
+      message: options.message,
+    });
+    return { skipped: true };
+  }
+
+  const response = await fetch(apiUrl, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      to: options.phoneNumber.replace(/[^\d]/g, ""),
+      type: "text",
+      text: {
+        preview_url: false,
+        body: options.message,
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const responseText = await response.text();
+    throw new Error(`WhatsApp send failed: ${response.status} ${responseText}`);
+  }
+
+  return response.json();
 }
 
 export default sendWhatsapp;

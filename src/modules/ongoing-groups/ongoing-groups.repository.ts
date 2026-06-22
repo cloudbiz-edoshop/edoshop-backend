@@ -5,7 +5,8 @@ import type {
 import type { NewOngoingGroupRequests } from "@/db/models/ongoing-group-requests";
 import type { TX } from "@/lib/types";
 
-import { and, count, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq, ne } from "drizzle-orm";
+import { GroupApprovalStatusIds } from "@/constants/group-approval-statuses.constants";
 import db from "@/db";
 import {
   dropshippingProducts,
@@ -294,7 +295,7 @@ export class OngoingGroupRequestsRepository {
    * @param tx - Optional transaction object
    * @returns Object with current requests count and limit
    */
-  async checkConcurrentRequestsLimit(productId: number, tx?: TX) {
+  async checkConcurrentRequestsLimit(productId: number, variantId?: number, tx?: TX) {
     const queryBuilder = tx ?? db;
 
     // Get product's concurrent requests limit
@@ -309,24 +310,29 @@ export class OngoingGroupRequestsRepository {
       throw new Error("Product not found");
     }
 
-    // Count current ongoing group requests for this product
-    const currentRequestsResult = await queryBuilder
-      .select({ count: count() })
-      .from(ongoingGroupRequests)
-      .where(eq(ongoingGroupRequests.productId, productId));
-
-    const currentRequests = currentRequestsResult[0]?.count || 0;
-
     if (!product.concurrentReqs) {
       throw new Error("Product concurrent requests limit is not set");
     }
 
     const limit = product.concurrentReqs;
+    const openVariantRows = await queryBuilder
+      .select({ variantId: ongoingGroupRequests.variantId })
+      .from(ongoingGroupRequests)
+      .where(and(
+        eq(ongoingGroupRequests.productId, productId),
+        ne(ongoingGroupRequests.approvalStatusId, GroupApprovalStatusIds.REJECTED),
+      ))
+      .groupBy(ongoingGroupRequests.variantId);
+    const openVariantIds = openVariantRows.map((row) => row.variantId);
+    const currentRequests = openVariantIds.length;
+    const isExistingOpenVariant = variantId
+      ? openVariantIds.includes(variantId)
+      : false;
 
     return {
       currentRequests,
       limit,
-      canCreate: currentRequests < limit,
+      canCreate: isExistingOpenVariant || currentRequests < limit,
     };
   }
 

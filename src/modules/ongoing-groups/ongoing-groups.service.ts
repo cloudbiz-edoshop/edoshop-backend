@@ -2,21 +2,97 @@ import type {
   CreateOngoingGroupRequest,
 } from "./ongoing-groups.schema";
 
-import { eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { GroupApprovalStatusIds } from "@/constants/group-approval-statuses.constants";
+import { NotificationFrequencyIds } from "@/constants/notification-frequencies.constants";
+import { NotificationTypeIds } from "@/constants/notification-types.constants";
+import { RecipientTypeIds } from "@/constants/recipient-types.constants";
 import { NotFoundError } from "@/core/errors";
 import { AppError } from "@/core/errors/app-error";
 import db from "@/db";
 
-import { groupApprovalStatuses, ongoingGroupRequests, ongoingGroups, products, variants } from "@/db/models";
+import { groupApprovalStatuses, notifications, ongoingGroupRequests, ongoingGroups, products, users, variants } from "@/db/models";
+import sendWhatsapp from "@/lib/send-whatsapp";
 
 import { OngoingGroupRequestsRepository } from "./ongoing-groups.repository";
+
+const REQUEST_CANCEL_WINDOW_HOURS = 24;
+const SYSTEM_USER_ID = 1;
 
 export class OngoingGroupRequestsService {
   private readonly repository: OngoingGroupRequestsRepository;
 
   constructor() {
     this.repository = new OngoingGroupRequestsRepository();
+  }
+
+  private isWithinCancelWindow(createdAt?: string | null) {
+    if (!createdAt) return true;
+    const createdTime = new Date(createdAt).getTime();
+    if (Number.isNaN(createdTime)) return true;
+    return Date.now() - createdTime <= REQUEST_CANCEL_WINDOW_HOURS * 60 * 60 * 1000;
+  }
+
+  private async createSystemNotification(data: {
+    title: string;
+    message: string;
+    notificationTypeId: number;
+    recipientTypeId: number;
+    createdBy?: number;
+  }) {
+    await db.insert(notifications).values({
+      title: data.title,
+      message: data.message.slice(0, 255),
+      notificationTypeId: data.notificationTypeId,
+      notificationFrequencyId: NotificationFrequencyIds.ONE_TIME,
+      recipientTypeId: data.recipientTypeId,
+      status: "pending",
+      createdBy: data.createdBy ?? SYSTEM_USER_ID,
+      updatedBy: data.createdBy ?? SYSTEM_USER_ID,
+    });
+  }
+
+  private async notifyAdminsGroupReady(groupId: number, productName: string, createdBy: number) {
+    await this.createSystemNotification({
+      title: "Groupage ready for approval",
+      message: `${productName} groupage is complete and ready for Edoshop approval.`,
+      notificationTypeId: NotificationTypeIds.GROUPAGE_ALMOST_CLOSING,
+      recipientTypeId: RecipientTypeIds.ONGOING_GROUPS,
+      createdBy,
+    });
+  }
+
+  private async notifyCustomerRequestApproved(request: any, approvedBy: number) {
+    const requestedById = typeof request.requestedBy === "object"
+      ? request.requestedBy?.id
+      : request.requestedBy;
+    if (!requestedById) return;
+
+    const requestedByUser = await db.query.users.findFirst({
+      where: eq(users.id, requestedById),
+    });
+    const productName = request.product?.name || "Your groupage item";
+    const message = `${productName} has been approved. Please proceed with payment in Edoshop.`;
+
+    await this.createSystemNotification({
+      title: "Groupage approved - proceed with payment",
+      message,
+      notificationTypeId: NotificationTypeIds.REQUEST_APPROVED,
+      recipientTypeId: RecipientTypeIds.REQUEST_APPROVED_CHECKOUT_DELAYING,
+      createdBy: approvedBy,
+    });
+
+    if (requestedByUser?.phoneNumber) {
+      try {
+        await sendWhatsapp({
+          phoneNumber: requestedByUser.phoneNumber,
+          message,
+        });
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error("Failed to send groupage approval WhatsApp notification", error);
+      }
+    }
   }
 
   /**
@@ -47,13 +123,29 @@ export class OngoingGroupRequestsService {
       throw new AppError("Variant does not belong to the specified product");
     }
 
-    // Check concurrent requests limit
+    const existingActiveVariantRequest = await db.query.ongoingGroupRequests.findFirst({
+      where: and(
+        eq(ongoingGroupRequests.productId, requestData.productId),
+        eq(ongoingGroupRequests.variantId, requestData.variantId),
+        ne(ongoingGroupRequests.approvalStatusId, GroupApprovalStatusIds.REJECTED),
+      ),
+    });
+    if (existingActiveVariantRequest) {
+      if (existingActiveVariantRequest.requestedBy === requestData.requestedBy) {
+        throw new AppError("You have already requested this groupage slot");
+      }
+      throw new AppError("This groupage slot is already selected. Please choose another open slot");
+    }
+
+    // Check distinct open variant limit. Existing open variants can fill, but new
+    // variants cannot exceed the admin-configured product.concurrentReqs limit.
     const limitCheck = await this.repository.checkConcurrentRequestsLimit(
       requestData.productId,
+      requestData.variantId,
     );
     if (!limitCheck.canCreate) {
       throw new AppError(
-        `Product has reached the maximum concurrent requests limit (${limitCheck.currentRequests}/${limitCheck.limit})`,
+        `At this moment, we cannot open another variant for this item. Please choose among the ${limitCheck.limit} variants already open.`,
       );
     }
 
@@ -75,7 +167,20 @@ export class OngoingGroupRequestsService {
       } as any);
     });
 
-    return this.repository.findById(request.id);
+    const createdRequest = await this.repository.findById(request.id);
+    if (
+      createdRequest?.ongoingGroup &&
+      createdRequest.ongoingGroup.orderedItems >= createdRequest.ongoingGroup.thresholdToValidate &&
+      createdRequest.ongoingGroup.orderedItems - createdRequest.quantity < createdRequest.ongoingGroup.thresholdToValidate
+    ) {
+      await this.notifyAdminsGroupReady(
+        createdRequest.ongoingGroup.id,
+        product.name,
+        requestData.createdBy,
+      );
+    }
+
+    return createdRequest;
   }
 
   /**
@@ -135,7 +240,16 @@ export class OngoingGroupRequestsService {
       await this.repository.update(tx, id, requestData);
     });
 
-    return this.repository.findById(id);
+    const updatedRequest = await this.repository.findById(id);
+    if (
+      updatedRequest &&
+      requestData.approvalStatusId === GroupApprovalStatusIds.APPROVED &&
+      existingRequest.approvalStatusId !== GroupApprovalStatusIds.APPROVED
+    ) {
+      await this.notifyCustomerRequestApproved(updatedRequest, requestData.updatedBy);
+    }
+
+    return updatedRequest;
   }
 
   /**
@@ -153,6 +267,9 @@ export class OngoingGroupRequestsService {
       : requestedBy;
     if (requestedById !== userId) {
       throw new AppError("You can only cancel your own groupage request");
+    }
+    if (!this.isWithinCancelWindow(existingRequest.createdAt)) {
+      throw new AppError("This request is confirmed. Please contact Edoshop to remove it.");
     }
 
     await db.transaction(async (tx) => {
