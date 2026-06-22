@@ -10,6 +10,7 @@ import { generateUsername } from "@/common";
 import { AddressTypeIds } from "@/constants";
 import { NotFoundError, ValidationError } from "@/core/errors";
 import { AppError } from "@/core/errors/app-error";
+import { Country } from "country-state-city";
 import { eq } from "drizzle-orm";
 import argon2 from "argon2";
 
@@ -76,6 +77,47 @@ export class CustomersService {
     throw new ValidationError(
       "Full name, email, or phone number is already used by another account",
     );
+  }
+
+  private async findOrCreateCountryByIsoCode(countryCode: string) {
+    const normalizedCountryCode = countryCode.trim().toUpperCase();
+    const existingCountry = await db.query.countries.findFirst({
+      where: eq(countries.isoCode, normalizedCountryCode),
+    });
+    if (existingCountry) return existingCountry;
+
+    const countryData = Country.getCountryByCode(normalizedCountryCode);
+    if (!countryData) {
+      throw new NotFoundError(
+        `Country with code ${normalizedCountryCode} not found`,
+      );
+    }
+
+    const [createdCountry] = await db
+      .insert(countries)
+      .values({
+        name: countryData.name,
+        isoCode: countryData.isoCode,
+        flag: countryData.flag || countryData.isoCode,
+        phonecode: countryData.phonecode || "",
+        currency: countryData.currency || "",
+        latitude: countryData.latitude || "0",
+        longitude: countryData.longitude || "0",
+      })
+      .onConflictDoNothing()
+      .returning();
+
+    if (createdCountry) return createdCountry;
+
+    const country = await db.query.countries.findFirst({
+      where: eq(countries.isoCode, normalizedCountryCode),
+    });
+    if (!country) {
+      throw new NotFoundError(
+        `Country with code ${normalizedCountryCode} not found`,
+      );
+    }
+    return country;
   }
 
   /**
@@ -218,14 +260,7 @@ export class CustomersService {
       throw new ValidationError("Phone number is already taken");
     }
 
-    const country = await db.query.countries.findFirst({
-      where: eq(countries.isoCode, customerData.countryCode),
-    });
-    if (!country) {
-      throw new NotFoundError(
-        `Country with code ${customerData.countryCode} not found`,
-      );
-    }
+    const country = await this.findOrCreateCountryByIsoCode(customerData.countryCode);
 
     const customerSequence =
       await this.customerRepository.getNextCustomerCode();
