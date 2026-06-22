@@ -7,7 +7,7 @@ import { GroupApprovalStatusIds } from "@/constants/group-approval-statuses.cons
 import { NotificationFrequencyIds } from "@/constants/notification-frequencies.constants";
 import { NotificationTypeIds } from "@/constants/notification-types.constants";
 import { RecipientTypeIds } from "@/constants/recipient-types.constants";
-import { NotFoundError } from "@/core/errors";
+import { NotFoundError, ValidationError } from "@/core/errors";
 import { AppError } from "@/core/errors/app-error";
 import db from "@/db";
 
@@ -132,9 +132,9 @@ export class OngoingGroupRequestsService {
     });
     if (existingActiveVariantRequest) {
       if (existingActiveVariantRequest.requestedBy === requestData.requestedBy) {
-        throw new AppError("You have already requested this groupage slot");
+        throw new ValidationError("You have already requested this groupage slot");
       }
-      throw new AppError("This groupage slot is already selected. Please choose another open slot");
+      throw new ValidationError("This groupage slot is already selected. Please choose another open slot");
     }
 
     // Check distinct open variant limit. Existing open variants can fill, but new
@@ -144,7 +144,7 @@ export class OngoingGroupRequestsService {
       requestData.variantId,
     );
     if (!limitCheck.canCreate) {
-      throw new AppError(
+      throw new ValidationError(
         `At this moment, we cannot open another variant for this item. Please choose among the ${limitCheck.limit} variants already open.`,
       );
     }

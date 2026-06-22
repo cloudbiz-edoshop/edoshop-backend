@@ -310,11 +310,7 @@ export class OngoingGroupRequestsRepository {
       throw new Error("Product not found");
     }
 
-    if (!product.concurrentReqs) {
-      throw new Error("Product concurrent requests limit is not set");
-    }
-
-    const limit = product.concurrentReqs;
+    const limit = product.concurrentReqs || 3;
     const openVariantRows = await queryBuilder
       .select({ variantId: ongoingGroupRequests.variantId })
       .from(ongoingGroupRequests)
