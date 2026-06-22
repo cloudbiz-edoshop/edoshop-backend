@@ -74,6 +74,7 @@ export const publicNewArrivalProductSchema = z.object({
         quantity: z.number().nullable().optional(),
         color: z.string().nullable().optional(),
         size: z.string().nullable().optional(),
+        images: z.array(z.string()).optional(),
       }),
     )
     .optional(),

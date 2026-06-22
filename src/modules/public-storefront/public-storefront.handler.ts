@@ -85,12 +85,18 @@ const getVariantColor = (variant: any) =>
 const getVariantSize = (variant: any) =>
   variant.size?.description || variant.size?.name || null;
 
+const getVariantImages = (variant: any) =>
+  (variant.images || [])
+    .map((image: any) => image?.imageUrl)
+    .filter(Boolean);
+
 const mapPublicVariant = (variant: any) => ({
   id: variant.id,
   variantCode: variant.variantCode,
   quantity: variant.quantity,
   color: getVariantColor(variant),
   size: getVariantSize(variant),
+  images: getVariantImages(variant),
 });
 
 export const listBanners = async (c: any) => {

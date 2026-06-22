@@ -323,7 +323,10 @@ export class OngoingGroupRequestsService {
     });
 
     const requests = await db.query.ongoingGroupRequests.findMany({
-      where: eq(ongoingGroupRequests.productId, productId),
+      where: and(
+        eq(ongoingGroupRequests.productId, productId),
+        ne(ongoingGroupRequests.approvalStatusId, GroupApprovalStatusIds.REJECTED),
+      ),
       with: {
         approvalStatus: true,
       },
