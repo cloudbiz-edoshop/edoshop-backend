@@ -416,9 +416,6 @@ export class OngoingGroupRequestsService {
     if (!request.ongoingGroupId || !request.ongoingGroup) {
       throw new AppError("Ongoing group not found for this request");
     }
-    if (request.ongoingGroup.orderedItems < request.ongoingGroup.thresholdToValidate) {
-      throw new ValidationError("This groupage has not reached its approval threshold yet");
-    }
 
     const groupRequests = await this.repository.findByOngoingGroupId(request.ongoingGroupId);
     const requestsToApprove = groupRequests.filter(
