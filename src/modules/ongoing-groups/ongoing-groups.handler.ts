@@ -3,6 +3,7 @@ import type {
   GetOneRoute,
   ListRoute,
   OngoingRequestsByUserRoute,
+  ApproveGroupRoute,
   PatchRoute,
   ProductSummaryRoute,
   RemoveRoute,
@@ -178,6 +179,18 @@ export const undo: AppRouteHandler<UndoRoute> = async (c) => {
       request,
       "Ongoing group request status reverted to pending successfully",
     ),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const approveGroup: AppRouteHandler<ApproveGroupRoute> = async (c) => {
+  const { id } = c.req.valid("param");
+  const user = c.get("user");
+
+  const result = await service.approveOngoingGroupByRequestId(id, user.id);
+
+  return c.json(
+    successResponse(result, "Ongoing group approved and customers notified"),
     HttpStatusCodes.OK,
   );
 };

@@ -20,6 +20,7 @@ import {
   ongoingGroupRequestsQueryParamsSchema,
   groupageProductSummaryParamsSchema,
   groupageProductSummaryResponseSchema,
+  approveOngoingGroupResponseSchema,
   paginatedOngoingGroupRequestsResponseSchema,
   patchOngoingGroupRequestSchema,
 } from "./ongoing-groups.schema";
@@ -263,6 +264,43 @@ export const undo = createRoute({
   },
 });
 
+export const approveGroup = createRoute({
+  path: "/ongoing-group-requests/{id}/approve-group",
+  method: "post",
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.ONGOING_GROUP_REQUESTS, operation: OperationType.UPDATE },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    params: idParams,
+  },
+  tags,
+  summary: "Approve all requests in an ongoing group",
+  description:
+    "Approves every pending request in the selected request's ongoing group and notifies each customer to proceed with payment.",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(approveOngoingGroupResponseSchema),
+      "Ongoing group approved successfully",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNPROCESSABLE_ENTITY,
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.FORBIDDEN,
+        HttpStatusCodes.NOT_FOUND,
+        HttpStatusCodes.BAD_REQUEST,
+        HttpStatusCodes.CONFLICT,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      idParams,
+    ),
+  },
+});
+
 export const ongoingRequestsByUser = createRoute({
   path: "/ongoing-requests/all",
   method: "get",
@@ -299,5 +337,6 @@ export type GetOneRoute = typeof getOne;
 export type PatchRoute = typeof patch;
 export type RemoveRoute = typeof remove;
 export type UndoRoute = typeof undo;
+export type ApproveGroupRoute = typeof approveGroup;
 export type OngoingRequestsByUserRoute = typeof ongoingRequestsByUser;
 export type ProductSummaryRoute = typeof productSummary;

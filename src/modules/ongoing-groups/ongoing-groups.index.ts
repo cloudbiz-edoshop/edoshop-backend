@@ -10,6 +10,7 @@ router.openapi(routes.create, handlers.create);
 router.openapi(routes.productSummary, handlers.productSummary);
 router.openapi(routes.getOne, handlers.getOne);
 router.openapi(routes.patch, handlers.patch);
+router.openapi(routes.approveGroup, handlers.approveGroup);
 router.openapi(routes.remove, handlers.remove);
 router.openapi(routes.undo, handlers.undo);
 router.openapi(routes.ongoingRequestsByUser, handlers.ongoingRequestsByUser);

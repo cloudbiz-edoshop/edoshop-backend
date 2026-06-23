@@ -305,3 +305,9 @@ export const patchOngoingGroupRequestSchema = z.object({
     path: ["reasonForRejection"],
   },
 );
+
+export const approveOngoingGroupResponseSchema = z.object({
+  ongoingGroupId: z.number(),
+  approvedCount: z.number(),
+});
+export type ApproveOngoingGroupResponse = z.infer<typeof approveOngoingGroupResponseSchema>;

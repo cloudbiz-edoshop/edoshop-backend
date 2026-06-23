@@ -408,6 +408,64 @@ export class OngoingGroupRequestsService {
     return request;
   }
 
+  async approveOngoingGroupByRequestId(requestId: number, approvedBy: number) {
+    const request = await this.repository.findById(requestId);
+    if (!request) {
+      throw new NotFoundError("Ongoing group request not found");
+    }
+    if (!request.ongoingGroupId || !request.ongoingGroup) {
+      throw new AppError("Ongoing group not found for this request");
+    }
+    if (request.ongoingGroup.orderedItems < request.ongoingGroup.thresholdToValidate) {
+      throw new ValidationError("This groupage has not reached its approval threshold yet");
+    }
+
+    const groupRequests = await this.repository.findByOngoingGroupId(request.ongoingGroupId);
+    const requestsToApprove = groupRequests.filter(
+      (groupRequest) =>
+        groupRequest.approvalStatusId !== GroupApprovalStatusIds.APPROVED &&
+        groupRequest.approvalStatusId !== GroupApprovalStatusIds.REJECTED,
+    );
+
+    if (!requestsToApprove.length) {
+      return {
+        ongoingGroupId: request.ongoingGroupId,
+        approvedCount: 0,
+      };
+    }
+
+    await db.transaction(async (tx) => {
+      for (const groupRequest of requestsToApprove) {
+        await this.repository.update(tx, groupRequest.id, {
+          approvalStatusId: GroupApprovalStatusIds.APPROVED,
+          updatedBy: approvedBy,
+        });
+      }
+
+      await this.repository.updateOngoingGroupApproval(
+        request.ongoingGroupId,
+        approvedBy,
+        tx,
+      );
+    });
+
+    const approvedRequests = await this.repository.findByOngoingGroupId(request.ongoingGroupId);
+    const newlyApprovedIds = new Set(requestsToApprove.map((groupRequest) => groupRequest.id));
+
+    await Promise.all(
+      approvedRequests
+        .filter((groupRequest) => newlyApprovedIds.has(groupRequest.id))
+        .map((groupRequest) =>
+          this.notifyCustomerRequestApproved(groupRequest, approvedBy),
+        ),
+    );
+
+    return {
+      ongoingGroupId: request.ongoingGroupId,
+      approvedCount: requestsToApprove.length,
+    };
+  }
+
   /**
    * Reject a request
    */
