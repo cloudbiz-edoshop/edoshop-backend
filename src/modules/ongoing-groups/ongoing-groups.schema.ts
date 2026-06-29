@@ -272,6 +272,8 @@ export const groupageProductSummaryResponseSchema = z.object({
   productId: z.number(),
   color: z.string().nullable().optional(),
   colorName: z.string().nullable().optional(),
+  concurrentLimit: z.number(),
+  openSizeCount: z.number(),
   group: z
     .object({
       id: z.number(),
@@ -296,6 +298,7 @@ export const groupageProductSummaryResponseSchema = z.object({
       requestId: z.number().nullable().optional(),
       takenBy: z.string().nullable().optional(),
       status: z.string().nullable(),
+      canTake: z.boolean(),
     }),
   ),
 });
@@ -312,6 +315,8 @@ export const activeOngoingColorGroupsResponseSchema = z.array(
     price: z.number().nullable(),
     group: groupageProductSummaryResponseSchema.shape.group,
     slots: groupageProductSummaryResponseSchema.shape.slots,
+    concurrentLimit: z.number(),
+    openSizeCount: z.number(),
   }),
 );
 export type ActiveOngoingColorGroupsResponse = z.infer<typeof activeOngoingColorGroupsResponseSchema>;

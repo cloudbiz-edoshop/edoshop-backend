@@ -177,8 +177,10 @@ export class OngoingGroupRequestsService {
       requestData.variantId,
     );
     if (!limitCheck.canCreate) {
+      const openSizeCount = limitCheck.currentRequests;
+      const sizeLabel = openSizeCount === 1 ? "size" : "sizes";
       throw new ValidationError(
-        `At this moment, we cannot open another size for this color. Please choose among the ${limitCheck.limit} sizes already open for this color.`,
+        `At this moment, we cannot open another size for this color. Please choose among the ${openSizeCount} ${sizeLabel} already open for this color.`,
       );
     }
 
@@ -422,10 +424,16 @@ export class OngoingGroupRequestsService {
       ? getVariantColorMeta(scopedVariants[0].color)
       : getVariantColorMeta(null);
 
+    const openVariantIds = new Set(scopedRequests.map((request) => request.variantId));
+    const concurrentLimit = product.concurrentReqs || 3;
+    const openSizeCount = openVariantIds.size;
+
     return {
       productId,
       color: colorFilter || scopedColorMeta.colorCode || null,
       colorName: scopedColorMeta.colorName || null,
+      concurrentLimit,
+      openSizeCount,
       group: scopedRequests.length && group
         ? {
             id: group.id,
@@ -440,6 +448,9 @@ export class OngoingGroupRequestsService {
       slots: scopedVariants.map((variant) => {
         const slotRequest = requestsByVariant.get(variant.id);
         const colorMeta = getVariantColorMeta(variant.color);
+        const isFilled = Boolean(slotRequest?.requestedQuantity);
+        const canTake = !isFilled && openSizeCount < concurrentLimit;
+
         return {
           variantId: variant.id,
           variantCode: variant.variantCode,
@@ -447,11 +458,12 @@ export class OngoingGroupRequestsService {
           color: colorMeta.colorCode,
           colorName: colorMeta.colorName,
           requestedQuantity: slotRequest?.requestedQuantity ?? 0,
-          isFilled: Boolean(slotRequest?.requestedQuantity),
+          isFilled,
           isMine: Boolean(slotRequest?.isMine),
           requestId: slotRequest?.requestId ?? null,
           takenBy: slotRequest?.takenBy ?? null,
           status: slotRequest?.status ?? null,
+          canTake,
         };
       }),
     };
@@ -503,6 +515,8 @@ export class OngoingGroupRequestsService {
           price: product?.price ?? null,
           group: summary.group,
           slots: summary.slots,
+          concurrentLimit: summary.concurrentLimit,
+          openSizeCount: summary.openSizeCount,
         };
       }),
     );
