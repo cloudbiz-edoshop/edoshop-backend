@@ -42,14 +42,98 @@ function getVariantColorMeta(color?: ColorLike) {
   return { colorName, colorCode };
 }
 
+const COLOR_NAME_BY_HEX: Record<string, string> = {
+  "#795548": "brown",
+  "#000000": "black",
+  "#0000ff": "blue",
+  "#43e600": "green",
+  "#ff69b4": "pink",
+  "#800080": "purple",
+  "#ff1111": "red",
+  "#ffd600": "yellow",
+  "#c0c0c0": "silver",
+  "#ffffff": "white",
+};
+
+const COLOR_HEX_BY_NAME = Object.entries(COLOR_NAME_BY_HEX).reduce<Record<string, string>>(
+  (acc, [hex, name]) => {
+    acc[name] = hex;
+    return acc;
+  },
+  {},
+);
+
+function getColorMatchTokens(color?: ColorLike) {
+  const meta = getVariantColorMeta(color);
+  const tokens = new Set<string>();
+
+  for (const value of [meta.colorCode, meta.colorName]) {
+    const normalized = value.trim().toLowerCase();
+    if (!normalized) continue;
+    tokens.add(normalized);
+
+    if (isHexColor(normalized)) {
+      const name = COLOR_NAME_BY_HEX[normalized.toLowerCase()];
+      if (name) tokens.add(name);
+    } else {
+      const hex = COLOR_HEX_BY_NAME[normalized];
+      if (hex) tokens.add(hex);
+    }
+  }
+
+  return tokens;
+}
+
 function colorValuesMatch(color: ColorLike, filter: string) {
   const normalizedFilter = filter.trim().toLowerCase();
   if (!normalizedFilter) return true;
 
-  const meta = getVariantColorMeta(color);
-  return [meta.colorCode, meta.colorName]
-    .map((value) => value.trim().toLowerCase())
-    .includes(normalizedFilter);
+  const filterTokens = new Set<string>([normalizedFilter]);
+  if (isHexColor(normalizedFilter)) {
+    const name = COLOR_NAME_BY_HEX[normalizedFilter.toLowerCase()];
+    if (name) filterTokens.add(name);
+  } else {
+    const hex = COLOR_HEX_BY_NAME[normalizedFilter];
+    if (hex) filterTokens.add(hex);
+  }
+
+  const colorTokens = getColorMatchTokens(color);
+  return [...filterTokens].some((token) => colorTokens.has(token));
+}
+
+function resolveScopedColorIds(
+  productVariants: Array<{ colorId: number; color: ColorLike }>,
+  colorFilter?: string,
+  colorId?: number | null,
+) {
+  if (colorId) {
+    return new Set([colorId]);
+  }
+
+  const normalizedColorFilter = colorFilter?.trim().toLowerCase() || "";
+  if (!normalizedColorFilter) {
+    return null;
+  }
+
+  const directMatches = productVariants.filter((variant) =>
+    colorValuesMatch(variant.color, normalizedColorFilter),
+  );
+
+  if (!directMatches.length) {
+    return new Set<number>();
+  }
+
+  return new Set(directMatches.map((variant) => variant.colorId));
+}
+
+function getRequesterClientId(requester?: {
+  id?: number;
+  customer?: { customerCode?: string | null } | null;
+} | null) {
+  if (!requester) return null;
+  if (requester.customer?.customerCode) return requester.customer.customerCode;
+  if (requester.id) return `C-${requester.id}`;
+  return null;
 }
 
 export class OngoingGroupRequestsService {
@@ -170,20 +254,6 @@ export class OngoingGroupRequestsService {
       throw new ValidationError("This groupage slot is already selected. Please choose another open slot");
     }
 
-    // Check distinct open variant limit. Existing open variants can fill, but new
-    // variants cannot exceed the admin-configured product.concurrentReqs limit.
-    const limitCheck = await this.repository.checkConcurrentRequestsLimit(
-      requestData.productId,
-      requestData.variantId,
-    );
-    if (!limitCheck.canCreate) {
-      const openSizeCount = limitCheck.currentRequests;
-      const sizeLabel = openSizeCount === 1 ? "size" : "sizes";
-      throw new ValidationError(
-        `At this moment, we cannot open another size for this color. Please choose among the ${openSizeCount} ${sizeLabel} already open for this color.`,
-      );
-    }
-
     const request = await db.transaction(async (tx) => {
       // Find or create ongoing group for this product
       const group = await this.repository.findOrCreateOngoingGroup(
@@ -291,7 +361,6 @@ export class OngoingGroupRequestsService {
    * Delete an ongoing group request
    */
   async deleteOngoingGroupRequest(id: number, userId: number) {
-    // Check if request exists
     const existingRequest = await this.repository.findById(id);
     if (!existingRequest) {
       throw new NotFoundError("Ongoing group request not found");
@@ -307,6 +376,30 @@ export class OngoingGroupRequestsService {
       throw new AppError("This request is confirmed. Please contact Edoshop to remove it.");
     }
 
+    await this.removeOngoingGroupRequestRecord(id, existingRequest, userId);
+  }
+
+  /**
+   * Admin-only cancellation for a customer slot (no 24h window).
+   */
+  async adminCancelOngoingGroupRequest(id: number, adminUserId: number) {
+    const existingRequest = await this.repository.findById(id);
+    if (!existingRequest) {
+      throw new NotFoundError("Ongoing group request not found");
+    }
+    if (existingRequest.approvalStatusId === GroupApprovalStatusIds.REJECTED) {
+      throw new ValidationError("This request is already rejected");
+    }
+
+    await this.removeOngoingGroupRequestRecord(id, existingRequest, adminUserId);
+    return existingRequest;
+  }
+
+  private async removeOngoingGroupRequestRecord(
+    id: number,
+    existingRequest: NonNullable<Awaited<ReturnType<OngoingGroupRequestsRepository["findById"]>>>,
+    updatedBy: number,
+  ) {
     await db.transaction(async (tx) => {
       await this.repository.delete(tx, id);
       await tx
@@ -316,7 +409,7 @@ export class OngoingGroupRequestsService {
             0,
             (existingRequest.ongoingGroup?.orderedItems ?? 0) - existingRequest.quantity,
           ),
-          updatedBy: userId,
+          updatedBy,
           updatedAt: new Date().toISOString(),
         } as any)
         .where(eq(ongoingGroups.id, existingRequest.ongoingGroupId));
@@ -337,7 +430,12 @@ export class OngoingGroupRequestsService {
     return this.repository.checkConcurrentRequestsLimit(productId);
   }
 
-  async getProductGroupageSummary(productId: number, userId: number, colorFilter?: string) {
+  async getProductGroupageSummary(
+    productId: number,
+    userId: number,
+    colorFilter?: string,
+    colorId?: number | null,
+  ) {
     const product = await db.query.products.findFirst({
       where: eq(products.id, productId),
     });
@@ -358,11 +456,13 @@ export class OngoingGroupRequestsService {
     });
 
     const normalizedColorFilter = colorFilter?.trim().toLowerCase() || "";
-    const variantMatchesColor = (variant: typeof productVariants[number]) =>
-      colorValuesMatch(variant.color, normalizedColorFilter);
-
-    const scopedVariants = productVariants.filter(variantMatchesColor);
-    const scopedVariantIds = new Set(scopedVariants.map((variant) => variant.id));
+    const scopedColorIds = resolveScopedColorIds(
+      productVariants,
+      normalizedColorFilter,
+      colorId,
+    );
+    const variantMatchesScope = (variant: typeof productVariants[number]) =>
+      scopedColorIds === null || scopedColorIds.has(variant.colorId);
 
     const requests = await db.query.ongoingGroupRequests.findMany({
       where: and(
@@ -371,13 +471,42 @@ export class OngoingGroupRequestsService {
       ),
       with: {
         approvalStatus: true,
-        requestedBy: true,
+        requestedBy: {
+          with: {
+            customer: {
+              columns: {
+                customerCode: true,
+              },
+            },
+          },
+        },
       },
     });
 
-    const scopedRequests = requests.filter((request) =>
-      scopedVariantIds.has(request.variantId),
-    );
+    const requestMatchesScope = (request: (typeof requests)[number]) => {
+      const variant = productVariants.find((item) => item.id === request.variantId);
+      if (!variant) return false;
+      return variantMatchesScope(variant);
+    };
+
+    let scopedVariants = scopedColorIds === null
+      ? productVariants
+      : productVariants.filter((variant) => scopedColorIds.has(variant.colorId));
+    let scopedRequests = requests.filter(requestMatchesScope);
+
+    if (!scopedVariants.length && scopedRequests.length) {
+      const anchorVariant = productVariants.find(
+        (variant) => variant.id === scopedRequests[0]?.variantId,
+      );
+      if (anchorVariant) {
+        scopedVariants = productVariants.filter(
+          (variant) => variant.colorId === anchorVariant.colorId,
+        );
+        scopedRequests = requests.filter((request) =>
+          scopedVariants.some((variant) => variant.id === request.variantId),
+        );
+      }
+    }
 
     const requestsByVariant = scopedRequests.reduce((acc, request) => {
       const requestedById = typeof request.requestedBy === "object"
@@ -388,7 +517,7 @@ export class OngoingGroupRequestsService {
         isMine: false,
         requestId: null as number | null,
         status: request.approvalStatus?.name ?? null,
-        takenBy: null as string | null,
+        clientId: null as string | null,
       };
       current.requestedQuantity += request.quantity;
       if (requestedById === userId) {
@@ -397,11 +526,12 @@ export class OngoingGroupRequestsService {
       }
       current.status = request.approvalStatus?.name ?? current.status;
       if (!current.isMine && request.requestedBy && typeof request.requestedBy === "object") {
-        const requester = request.requestedBy as { fullName?: string; username?: string };
-        current.takenBy =
-          requester.fullName?.split(" ")?.[0] ||
-          requester.username ||
-          "Taken";
+        current.clientId = getRequesterClientId(
+          request.requestedBy as {
+            id?: number;
+            customer?: { customerCode?: string | null } | null;
+          },
+        );
       }
       acc.set(request.variantId, current);
       return acc;
@@ -410,7 +540,7 @@ export class OngoingGroupRequestsService {
       isMine: boolean;
       requestId: number | null;
       status: string | null;
-      takenBy: string | null;
+      clientId: string | null;
     }>());
 
     const totalItems = scopedVariants.length || 0;
@@ -449,7 +579,7 @@ export class OngoingGroupRequestsService {
         const slotRequest = requestsByVariant.get(variant.id);
         const colorMeta = getVariantColorMeta(variant.color);
         const isFilled = Boolean(slotRequest?.requestedQuantity);
-        const canTake = !isFilled && openSizeCount < concurrentLimit;
+        const canTake = !isFilled;
 
         return {
           variantId: variant.id,
@@ -461,7 +591,7 @@ export class OngoingGroupRequestsService {
           isFilled,
           isMine: Boolean(slotRequest?.isMine),
           requestId: slotRequest?.requestId ?? null,
-          takenBy: slotRequest?.takenBy ?? null,
+          clientId: slotRequest?.clientId ?? null,
           status: slotRequest?.status ?? null,
           canTake,
         };
@@ -487,13 +617,21 @@ export class OngoingGroupRequestsService {
       return [];
     }
 
-    const groupKeys = new Map<string, { productId: number; color: string; colorName: string }>();
+    const groupKeys = new Map<string, {
+      productId: number;
+      colorId: number;
+      color: string;
+      colorName: string;
+    }>();
     for (const request of requests) {
+      const colorId = request.variant?.colorId;
+      if (!colorId) continue;
       const colorMeta = getVariantColorMeta(request.variant?.color);
-      const key = `${request.productId}::${colorMeta.colorCode.trim().toLowerCase()}`;
+      const key = `${request.productId}::${colorId}`;
       if (!groupKeys.has(key)) {
         groupKeys.set(key, {
           productId: request.productId,
+          colorId,
           color: colorMeta.colorCode,
           colorName: colorMeta.colorName,
         });
@@ -501,8 +639,13 @@ export class OngoingGroupRequestsService {
     }
 
     const cards = await Promise.all(
-      [...groupKeys.values()].map(async ({ productId, color, colorName }) => {
-        const summary = await this.getProductGroupageSummary(productId, userId, color);
+      [...groupKeys.values()].map(async ({ productId, colorId, color, colorName }) => {
+        const summary = await this.getProductGroupageSummary(
+          productId,
+          userId,
+          color,
+          colorId,
+        );
         const product = await db.query.products.findFirst({
           where: eq(products.id, productId),
         });

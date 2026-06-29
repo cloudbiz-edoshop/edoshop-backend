@@ -304,6 +304,42 @@ export const approveGroup = createRoute({
   },
 });
 
+export const adminCancel = createRoute({
+  path: "/ongoing-group-requests/{id}/admin-cancel",
+  method: "post",
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.ONGOING_GROUP_REQUESTS, operation: OperationType.DELETE },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    params: idParams,
+  },
+  tags,
+  summary: "Admin cancel a customer groupage slot",
+  description:
+    "Removes a customer groupage request on behalf of Edoshop staff. Bypasses the 24-hour customer cancellation window.",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(ongoingGroupRequestResponseSchema),
+      "Ongoing group request cancelled by admin",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNPROCESSABLE_ENTITY,
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.FORBIDDEN,
+        HttpStatusCodes.NOT_FOUND,
+        HttpStatusCodes.BAD_REQUEST,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      idParams,
+    ),
+  },
+});
+
 export const ongoingRequestsByUser = createRoute({
   path: "/ongoing-requests/all",
   method: "get",
@@ -368,6 +404,7 @@ export type PatchRoute = typeof patch;
 export type RemoveRoute = typeof remove;
 export type UndoRoute = typeof undo;
 export type ApproveGroupRoute = typeof approveGroup;
+export type AdminCancelRoute = typeof adminCancel;
 export type OngoingRequestsByUserRoute = typeof ongoingRequestsByUser;
 export type ActiveColorGroupsRoute = typeof activeColorGroups;
 export type ProductSummaryRoute = typeof productSummary;

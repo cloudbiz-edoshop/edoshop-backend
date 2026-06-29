@@ -296,7 +296,7 @@ export const groupageProductSummaryResponseSchema = z.object({
       isFilled: z.boolean(),
       isMine: z.boolean(),
       requestId: z.number().nullable().optional(),
-      takenBy: z.string().nullable().optional(),
+      clientId: z.string().nullable().optional(),
       status: z.string().nullable(),
       canTake: z.boolean(),
     }),

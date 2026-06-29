@@ -182,8 +182,14 @@ export class RayonsService {
               .filter((bin): bin is NonNullable<typeof bin> => Boolean(bin));
 
             return { ...shelf, bins };
-          })
-          .filter((shelf) => shelf.bins.length > 0);
+          });
+
+        const hasSearchFilter = Boolean(
+          normalizedSearchTerm || normalizedLocationCode,
+        );
+        const visibleShelves = hasSearchFilter
+          ? shelves.filter((shelf) => shelf.bins.length > 0)
+          : shelves;
 
         return {
           ...rayon,
@@ -191,8 +197,8 @@ export class RayonsService {
           usedBins: locationsUsed,
           totalItemsInRayon,
           stockTotal,
-          shelves,
-          totalShelves: shelves.length,
+          shelves: visibleShelves,
+          totalShelves: rayon.shelves.length,
         };
       })
       .filter(

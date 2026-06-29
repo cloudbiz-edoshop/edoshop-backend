@@ -13,6 +13,7 @@ router.openapi(routes.getOne, handlers.getOne);
 router.openapi(routes.patch, handlers.patch);
 router.openapi(routes.approveGroup, handlers.approveGroup);
 router.openapi(routes.remove, handlers.remove);
+router.openapi(routes.adminCancel, handlers.adminCancel);
 router.openapi(routes.undo, handlers.undo);
 router.openapi(routes.ongoingRequestsByUser, handlers.ongoingRequestsByUser);
 export default router;

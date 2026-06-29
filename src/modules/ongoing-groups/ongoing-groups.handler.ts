@@ -4,6 +4,7 @@ import type {
   ListRoute,
   OngoingRequestsByUserRoute,
   ApproveGroupRoute,
+  AdminCancelRoute,
   PatchRoute,
   ProductSummaryRoute,
   ActiveColorGroupsRoute,
@@ -183,6 +184,21 @@ export const remove: AppRouteHandler<RemoveRoute> = async (c) => {
       message: STANDARD_MESSAGES.SUCCESS.DELETED,
       data: null,
     },
+    HttpStatusCodes.OK,
+  );
+};
+
+export const adminCancel: AppRouteHandler<AdminCancelRoute> = async (c) => {
+  const { id } = c.req.valid("param");
+  const user = c.get("user");
+
+  const cancelled = await service.adminCancelOngoingGroupRequest(id, user.id);
+
+  return c.json(
+    successResponse<OngoingGroupRequestResponse>(
+      cancelled,
+      "Groupage slot cancelled by admin",
+    ),
     HttpStatusCodes.OK,
   );
 };
