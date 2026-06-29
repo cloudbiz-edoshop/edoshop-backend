@@ -19,7 +19,9 @@ import {
   ongoingGroupRequestResponseSchema,
   ongoingGroupRequestsQueryParamsSchema,
   groupageProductSummaryParamsSchema,
+  groupageProductSummaryQuerySchema,
   groupageProductSummaryResponseSchema,
+  activeOngoingColorGroupsResponseSchema,
   approveOngoingGroupResponseSchema,
   paginatedOngoingGroupRequestsResponseSchema,
   patchOngoingGroupRequestSchema,
@@ -103,9 +105,10 @@ export const productSummary = createRoute({
   request: {
     headers: jwtHeaderSchema,
     params: groupageProductSummaryParamsSchema,
+    query: groupageProductSummaryQuerySchema,
   },
-  summary: "Get customer-safe groupage summary for a product",
-  description: "Returns group completion and variant slot status for storefront groupage product details.",
+  summary: "Get customer-safe ongoing group summary for a product",
+  description: "Returns group completion and variant slot status for a product color on the storefront.",
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
       groupageProductSummaryResponseSchema,
@@ -331,6 +334,33 @@ export const ongoingRequestsByUser = createRoute({
   },
 });
 
+export const activeColorGroups = createRoute({
+  path: "/ongoing-group-requests/active-groups",
+  method: "get",
+  tags,
+  middleware: [
+    jwtMiddleware(),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+  },
+  summary: "List active ongoing groups grouped by product and color",
+  description: "Returns storefront cards for ongoing groups that already have at least one taken slot.",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      activeOngoingColorGroupsResponseSchema,
+      "Active ongoing color groups",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      z.object({}),
+    ),
+  },
+});
+
 export type ListRoute = typeof list;
 export type CreateRoute = typeof create;
 export type GetOneRoute = typeof getOne;
@@ -339,4 +369,5 @@ export type RemoveRoute = typeof remove;
 export type UndoRoute = typeof undo;
 export type ApproveGroupRoute = typeof approveGroup;
 export type OngoingRequestsByUserRoute = typeof ongoingRequestsByUser;
+export type ActiveColorGroupsRoute = typeof activeColorGroups;
 export type ProductSummaryRoute = typeof productSummary;

@@ -13,6 +13,7 @@ import {
   ongoingGroupRequests,
   ongoingGroups,
   products,
+  variants,
 } from "@/db/models";
 
 import {
@@ -20,6 +21,13 @@ import {
   createSortCondition,
   getPaginationValues,
 } from "@/lib/searching-sorting";
+
+const variantWithDetails = {
+  with: {
+    color: true,
+    size: true,
+  },
+} as const;
 
 /**
  * Repository for ongoing group requests-related database operations
@@ -42,10 +50,14 @@ export class OngoingGroupRequestsRepository {
         product: {
           with: {
             directOrderProduct: true,
-            dropshippingProduct: true,
+            dropshippingProduct: {
+              with: {
+                groupCriteriaId: true,
+              },
+            },
           },
         },
-        variant: true,
+        variant: variantWithDetails,
         approvalStatus: true,
         requestedBy: {
           columns: {
@@ -158,10 +170,14 @@ export class OngoingGroupRequestsRepository {
         product: {
           with: {
             directOrderProduct: true,
-            dropshippingProduct: true,
+            dropshippingProduct: {
+              with: {
+                groupCriteriaId: true,
+              },
+            },
           },
         },
-        variant: true,
+        variant: variantWithDetails,
         approvalStatus: true,
         requestedBy: true,
         createdBy: true,
@@ -298,7 +314,6 @@ export class OngoingGroupRequestsRepository {
   async checkConcurrentRequestsLimit(productId: number, variantId?: number, tx?: TX) {
     const queryBuilder = tx ?? db;
 
-    // Get product's concurrent requests limit
     const product = await queryBuilder.query.products.findFirst({
       where: eq(products.id, productId),
       columns: {
@@ -311,18 +326,40 @@ export class OngoingGroupRequestsRepository {
     }
 
     const limit = product.concurrentReqs || 3;
-    const openVariantRows = await queryBuilder
-      .select({ variantId: ongoingGroupRequests.variantId })
-      .from(ongoingGroupRequests)
-      .where(and(
+    let targetColorId: number | null = null;
+
+    if (variantId) {
+      const variant = await queryBuilder.query.variants.findFirst({
+        where: eq(variants.id, variantId),
+        columns: { colorId: true },
+      });
+      targetColorId = variant?.colorId ?? null;
+    }
+
+    const openRequests = await queryBuilder.query.ongoingGroupRequests.findMany({
+      where: and(
         eq(ongoingGroupRequests.productId, productId),
         ne(ongoingGroupRequests.approvalStatusId, GroupApprovalStatusIds.REJECTED),
-      ))
-      .groupBy(ongoingGroupRequests.variantId);
-    const openVariantIds = openVariantRows.map((row) => row.variantId);
-    const currentRequests = openVariantIds.length;
+      ),
+      columns: { variantId: true },
+      with: {
+        variant: {
+          columns: { id: true, colorId: true },
+        },
+      },
+    });
+
+    const openVariantIds = new Set<number>();
+    for (const request of openRequests) {
+      const requestColorId = request.variant?.colorId ?? null;
+      if (targetColorId == null || requestColorId === targetColorId) {
+        openVariantIds.add(request.variantId);
+      }
+    }
+
+    const currentRequests = openVariantIds.size;
     const isExistingOpenVariant = variantId
-      ? openVariantIds.includes(variantId)
+      ? openVariantIds.has(variantId)
       : false;
 
     return {

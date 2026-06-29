@@ -69,11 +69,81 @@ const sendPublicList = <T>(
     HttpStatusCodes.OK,
   );
 
-const getProductImageUrl = (product: any) =>
-  product.imageUrls?.find(Boolean) ||
-  product.variants
-    ?.flatMap((variant: any) => variant.images || [])
-    ?.find((image: any) => image?.imageUrl)?.imageUrl || null;
+const getVariantImageUrl = (image: any) =>
+  typeof image === "string" ? image : image?.imageUrl || null;
+
+const getProductImageUrl = (product: any) => {
+  const fromProduct = product.imageUrls?.find(Boolean) || product.imageUrl;
+  if (fromProduct) return fromProduct;
+
+  for (const variant of product.variants || []) {
+    for (const image of variant.images || []) {
+      const url = getVariantImageUrl(image);
+      if (url) return url;
+    }
+  }
+
+  return null;
+};
+
+const enrichProductImages = (products: any[]) => {
+  const imageByName = new Map<string, string>();
+
+  for (const product of products) {
+    const imageUrl = getProductImageUrl(product);
+    if (!imageUrl) continue;
+
+    const key = String(product.name || "").trim().toLowerCase();
+    if (key && !imageByName.has(key)) {
+      imageByName.set(key, imageUrl);
+    }
+  }
+
+  return products.map((product) => {
+    const imageUrl =
+      getProductImageUrl(product) ||
+      imageByName.get(String(product.name || "").trim().toLowerCase()) ||
+      null;
+
+    return imageUrl ? { ...product, imageUrl } : product;
+  });
+};
+
+const mapPublicProduct = (product: any) => ({
+  id: product.id,
+  name: product.name,
+  price: product.price,
+  imageUrl: getProductImageUrl(product),
+  imageUrls: product.imageUrls || [],
+  shortDescription: product.shortDescription,
+  fullDescription: product.fullDescription,
+  specifications: product.specifications,
+  totalItems: product.totalItems,
+  storeId: product.storeId,
+  seriesId: product.seriesId,
+  categoryIds: getPublicCategories(product).map((category: any) => category.id).filter(Boolean),
+  categories: getPublicCategories(product),
+  isNewArrival: product.isNewArrival,
+  newArrivalId: product.newArrivalId,
+  newArrivalStartDate: product.newArrivalStartDate,
+  newArrivalEndDate: product.newArrivalEndDate,
+  colors: Array.from(
+    new Set(
+      getPublicVariants(product)
+        .map((variant: any) => getVariantColor(variant))
+        .filter((color): color is string => Boolean(color)) || [],
+    ),
+  ),
+  sizes: Array.from(
+    new Set(
+      getPublicVariants(product)
+        .map((variant: any) => getVariantSize(variant))
+        .filter((size): size is string => Boolean(size)) || [],
+    ),
+  ),
+  variants: getPublicVariants(product).map(mapPublicVariant),
+  dropshippingDetails: product.dropshippingDetails || null,
+});
 
 const getPublicCategories = (product: any) => product.categories || [];
 
@@ -172,41 +242,7 @@ export const listCategories = async (c: any) => {
 export const listNewArrivalProducts = async (c: any) => {
   const params = getListParams(c);
   const result = await newArrivalsService.getOnlyNewArrivalProducts(params);
-  const publicProducts = result.data.map((product: any) => ({
-    id: product.id,
-    name: product.name,
-    price: product.price,
-    imageUrl: getProductImageUrl(product),
-    imageUrls: product.imageUrls || [],
-    shortDescription: product.shortDescription,
-    fullDescription: product.fullDescription,
-    specifications: product.specifications,
-    totalItems: product.totalItems,
-    storeId: product.storeId,
-    seriesId: product.seriesId,
-    categoryIds: getPublicCategories(product).map((category: any) => category.id).filter(Boolean),
-    categories: getPublicCategories(product),
-    isNewArrival: product.isNewArrival,
-    newArrivalId: product.newArrivalId,
-    newArrivalStartDate: product.newArrivalStartDate,
-    newArrivalEndDate: product.newArrivalEndDate,
-    colors: Array.from(
-      new Set(
-        getPublicVariants(product)
-          .map((variant: any) => getVariantColor(variant))
-          .filter((color): color is string => Boolean(color)) || [],
-      ),
-    ),
-    sizes: Array.from(
-      new Set(
-        getPublicVariants(product)
-          .map((variant: any) => getVariantSize(variant))
-          .filter((size): size is string => Boolean(size)) || [],
-      ),
-    ),
-    variants: getPublicVariants(product).map(mapPublicVariant),
-    dropshippingDetails: product.dropshippingDetails || null,
-  }));
+  const publicProducts = enrichProductImages(result.data).map(mapPublicProduct);
 
   return sendPublicList(
     c,
@@ -222,38 +258,7 @@ export const listNewArrivalProducts = async (c: any) => {
 export const listProducts = async (c: any) => {
   const params = getListParams(c);
   const result = await productsService.listProducts(params);
-  const publicProducts = result.data.map((product: any) => ({
-    id: product.id,
-    name: product.name,
-    price: product.price,
-    imageUrl: getProductImageUrl(product),
-    imageUrls: product.imageUrls || [],
-    shortDescription: product.shortDescription,
-    fullDescription: product.fullDescription,
-    specifications: product.specifications,
-    totalItems: product.totalItems,
-    storeId: product.storeId,
-    seriesId: product.seriesId,
-    categoryIds: getPublicCategories(product).map((category: any) => category.id).filter(Boolean),
-    categories: getPublicCategories(product),
-    isNewArrival: product.isNewArrival,
-    colors: Array.from(
-      new Set(
-        getPublicVariants(product)
-          .map((variant: any) => getVariantColor(variant))
-          .filter((color): color is string => Boolean(color)) || [],
-      ),
-    ),
-    sizes: Array.from(
-      new Set(
-        getPublicVariants(product)
-          .map((variant: any) => getVariantSize(variant))
-          .filter((size): size is string => Boolean(size)) || [],
-      ),
-    ),
-    variants: getPublicVariants(product).map(mapPublicVariant),
-    dropshippingDetails: product.dropshippingDetails || null,
-  }));
+  const publicProducts = enrichProductImages(result.data).map(mapPublicProduct);
 
   return sendPublicList(
     c,

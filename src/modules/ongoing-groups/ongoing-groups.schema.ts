@@ -233,6 +233,10 @@ export const ongoingGroupRequestResponseSchema = ongoingGroupRequestsSchema.exte
       id: z.number(),
       productId: z.number(),
       dropshippingCode: z.string().nullable(),
+      totalItems: z.number().nullable().optional(),
+      groupCriteriaId: z.number().nullable().optional(),
+      completionCriteria: z.union([z.string(), z.number()]).nullable().optional(),
+      groupCriteriaName: z.string().nullable().optional(),
     })
     .nullable()
     .optional(),
@@ -260,8 +264,14 @@ export const groupageProductSummaryParamsSchema = z.object({
   productId: z.coerce.number().min(1),
 });
 
+export const groupageProductSummaryQuerySchema = z.object({
+  color: z.string().optional(),
+});
+
 export const groupageProductSummaryResponseSchema = z.object({
   productId: z.number(),
+  color: z.string().nullable().optional(),
+  colorName: z.string().nullable().optional(),
   group: z
     .object({
       id: z.number(),
@@ -279,14 +289,32 @@ export const groupageProductSummaryResponseSchema = z.object({
       variantCode: z.string().nullable(),
       size: z.string().nullable(),
       color: z.string().nullable(),
+      colorName: z.string().nullable().optional(),
       requestedQuantity: z.number(),
       isFilled: z.boolean(),
       isMine: z.boolean(),
+      requestId: z.number().nullable().optional(),
+      takenBy: z.string().nullable().optional(),
       status: z.string().nullable(),
     }),
   ),
 });
+
 export type GroupageProductSummaryResponse = z.infer<typeof groupageProductSummaryResponseSchema>;
+
+export const activeOngoingColorGroupsResponseSchema = z.array(
+  z.object({
+    productId: z.number(),
+    productName: z.string(),
+    color: z.string(),
+    colorName: z.string(),
+    imageUrl: z.string().nullable(),
+    price: z.number().nullable(),
+    group: groupageProductSummaryResponseSchema.shape.group,
+    slots: groupageProductSummaryResponseSchema.shape.slots,
+  }),
+);
+export type ActiveOngoingColorGroupsResponse = z.infer<typeof activeOngoingColorGroupsResponseSchema>;
 
 // PATCH schema: only approval/rejection allowed
 export const patchOngoingGroupRequestSchema = z.object({

@@ -6,6 +6,7 @@ import type {
   ApproveGroupRoute,
   PatchRoute,
   ProductSummaryRoute,
+  ActiveColorGroupsRoute,
   RemoveRoute,
   UndoRoute,
 } from "./ongoing-groups.route";
@@ -22,6 +23,49 @@ import * as HttpStatusCodes from "@/lib/http-status-codes";
 import { OngoingGroupRequestsService } from "./ongoing-groups.service";
 
 const service = new OngoingGroupRequestsService();
+
+const mapDropshippingProductResponse = (dropshippingProduct: {
+  id: number;
+  productId: number | null;
+  dropshippingCode: string | null;
+  totalItems?: number | null;
+  groupCriteriaId?: number | { id?: number; name?: string | null } | null;
+  completionCriteria?: string | null;
+} | null | undefined) => {
+  if (!dropshippingProduct?.productId) {
+    return null;
+  }
+
+  const criteriaRelation = typeof dropshippingProduct.groupCriteriaId === "object"
+    ? dropshippingProduct.groupCriteriaId
+    : null;
+  const criteriaId = typeof dropshippingProduct.groupCriteriaId === "number"
+    ? dropshippingProduct.groupCriteriaId
+    : criteriaRelation?.id ?? null;
+
+  return {
+    id: dropshippingProduct.id,
+    productId: dropshippingProduct.productId,
+    dropshippingCode: dropshippingProduct.dropshippingCode,
+    totalItems: dropshippingProduct.totalItems ?? null,
+    groupCriteriaId: criteriaId,
+    completionCriteria: dropshippingProduct.completionCriteria ?? null,
+    groupCriteriaName: criteriaRelation?.name ?? null,
+  };
+};
+
+const mapOngoingGroupRequestResponse = (item: Record<string, any>) => ({
+  ...item,
+  directOrderProduct:
+    item.product?.directOrderProduct && item.product.directOrderProduct.productId != null
+      ? {
+          id: item.product.directOrderProduct.id,
+          productId: item.product.directOrderProduct.productId,
+          directOrderCode: item.product.directOrderProduct.directOrderCode,
+        }
+      : null,
+  dropshippingProduct: mapDropshippingProductResponse(item.product?.dropshippingProduct),
+});
 
 /**
  * List ongoing group requests
@@ -41,25 +85,7 @@ export const list: AppRouteHandler<ListRoute> = async (c) => {
 
   return c.json(
     {
-      data: result.data.map(item => ({
-        ...item,
-        directOrderProduct:
-          item.product?.directOrderProduct && item.product.directOrderProduct.productId != null
-            ? {
-                id: item.product.directOrderProduct.id,
-                productId: item.product.directOrderProduct.productId,
-                directOrderCode: item.product.directOrderProduct.directOrderCode,
-              }
-            : null,
-        dropshippingProduct:
-          item.product?.dropshippingProduct && item.product.dropshippingProduct.productId != null
-            ? {
-                id: item.product.dropshippingProduct.id,
-                productId: item.product.dropshippingProduct.productId,
-                dropshippingCode: item.product.dropshippingProduct.dropshippingCode,
-              }
-            : null,
-      })),
+      data: result.data.map(mapOngoingGroupRequestResponse),
       pagination: result.pagination,
       searchableFields: result.searchableFields,
     },
@@ -202,31 +228,20 @@ export const ongoingRequestsByUser: AppRouteHandler<OngoingRequestsByUserRoute> 
   const user = c.get("user");
   const result = await service.listOngoingRequestsByUser(user.id);
   return c.json({
-    requests: result.requests.map(item => ({
-      ...item,
-      directOrderProduct:
-        item.product?.directOrderProduct && item.product.directOrderProduct.productId != null
-          ? {
-              id: item.product.directOrderProduct.id,
-              productId: item.product.directOrderProduct.productId,
-              directOrderCode: item.product.directOrderProduct.directOrderCode,
-            }
-          : null,
-      dropshippingProduct:
-        item.product?.dropshippingProduct && item.product.dropshippingProduct.productId != null
-          ? {
-              id: item.product.dropshippingProduct.id,
-              productId: item.product.dropshippingProduct.productId,
-              dropshippingCode: item.product.dropshippingProduct.dropshippingCode,
-            }
-          : null,
-    })),
+    requests: result.requests.map(mapOngoingGroupRequestResponse),
   }, HttpStatusCodes.OK);
 };
 
 export const productSummary: AppRouteHandler<ProductSummaryRoute> = async (c) => {
   const { productId } = c.req.valid("param");
+  const { color } = c.req.valid("query");
   const user = c.get("user");
-  const result = await service.getProductGroupageSummary(productId, user.id);
+  const result = await service.getProductGroupageSummary(productId, user.id, color);
+  return c.json(result, HttpStatusCodes.OK);
+};
+
+export const activeColorGroups: AppRouteHandler<ActiveColorGroupsRoute> = async (c) => {
+  const user = c.get("user");
+  const result = await service.listActiveOngoingColorGroups(user.id);
   return c.json(result, HttpStatusCodes.OK);
 };

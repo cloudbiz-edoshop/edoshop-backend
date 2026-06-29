@@ -19,6 +19,39 @@ import { OngoingGroupRequestsRepository } from "./ongoing-groups.repository";
 const REQUEST_CANCEL_WINDOW_HOURS = 24;
 const SYSTEM_USER_ID = 1;
 
+type ColorLike = { name?: string | null; description?: string | null } | null | undefined;
+
+function isHexColor(value: string) {
+  return /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(value.trim());
+}
+
+function getVariantColorMeta(color?: ColorLike) {
+  const name = color?.name?.trim() || "";
+  const description = color?.description?.trim() || "";
+  const colorCode =
+    [description, name].find((value) => value && isHexColor(value)) ||
+    description ||
+    name ||
+    "#cccccc";
+  const colorName =
+    [name, description].find((value) => value && !isHexColor(value)) ||
+    name ||
+    description ||
+    "Default";
+
+  return { colorName, colorCode };
+}
+
+function colorValuesMatch(color: ColorLike, filter: string) {
+  const normalizedFilter = filter.trim().toLowerCase();
+  if (!normalizedFilter) return true;
+
+  const meta = getVariantColorMeta(color);
+  return [meta.colorCode, meta.colorName]
+    .map((value) => value.trim().toLowerCase())
+    .includes(normalizedFilter);
+}
+
 export class OngoingGroupRequestsService {
   private readonly repository: OngoingGroupRequestsRepository;
 
@@ -145,7 +178,7 @@ export class OngoingGroupRequestsService {
     );
     if (!limitCheck.canCreate) {
       throw new ValidationError(
-        `At this moment, we cannot open another variant for this item. Please choose among the ${limitCheck.limit} variants already open.`,
+        `At this moment, we cannot open another size for this color. Please choose among the ${limitCheck.limit} sizes already open for this color.`,
       );
     }
 
@@ -302,7 +335,7 @@ export class OngoingGroupRequestsService {
     return this.repository.checkConcurrentRequestsLimit(productId);
   }
 
-  async getProductGroupageSummary(productId: number, userId: number) {
+  async getProductGroupageSummary(productId: number, userId: number, colorFilter?: string) {
     const product = await db.query.products.findFirst({
       where: eq(products.id, productId),
     });
@@ -322,6 +355,13 @@ export class OngoingGroupRequestsService {
       },
     });
 
+    const normalizedColorFilter = colorFilter?.trim().toLowerCase() || "";
+    const variantMatchesColor = (variant: typeof productVariants[number]) =>
+      colorValuesMatch(variant.color, normalizedColorFilter);
+
+    const scopedVariants = productVariants.filter(variantMatchesColor);
+    const scopedVariantIds = new Set(scopedVariants.map((variant) => variant.id));
+
     const requests = await db.query.ongoingGroupRequests.findMany({
       where: and(
         eq(ongoingGroupRequests.productId, productId),
@@ -329,55 +369,145 @@ export class OngoingGroupRequestsService {
       ),
       with: {
         approvalStatus: true,
+        requestedBy: true,
       },
     });
 
-    const requestsByVariant = requests.reduce((acc, request) => {
+    const scopedRequests = requests.filter((request) =>
+      scopedVariantIds.has(request.variantId),
+    );
+
+    const requestsByVariant = scopedRequests.reduce((acc, request) => {
+      const requestedById = typeof request.requestedBy === "object"
+        ? (request.requestedBy as { id?: number })?.id
+        : request.requestedBy;
       const current = acc.get(request.variantId) ?? {
         requestedQuantity: 0,
         isMine: false,
+        requestId: null as number | null,
         status: request.approvalStatus?.name ?? null,
+        takenBy: null as string | null,
       };
       current.requestedQuantity += request.quantity;
-      current.isMine = current.isMine || request.requestedBy === userId;
+      if (requestedById === userId) {
+        current.isMine = true;
+        current.requestId = request.id;
+      }
       current.status = request.approvalStatus?.name ?? current.status;
+      if (!current.isMine && request.requestedBy && typeof request.requestedBy === "object") {
+        const requester = request.requestedBy as { fullName?: string; username?: string };
+        current.takenBy =
+          requester.fullName?.split(" ")?.[0] ||
+          requester.username ||
+          "Taken";
+      }
       acc.set(request.variantId, current);
       return acc;
-    }, new Map<number, { requestedQuantity: number; isMine: boolean; status: string | null }>());
+    }, new Map<number, {
+      requestedQuantity: number;
+      isMine: boolean;
+      requestId: number | null;
+      status: string | null;
+      takenBy: string | null;
+    }>());
 
-    const totalItems = group?.totalItems || productVariants.length || 0;
-    const orderedItems = group?.orderedItems || requests.reduce((sum, request) => sum + request.quantity, 0);
+    const totalItems = scopedVariants.length || 0;
+    const orderedItems = scopedRequests.reduce((sum, request) => sum + request.quantity, 0);
+    const thresholdToValidate = group?.thresholdToValidate || totalItems;
     const completionRate = totalItems > 0
       ? Math.min(100, Math.round((orderedItems / totalItems) * 100))
       : 0;
 
+    const scopedColorMeta = scopedVariants[0]?.color
+      ? getVariantColorMeta(scopedVariants[0].color)
+      : getVariantColorMeta(null);
+
     return {
       productId,
-      group: group
+      color: colorFilter || scopedColorMeta.colorCode || null,
+      colorName: scopedColorMeta.colorName || null,
+      group: scopedRequests.length && group
         ? {
             id: group.id,
             orderedItems,
             totalItems,
-            thresholdToValidate: group.thresholdToValidate,
+            thresholdToValidate,
             statusId: group.statusId,
             completionRate,
-            isReadyForApproval: orderedItems >= group.thresholdToValidate,
+            isReadyForApproval: orderedItems >= thresholdToValidate,
           }
         : null,
-      slots: productVariants.map((variant) => {
+      slots: scopedVariants.map((variant) => {
         const slotRequest = requestsByVariant.get(variant.id);
+        const colorMeta = getVariantColorMeta(variant.color);
         return {
           variantId: variant.id,
           variantCode: variant.variantCode,
           size: variant.size?.description || variant.size?.name || null,
-          color: variant.color?.description || variant.color?.name || null,
+          color: colorMeta.colorCode,
+          colorName: colorMeta.colorName,
           requestedQuantity: slotRequest?.requestedQuantity ?? 0,
           isFilled: Boolean(slotRequest?.requestedQuantity),
           isMine: Boolean(slotRequest?.isMine),
+          requestId: slotRequest?.requestId ?? null,
+          takenBy: slotRequest?.takenBy ?? null,
           status: slotRequest?.status ?? null,
         };
       }),
     };
+  }
+
+  async listActiveOngoingColorGroups(userId: number) {
+    const requests = await db.query.ongoingGroupRequests.findMany({
+      where: ne(ongoingGroupRequests.approvalStatusId, GroupApprovalStatusIds.REJECTED),
+      with: {
+        product: true,
+        variant: {
+          with: {
+            color: true,
+            size: true,
+          },
+        },
+      },
+    });
+
+    if (!requests.length) {
+      return [];
+    }
+
+    const groupKeys = new Map<string, { productId: number; color: string; colorName: string }>();
+    for (const request of requests) {
+      const colorMeta = getVariantColorMeta(request.variant?.color);
+      const key = `${request.productId}::${colorMeta.colorCode.trim().toLowerCase()}`;
+      if (!groupKeys.has(key)) {
+        groupKeys.set(key, {
+          productId: request.productId,
+          color: colorMeta.colorCode,
+          colorName: colorMeta.colorName,
+        });
+      }
+    }
+
+    const cards = await Promise.all(
+      [...groupKeys.values()].map(async ({ productId, color, colorName }) => {
+        const summary = await this.getProductGroupageSummary(productId, userId, color);
+        const product = await db.query.products.findFirst({
+          where: eq(products.id, productId),
+        });
+        return {
+          productId,
+          productName: product?.name || "Product",
+          color,
+          colorName,
+          imageUrl: product?.imageUrl || null,
+          price: product?.price ?? null,
+          group: summary.group,
+          slots: summary.slots,
+        };
+      }),
+    );
+
+    return cards.filter((card) => card.slots.some((slot) => slot.isFilled));
   }
 
   /**
