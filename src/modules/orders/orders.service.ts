@@ -7,7 +7,7 @@ import {
 } from "@/constants/payment-methods.constants";
 import { NotFoundError, ValidationError } from "@/core/errors";
 import campayConfig from "@/config/campay.config";
-import { campayService } from "@/modules/campay/campay.service";
+import { campayService, normalizeCameroonPhone } from "@/modules/campay/campay.service";
 
 import { db } from "@/db";
 import { OrdersRepository } from "./orders.repository";
@@ -121,6 +121,10 @@ export class OrdersService {
       MOBILE_TRANSFER_PAYMENT_METHODS as readonly string[]
     ).includes(paymentMethod.name);
     const payOnDelivery = payload.payOnDelivery ?? false;
+
+    if (isMobileTransfer && !payOnDelivery && campayConfig.enabled) {
+      normalizeCameroonPhone(payload.billing.whatsappNumber);
+    }
 
     const checkout = await this.ordersRepository.createDirectOrderCheckout({
       userId,
