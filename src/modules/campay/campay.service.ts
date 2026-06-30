@@ -28,6 +28,7 @@ type CampayTransactionResponse = {
   external_reference?: string;
   code?: string;
   operator_reference?: string;
+  reason?: string | null;
 };
 
 export const normalizeCameroonPhone = (value: string) => {
@@ -209,6 +210,7 @@ export class CampayService {
       currency: transaction.currency ?? campayConfig.currency.toUpperCase(),
       externalReference: transaction.external_reference ?? null,
       operatorReference: transaction.operator_reference ?? null,
+      reason: transaction.reason ?? null,
       paymentCompleted: status === "SUCCESSFUL",
       paymentFailed: ["FAILED", "CANCELLED", "CANCELED"].includes(status),
     };

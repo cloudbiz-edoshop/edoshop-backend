@@ -25,6 +25,7 @@ export const campayTransactionStatusSchema = z.object({
   currency: z.string(),
   externalReference: z.string().nullable(),
   operatorReference: z.string().nullable(),
+  reason: z.string().nullable(),
   paymentCompleted: z.boolean(),
   paymentFailed: z.boolean(),
 });
