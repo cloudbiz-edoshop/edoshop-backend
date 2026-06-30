@@ -1,4 +1,7 @@
-import type { UpdateAvailableQuantityForFulfillmentRequest } from "./orders.schema";
+import type {
+  CheckoutDirectOrderRequest,
+  UpdateAvailableQuantityForFulfillmentRequest,
+} from "./orders.schema";
 import { NotFoundError, ValidationError } from "@/core/errors";
 
 import { db } from "@/db";
@@ -87,6 +90,36 @@ export class OrdersService {
       );
     });
     return updatedData;
+  }
+
+  async checkoutDirectOrder(
+    userId: number,
+    payload: CheckoutDirectOrderRequest,
+  ) {
+    const customer = await this.ordersRepository.findCustomerByUserId(userId);
+    if (!customer) {
+      throw new NotFoundError("Customer profile not found for this account");
+    }
+
+    if (!payload.paymentMethodId) {
+      throw new ValidationError("Payment method is required");
+    }
+
+    const paymentMethod = await this.ordersRepository.findPaymentMethodById(
+      payload.paymentMethodId,
+    );
+    if (!paymentMethod) {
+      throw new ValidationError("Selected payment method is not available");
+    }
+
+    return await this.ordersRepository.createDirectOrderCheckout({
+      userId,
+      customerId: customer.id,
+      paymentMethodId: payload.paymentMethodId,
+      payOnDelivery: payload.payOnDelivery ?? false,
+      billing: payload.billing,
+      items: payload.items,
+    });
   }
 }
 

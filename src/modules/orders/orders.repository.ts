@@ -5,7 +5,10 @@ import type { TX } from "@/lib/types";
 
 import { and, count, desc, eq, inArray, like, not, or, sql } from "drizzle-orm";
 import { OrderStatusTypeIds } from "@/constants";
+import { AddressTypeIds } from "@/constants/address-types.constants";
 import { OrderItemFulfillmentStatusIds } from "@/constants/order-item-fulfillment-statuses.constants";
+import { OrderTypeIds } from "@/constants/order-types.constants";
+import { PAYMENT_STATUSES } from "@/constants/payment-statuses.constants";
 import db from "@/db";
 import {
   addresses,
@@ -15,8 +18,14 @@ import {
   orderFulfillmentStatuses,
   orderItemFulfillmentStatuses,
   orderItems,
+  orderTypes,
   orders,
+  paymentMethods,
+  paymentStatuses,
+  paymentTransactions,
   shippingPriorityCodes,
+  users,
+  variants,
 } from "@/db/models";
 import {
   createFilterConditions,
@@ -102,28 +111,66 @@ export class OrdersRepository {
       const ordersData = await tx
         .select({
           id: orders.id,
+          orderCode: orders.orderCode,
+          totalAmount: orders.totalAmount,
           createdAt: orders.createdAt,
           customerId: orders.customerId,
           customerCode: customers.customerCode,
+          customerName: users.fullName,
           shippingPriority: shippingPriorityCodes.code,
+          orderTypeName: orderTypes.name,
+          paymentMethodName: paymentMethods.description,
+          paymentMethodRawName: paymentMethods.name,
+          paymentStatusName: sql<string | null>`(
+            SELECT ${paymentStatuses.name}
+            FROM ${paymentTransactions}
+            INNER JOIN ${paymentStatuses}
+              ON ${paymentTransactions.paymentStatusId} = ${paymentStatuses.id}
+            WHERE ${paymentTransactions.orderId} = ${orders.id}
+              AND ${paymentTransactions.isDeleted} = false
+            ORDER BY ${paymentTransactions.createdAt} DESC
+            LIMIT 1
+          )`.as("paymentStatusName"),
         })
         .from(orders)
         .innerJoin(customers, eq(orders.customerId, customers.id))
+        .innerJoin(users, eq(customers.userId, users.id))
         .leftJoin(
           shippingPriorityCodes,
           eq(orders.shippingPriorityCodeId, shippingPriorityCodes.id),
         )
+        .leftJoin(orderTypes, eq(orders.orderTypeId, orderTypes.id))
+        .leftJoin(paymentMethods, eq(orders.paymentMethodId, paymentMethods.id))
         .where(whereClause)
         .limit(limitVal)
         .offset(offset)
         .orderBy(sortCondition ?? desc(orders.createdAt));
 
+      const formatOrderType = (value?: string | null) => {
+        if (!value) return "Direct Order";
+        const labels: Record<string, string> = {
+          direct_order: "Direct Order",
+          dropshipping: "Dropshipping",
+        };
+        return labels[value] ?? value;
+      };
+
       const formattedOrders: OrdersToFulfill = ordersData.map((order) => {
         return {
           orderId: order.id,
+          orderCode: order.orderCode,
           customerId: order.customerId,
           customerCode: order.customerCode,
+          customerName: order.customerName ?? undefined,
           shippingPriority: order.shippingPriority ?? "N/A",
+          orderType: formatOrderType(order.orderTypeName),
+          totalAmount: order.totalAmount ?? undefined,
+          amount: order.totalAmount ?? undefined,
+          paymentMethod:
+            order.paymentMethodName
+            ?? order.paymentMethodRawName
+            ?? undefined,
+          paymentStatus: order.paymentStatusName ?? "Pending",
           createdAt: order.createdAt,
         };
       });
@@ -436,6 +483,299 @@ export class OrdersRepository {
         updatedBy: orderItemData.updatedBy,
       })
       .where(eq(orderItems.id, id))
+      .returning();
+    return result;
+  }
+
+  async findCustomerByUserId(userId: number) {
+    return await db.query.customers.findFirst({
+      where: eq(customers.userId, userId),
+    });
+  }
+
+  async findPaymentMethodById(id: number) {
+    return await db.query.paymentMethods.findFirst({
+      where: and(eq(paymentMethods.id, id), eq(paymentMethods.isDeleted, false)),
+    });
+  }
+
+  async findCountryByName(name: string) {
+    return await db.query.countries.findFirst({
+      where: sql`lower(${countries.name}) = lower(${name})`,
+    });
+  }
+
+  async resolveVariantForCheckout(params: {
+    productId: number;
+    variantId?: number;
+    color?: string;
+    size?: string;
+  }) {
+    if (params.variantId) {
+      const variant = await db.query.variants.findFirst({
+        where: and(
+          eq(variants.id, params.variantId),
+          eq(variants.productId, params.productId),
+          eq(variants.isDeleted, false),
+        ),
+        with: {
+          color: true,
+          size: true,
+          product: true,
+        },
+      });
+      if (variant) return variant;
+    }
+
+    const productVariants = await db.query.variants.findMany({
+      where: and(
+        eq(variants.productId, params.productId),
+        eq(variants.isDeleted, false),
+      ),
+      with: {
+        color: true,
+        size: true,
+        product: true,
+      },
+    });
+
+    const normalizedColor = String(params.color ?? "").trim().toLowerCase();
+    const normalizedSize = String(params.size ?? "").trim().toLowerCase();
+
+    const matched = productVariants.find((variant) => {
+      const colorName = String(variant.color?.name ?? "").trim().toLowerCase();
+      const sizeName = String(variant.size?.name ?? "").trim().toLowerCase();
+      const colorMatches = !normalizedColor || colorName === normalizedColor;
+      const sizeMatches = !normalizedSize || sizeName === normalizedSize;
+      return colorMatches && sizeMatches;
+    });
+
+    return matched ?? productVariants[0] ?? null;
+  }
+
+  async createDirectOrderCheckout(params: {
+    userId: number;
+    customerId: number;
+    paymentMethodId: number;
+    payOnDelivery: boolean;
+    paymentPending?: boolean;
+    billing: {
+      firstName: string;
+      lastName: string;
+      email: string;
+      whatsappNumber: string;
+      country: string;
+      city: string;
+      streetAddress: string;
+      apartmentAddress?: string;
+      orderNotes?: string;
+    };
+    items: Array<{
+      productId: number;
+      variantId?: number;
+      quantity: number;
+      unitPrice: number;
+      color?: string;
+      size?: string;
+    }>;
+  }) {
+    const country =
+      (await this.findCountryByName(params.billing.country))
+      ?? (await db.query.countries.findFirst({ where: eq(countries.id, 1) }));
+
+    if (!country) {
+      throw new Error("Country not found");
+    }
+
+    const streetAddress = [
+      params.billing.streetAddress,
+      params.billing.apartmentAddress,
+    ]
+      .filter(Boolean)
+      .join(", ");
+
+    const now = new Date().toISOString();
+    const orderCode = `ORD-${now.slice(0, 10).replace(/-/g, "")}-${Math.floor(Math.random() * 9000 + 1000)}`;
+
+    return await db.transaction(async (tx) => {
+      const [shippingAddress] = await tx
+        .insert(addresses)
+        .values({
+          userId: params.userId,
+          addressTypeId: AddressTypeIds.SHIPPING,
+          streetAddress,
+          countryId: country.id,
+          landmark: params.billing.city,
+          createdBy: params.userId,
+          updatedBy: params.userId,
+        })
+        .returning();
+
+      const [billingAddress] = await tx
+        .insert(addresses)
+        .values({
+          userId: params.userId,
+          addressTypeId: AddressTypeIds.BILLING,
+          streetAddress,
+          countryId: country.id,
+          landmark: params.billing.city,
+          createdBy: params.userId,
+          updatedBy: params.userId,
+        })
+        .returning();
+
+      const resolvedItems = [];
+      for (const item of params.items) {
+        const variant = await this.resolveVariantForCheckout(item);
+        if (!variant?.product) {
+          throw new Error(`Variant not found for product ${item.productId}`);
+        }
+
+        const unitPrice = item.unitPrice.toFixed(2);
+        const lineSubtotal = (item.unitPrice * item.quantity).toFixed(2);
+        resolvedItems.push({
+          variant,
+          quantity: item.quantity,
+          unitPrice,
+          lineSubtotal,
+        });
+      }
+
+      const subtotal = resolvedItems
+        .reduce((sum, item) => sum + Number(item.lineSubtotal), 0)
+        .toFixed(2);
+      const totalAmount = subtotal;
+
+      const [order] = await tx
+        .insert(orders)
+        .values({
+          customerId: params.customerId,
+          orderCode,
+          statusId: OrderStatusTypeIds.READY_FOR_FULFILLMENT,
+          fulfillmentStatusId: 1,
+          orderTypeId: OrderTypeIds.DIRECT_ORDER,
+          shippingAddressId: shippingAddress.id,
+          billingAddressId: billingAddress.id,
+          paymentMethodId: params.paymentMethodId,
+          subtotal,
+          taxAmount: "0.00",
+          shippingAmount: "0.00",
+          discountAmount: "0.00",
+          totalAmount,
+          notes: params.billing.orderNotes ?? null,
+          createdBy: params.userId,
+          updatedBy: params.userId,
+        })
+        .returning();
+
+      for (const item of resolvedItems) {
+        const { variant } = item;
+        await tx.insert(orderItems).values({
+          orderId: order.id,
+          productId: variant.productId,
+          variantId: variant.id,
+          fulfillmentStatusId: OrderItemFulfillmentStatusIds.PENDING,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          subTotal: item.lineSubtotal,
+          productName: variant.product?.name ?? "Product",
+          productCode: variant.variantCode ?? null,
+          variantCode: variant.variantCode,
+          colorName: variant.color?.name ?? "N/A",
+          sizeName: variant.size?.name ?? "N/A",
+          productImageUrl: variant.product?.imageUrls?.[0] ?? null,
+          createdBy: params.userId,
+          updatedBy: params.userId,
+        });
+      }
+
+      const paymentStatus = await tx.query.paymentStatuses.findFirst({
+        where: eq(
+          paymentStatuses.name,
+          params.payOnDelivery || params.paymentPending
+            ? PAYMENT_STATUSES.PENDING
+            : PAYMENT_STATUSES.COMPLETED,
+        ),
+      });
+
+      if (!paymentStatus) {
+        throw new Error("Payment status not found");
+      }
+
+      const transactionReference = `TXN-${order.orderCode}-${Date.now()}`;
+
+      const [paymentTransaction] = await tx.insert(paymentTransactions).values({
+        orderId: order.id,
+        amount: totalAmount,
+        paymentMethodId: params.paymentMethodId,
+        paymentStatusId: paymentStatus.id,
+        transactionReference,
+        transactionDate: now,
+        createdBy: params.userId,
+        updatedBy: params.userId,
+      }).returning();
+
+      const paymentMethod = await tx.query.paymentMethods.findFirst({
+        where: eq(paymentMethods.id, params.paymentMethodId),
+      });
+
+      return {
+        orderId: order.id,
+        orderCode: order.orderCode,
+        totalAmount,
+        paymentTransactionId: paymentTransaction.id,
+        transactionReference,
+        paymentMethod:
+          paymentMethod?.description
+          ?? paymentMethod?.name
+          ?? "N/A",
+        paymentStatus: paymentStatus.name,
+      };
+    });
+  }
+
+  async findPaymentMethodByName(name: string) {
+    return await db.query.paymentMethods.findFirst({
+      where: and(
+        eq(paymentMethods.name, name),
+        eq(paymentMethods.isDeleted, false),
+      ),
+    });
+  }
+
+  async updatePaymentTransactionReference(
+    paymentTransactionId: number,
+    transactionReference: string,
+    updatedBy: number,
+  ) {
+    const [result] = await db
+      .update(paymentTransactions)
+      .set({
+        transactionReference,
+        updatedBy,
+      })
+      .where(eq(paymentTransactions.id, paymentTransactionId))
+      .returning();
+    return result;
+  }
+
+  async updatePaymentStatusByTransactionReference(
+    transactionReference: string,
+    statusName: PAYMENT_STATUSES,
+    updatedBy = 1,
+  ) {
+    const paymentStatus = await db.query.paymentStatuses.findFirst({
+      where: eq(paymentStatuses.name, statusName),
+    });
+    if (!paymentStatus) return null;
+
+    const [result] = await db
+      .update(paymentTransactions)
+      .set({
+        paymentStatusId: paymentStatus.id,
+        updatedBy,
+      })
+      .where(eq(paymentTransactions.transactionReference, transactionReference))
       .returning();
     return result;
   }

@@ -32,6 +32,7 @@ import retailers from "@/modules/retailers/retailers.index";
 import reviews from "@/modules/reviews/reviews.index";
 import roles from "@/modules/roles/roles.index";
 import sizes from "@/modules/sizes/sizes.index";
+import stripe from "@/modules/stripe/stripe.index";
 import stores from "@/modules/stores/stores.index";
 import supportChat from "@/modules/support-chat/support-chat.index";
 import suppliers from "@/modules/suppliers/suppliers.index";
@@ -119,6 +120,7 @@ const routes = [
   ongoingGroups,
   orders,
   packages,
+  stripe,
   uploads,
   publicStorefront,
 ] as const;

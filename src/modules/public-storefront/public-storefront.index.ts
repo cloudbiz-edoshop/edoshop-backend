@@ -15,6 +15,7 @@ router
   .openapi(routes.listDiscounts, handlers.listDiscounts as any)
   .openapi(routes.listReviews, handlers.listReviews as any)
   .openapi(routes.listCustomers, handlers.listCustomers as any)
-  .openapi(routes.listRetailers, handlers.listRetailers as any);
+  .openapi(routes.listRetailers, handlers.listRetailers as any)
+  .openapi(routes.listPaymentMethods, handlers.listPaymentMethods as any);
 
 export default router;

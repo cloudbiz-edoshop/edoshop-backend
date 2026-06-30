@@ -135,3 +135,12 @@ export const publicRetailerSchema = z.object({
   shopName: z.string(),
   status: z.boolean(),
 });
+
+export const publicPaymentMethodSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  description: z.string().nullable().optional(),
+  gateway: z.enum(["mtn", "orange", "cash", "stripe", "paypal", "western_union", "money_gram"]),
+  isMobileTransfer: z.boolean(),
+  isStripe: z.boolean().optional(),
+});

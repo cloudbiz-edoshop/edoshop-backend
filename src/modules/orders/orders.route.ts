@@ -121,3 +121,37 @@ export const updateAvailableQuantityForFulfillment = createRoute({
 export type GetOrdersToFulfillRoute = typeof getOrdersToFulfill;
 export type GetOrderDetailsForACustomerRoute = typeof getOrderDetailsForACustomer;
 export type UpdateAvailableQuantityForFulfillmentRoute = typeof updateAvailableQuantityForFulfillment;
+
+export const checkoutDirectOrder = createRoute({
+  path: "/orders/checkout/direct",
+  method: "post",
+  tags,
+  middleware: [jwtMiddleware()] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    body: jsonContentRequired(
+      schemas.checkoutDirectOrderRequestSchema,
+      "Direct order checkout payload",
+    ),
+  },
+  summary: "Complete direct order checkout",
+  description: "Creates an order, records payment, and marks it ready for fulfillment",
+  responses: {
+    [HttpStatusCodes.CREATED]: jsonContent(
+      createSuccessResponseSchema(schemas.checkoutDirectOrderResponseSchema),
+      "Direct order checkout completed",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNPROCESSABLE_ENTITY,
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.NOT_FOUND,
+        HttpStatusCodes.BAD_REQUEST,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      schemas.checkoutDirectOrderRequestSchema,
+    ),
+  },
+});
+
+export type CheckoutDirectOrderRoute = typeof checkoutDirectOrder;

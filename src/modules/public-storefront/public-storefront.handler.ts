@@ -1,4 +1,11 @@
 import { ReviewStatusIds } from "@/constants/review-statuses.constants";
+import stripeConfig from "@/config/stripe.config";
+import {
+  CHECKOUT_PAYMENT_METHODS,
+  MOBILE_TRANSFER_PAYMENT_METHODS,
+  PAYMENT_METHOD_GATEWAYS,
+  PaymentMethod,
+} from "@/constants/payment-methods.constants";
 import { successResponseWithPagination } from "@/lib/api-response";
 import * as HttpStatusCodes from "@/lib/http-status-codes";
 import { createPagination } from "@/lib/searching-sorting";
@@ -10,6 +17,7 @@ import { FaqsService } from "@/modules/faqs/faqs.service";
 import { FiltersService } from "@/modules/filters/filters.service";
 import { NewArrivalsService } from "@/modules/new-arrivals/new-arrivals.service";
 import { ProductsService } from "@/modules/products/products.service";
+import { PaymentMethodService } from "@/modules/payment-methods/payment-methods.service";
 import { RetailersService } from "@/modules/retailers/retailers.service";
 import { ReviewsService } from "@/modules/reviews/reviews.service";
 
@@ -23,6 +31,7 @@ const discountsService = new DiscountsService();
 const reviewsService = new ReviewsService();
 const customersService = new CustomersService();
 const retailersService = new RetailersService();
+const paymentMethodService = new PaymentMethodService();
 
 type ListParams = {
   search?: string;
@@ -372,5 +381,54 @@ export const listRetailers = async (c: any) => {
     params.page,
     params.limit,
     "Public retailer summaries retrieved successfully",
+  );
+};
+
+export const listPaymentMethods = async (c: any) => {
+  const params = getListParams(c);
+  const result = await paymentMethodService.listPaymentMethods({
+    ...params,
+    limit: Math.max(params.limit, 50),
+  });
+
+  const checkoutMethodNames = new Set<string>(CHECKOUT_PAYMENT_METHODS);
+  const mobileTransferNames = new Set<string>(MOBILE_TRANSFER_PAYMENT_METHODS);
+
+  const publicMethods = result.data
+    .filter((method) => {
+      if (method.name === PaymentMethod.STRIPE) {
+        return stripeConfig.enabled;
+      }
+      return checkoutMethodNames.has(method.name);
+    })
+    .map((method) => {
+      const gateway =
+        PAYMENT_METHOD_GATEWAYS[method.name as PaymentMethod]
+        ?? method.name;
+
+      return {
+        id: method.id,
+        name: method.description ?? method.name,
+        description: method.description ?? null,
+        gateway,
+        isMobileTransfer: mobileTransferNames.has(method.name),
+        isStripe: method.name === PaymentMethod.STRIPE,
+      };
+    })
+    .sort((left, right) => {
+      if (left.isMobileTransfer !== right.isMobileTransfer) {
+        return left.isMobileTransfer ? -1 : 1;
+      }
+      return left.name.localeCompare(right.name);
+    });
+
+  return sendPublicList(
+    c,
+    publicMethods,
+    publicMethods.length,
+    ["name", "gateway"],
+    params.page,
+    params.limit,
+    "Public payment methods retrieved successfully",
   );
 };

@@ -1,4 +1,5 @@
 import type {
+  CheckoutDirectOrderRoute,
   GetOrderDetailsForACustomerRoute,
   GetOrdersToFulfillRoute,
   UpdateAvailableQuantityForFulfillmentRoute,
@@ -87,4 +88,19 @@ export const updateAvailableQuantity: AppRouteHandler<UpdateAvailableQuantityFor
 
   const response = successResponse(result, "Available quantity updated successfully");
   return c.json(response, HttpStatusCodes.OK);
+};
+
+export const checkoutDirectOrder: AppRouteHandler<
+  CheckoutDirectOrderRoute
+> = async (c) => {
+  const payload = c.req.valid("json");
+  const accessTokenPayload = c.get("accessTokenPayload");
+  const userId = accessTokenPayload.userId;
+
+  const result = await ordersService.checkoutDirectOrder(userId, payload);
+
+  return c.json(
+    successResponse(result, "Direct order checkout completed successfully"),
+    HttpStatusCodes.CREATED,
+  );
 };

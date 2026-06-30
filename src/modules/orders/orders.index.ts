@@ -7,5 +7,6 @@ const router = createRouter();
 router.openapi(routes.getOrdersToFulfill, handlers.getOrdersToFulfill);
 router.openapi(routes.getOrderDetailsForACustomer, handlers.getOrderDetailsForACustomer);
 router.openapi(routes.updateAvailableQuantityForFulfillment, handlers.updateAvailableQuantity);
+router.openapi(routes.checkoutDirectOrder, handlers.checkoutDirectOrder);
 
 export default router;

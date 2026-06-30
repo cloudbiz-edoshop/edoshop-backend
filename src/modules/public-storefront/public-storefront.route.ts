@@ -13,6 +13,7 @@ import {
   publicFaqSchema,
   publicFilterSchema,
   publicNewArrivalProductSchema,
+  publicPaymentMethodSchema,
   publicProductSchema,
   publicRetailerSchema,
   publicReviewSchema,
@@ -96,6 +97,12 @@ export const listRetailers = publicListRoute(
   "Public retailer summaries",
 );
 
+export const listPaymentMethods = publicListRoute(
+  "/public/payment-methods",
+  publicPaymentMethodSchema,
+  "Public payment methods",
+);
+
 export type ListBannersRoute = typeof listBanners;
 export type ListFaqsRoute = typeof listFaqs;
 export type ListFiltersRoute = typeof listFilters;
@@ -106,3 +113,4 @@ export type ListDiscountsRoute = typeof listDiscounts;
 export type ListReviewsRoute = typeof listReviews;
 export type ListCustomersRoute = typeof listCustomers;
 export type ListRetailersRoute = typeof listRetailers;
+export type ListPaymentMethodsRoute = typeof listPaymentMethods;

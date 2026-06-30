@@ -7,6 +7,7 @@ export enum PaymentType {
   CREDIT_CARD = "credit_card",
   DEBIT_CARD = "debit_card",
   CASH = "cash",
+  MOBILE_TRANSFER = "mobile_transfer",
 }
 
 /**
@@ -17,4 +18,5 @@ export const PAYMENT_TYPE_DESCRIPTIONS: Record<PaymentType, string> = {
   [PaymentType.CREDIT_CARD]: "Credit Card",
   [PaymentType.DEBIT_CARD]: "Debit Card",
   [PaymentType.CASH]: "Cash",
+  [PaymentType.MOBILE_TRANSFER]: "Mobile Transfer",
 };

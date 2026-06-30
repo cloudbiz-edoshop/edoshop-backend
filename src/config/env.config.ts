@@ -74,6 +74,11 @@ const EnvSchema = z
     MINIO_ACCESS_KEY: z.string().default(""),
     MINIO_SECRET_KEY: z.string().default(""),
     MINIO_BUCKET_NAME: z.string().default("edoshop"),
+    STRIPE_SECRET_KEY: z.string().optional().default(""),
+    STRIPE_PUBLISHABLE_KEY: z.string().optional().default(""),
+    STRIPE_WEBHOOK_SECRET: z.string().optional().default(""),
+    STRIPE_CURRENCY: z.string().default("xaf"),
+    STOREFRONT_URL: z.string().optional().default("http://localhost:3000"),
   })
   .transform((input) => ({
     ...input,
