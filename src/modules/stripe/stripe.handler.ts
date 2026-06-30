@@ -1,12 +1,16 @@
 import type { Context } from "hono";
 
-import type { CheckoutDirectOrderRequest } from "@/modules/orders/orders.schema";
+import type { z } from "zod";
+
 import type { AppRouteHandler } from "@/lib/types";
 import { successResponse } from "@/lib/api-response";
 import * as HttpStatusCodes from "@/lib/http-status-codes";
 
 import type { CheckoutStripeOrderRoute } from "./stripe.route";
+import type { checkoutStripeOrderRequestSchema } from "./stripe.route";
 import { stripeService } from "./stripe.service";
+
+type CheckoutStripeOrderRequest = z.infer<typeof checkoutStripeOrderRequestSchema>;
 
 export const getStripeConfig = async (c: Context) => {
   return c.json(
@@ -25,7 +29,7 @@ export const stripeWebhook = async (c: Context) => {
 };
 
 export const checkoutStripeOrder: AppRouteHandler<CheckoutStripeOrderRoute> = async (c) => {
-  const payload = c.req.valid("json") as CheckoutDirectOrderRequest;
+  const payload = c.req.valid("json") as CheckoutStripeOrderRequest;
   const accessTokenPayload = c.get("accessTokenPayload");
 
   const result = await stripeService.checkoutDirectOrder(

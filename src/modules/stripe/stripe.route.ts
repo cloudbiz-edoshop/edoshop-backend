@@ -14,20 +14,32 @@ import {
 } from "@/modules/orders/orders.schema";
 
 export const checkoutStripeOrderRequestSchema = checkoutDirectOrderRequestSchema
-  .omit({ paymentMethodId: true, payOnDelivery: true });
+  .omit({ paymentMethodId: true, payOnDelivery: true })
+  .extend({
+    currency: z.enum(["xaf", "usd", "eur"]).optional().default("xaf"),
+  });
 
 const tags = ["Stripe"];
+
+const stripeCurrencySchema = z.object({
+  code: z.string(),
+  label: z.string(),
+  xafPerUnit: z.number().optional(),
+});
 
 export const stripeConfigSchema = z.object({
   enabled: z.boolean(),
   publishableKey: z.string(),
-  currency: z.string(),
+  defaultCurrency: z.string(),
+  currencies: z.array(stripeCurrencySchema),
 });
 
 export const checkoutStripeResponseSchema = z.object({
   orderId: z.number(),
   orderCode: z.string(),
   totalAmount: z.string(),
+  chargeAmount: z.string(),
+  currency: z.string(),
   paymentMethod: z.string(),
   paymentStatus: z.string(),
   clientSecret: z.string(),

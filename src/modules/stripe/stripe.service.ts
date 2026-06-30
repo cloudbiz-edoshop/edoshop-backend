@@ -1,12 +1,17 @@
 import Stripe from "stripe";
 
+import currenciesConfig from "@/config/currencies.config";
+import stripeConfig from "@/config/stripe.config";
 import { PaymentMethod } from "@/constants/payment-methods.constants";
 import { PAYMENT_STATUSES } from "@/constants/payment-statuses.constants";
 import { ValidationError } from "@/core/errors";
-import stripeConfig from "@/config/stripe.config";
 import { OrdersRepository } from "@/modules/orders/orders.repository";
 
 import type { CheckoutDirectOrderRequest } from "@/modules/orders/orders.schema";
+
+type StripeCheckoutRequest = CheckoutDirectOrderRequest & {
+  currency?: string;
+};
 
 export class StripeService {
   private readonly ordersRepository: OrdersRepository;
@@ -23,7 +28,8 @@ export class StripeService {
     return {
       enabled: stripeConfig.enabled,
       publishableKey: stripeConfig.publishableKey,
-      currency: stripeConfig.currency,
+      defaultCurrency: stripeConfig.defaultCurrency,
+      currencies: currenciesConfig.getPublicCurrencies(),
     };
   }
 
@@ -34,8 +40,9 @@ export class StripeService {
     return this.stripe;
   }
 
-  async checkoutDirectOrder(userId: number, payload: CheckoutDirectOrderRequest) {
+  async checkoutDirectOrder(userId: number, payload: StripeCheckoutRequest) {
     const stripe = this.assertConfigured();
+    const currency = currenciesConfig.resolveCurrency(payload.currency);
 
     const customer = await this.ordersRepository.findCustomerByUserId(userId);
     if (!customer) {
@@ -59,11 +66,15 @@ export class StripeService {
       items: payload.items,
     });
 
-    const amount = stripeConfig.toStripeAmount(Number(checkout.totalAmount));
+    const totalInCurrency = currenciesConfig.convertFromBase(
+      Number(checkout.totalAmount),
+      currency,
+    );
+    const amount = stripeConfig.toStripeAmount(totalInCurrency, currency);
 
     const paymentIntent = await stripe.paymentIntents.create({
       amount,
-      currency: stripeConfig.currency,
+      currency,
       automatic_payment_methods: { enabled: true },
       receipt_email: payload.billing.email,
       metadata: {
@@ -71,6 +82,7 @@ export class StripeService {
         orderCode: checkout.orderCode,
         paymentTransactionId: String(checkout.paymentTransactionId),
         userId: String(userId),
+        chargeCurrency: currency,
       },
       description: `Edoshop order ${checkout.orderCode}`,
     });
@@ -89,6 +101,8 @@ export class StripeService {
       orderId: checkout.orderId,
       orderCode: checkout.orderCode,
       totalAmount: checkout.totalAmount,
+      chargeAmount: totalInCurrency.toFixed(currency === "xaf" ? 0 : 2),
+      currency,
       paymentMethod: checkout.paymentMethod,
       paymentStatus: checkout.paymentStatus,
       clientSecret: paymentIntent.client_secret,

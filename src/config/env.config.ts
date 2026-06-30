@@ -78,6 +78,8 @@ const EnvSchema = z
     STRIPE_PUBLISHABLE_KEY: z.string().optional().default(""),
     STRIPE_WEBHOOK_SECRET: z.string().optional().default(""),
     STRIPE_CURRENCY: z.string().default("xaf"),
+    EXCHANGE_XAF_PER_USD: z.coerce.number().positive().default(600),
+    EXCHANGE_XAF_PER_EUR: z.coerce.number().positive().default(655),
     STOREFRONT_URL: z.string().optional().default("http://localhost:3000"),
   })
   .transform((input) => ({
