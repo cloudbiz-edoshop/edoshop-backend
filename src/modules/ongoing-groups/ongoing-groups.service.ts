@@ -11,7 +11,7 @@ import { NotFoundError, ValidationError } from "@/core/errors";
 import { AppError } from "@/core/errors/app-error";
 import db from "@/db";
 
-import { groupApprovalStatuses, notifications, ongoingGroupRequests, ongoingGroups, products, users, variants } from "@/db/models";
+import { groupApprovalStatuses, notifications, ongoingGroupRequests, ongoingGroups, products, users, variants, dropshippingProducts } from "@/db/models";
 import sendWhatsapp from "@/lib/send-whatsapp";
 
 import { OngoingGroupRequestsRepository } from "./ongoing-groups.repository";
@@ -252,6 +252,18 @@ export class OngoingGroupRequestsService {
         throw new ValidationError("You have already requested this groupage slot");
       }
       throw new ValidationError("This groupage slot is already selected. Please choose another open slot");
+    }
+
+    const limitCheck = await this.repository.checkConcurrentRequestsLimit(
+      requestData.productId,
+      requestData.variantId,
+    );
+    if (!limitCheck.canCreate) {
+      const openSizeCount = limitCheck.currentRequests;
+      const sizeLabel = openSizeCount === 1 ? "size" : "sizes";
+      throw new ValidationError(
+        `MOQ limit reached for this color. You can only open ${limitCheck.limit} size(s) at a time. Please choose among the ${openSizeCount} ${sizeLabel} already open for this color.`,
+      );
     }
 
     const request = await db.transaction(async (tx) => {
@@ -638,7 +650,7 @@ export class OngoingGroupRequestsService {
       }
     }
 
-    const cards = await Promise.all(
+    const colorCards = await Promise.all(
       [...groupKeys.values()].map(async ({ productId, colorId, color, colorName }) => {
         const summary = await this.getProductGroupageSummary(
           productId,
@@ -664,7 +676,81 @@ export class OngoingGroupRequestsService {
       }),
     );
 
-    return cards.filter((card) => card.slots.some((slot) => slot.isFilled));
+    const activeColorCards = colorCards.filter((card) => card.slots.some((slot) => slot.isFilled));
+    const productGroups = new Map<number, {
+      productId: number;
+      productName: string;
+      imageUrl: string | null;
+      price: number | null;
+      moq: number | null;
+      maxOpenSizesPerColor: number;
+      groupCriteriaName: string | null;
+      colorGroups: Array<{
+        color: string;
+        colorName: string;
+        group: (typeof activeColorCards)[number]["group"];
+        slots: (typeof activeColorCards)[number]["slots"];
+        concurrentLimit: number;
+        openSizeCount: number;
+      }>;
+    }>();
+
+    for (const card of activeColorCards) {
+      let productGroup = productGroups.get(card.productId);
+      if (!productGroup) {
+        const ongoingGroup = await db.query.ongoingGroups.findFirst({
+          where: eq(ongoingGroups.productId, card.productId),
+        });
+        const product = await db.query.products.findFirst({
+          where: eq(products.id, card.productId),
+        });
+        const dropshippingProduct = await db.query.dropshippingProducts.findFirst({
+          where: eq(dropshippingProducts.productId, card.productId),
+          with: {
+            groupCriteriaId: true,
+          },
+        });
+
+        productGroup = {
+          productId: card.productId,
+          productName: card.productName,
+          imageUrl: card.imageUrl,
+          price: card.price,
+          moq: ongoingGroup?.thresholdToValidate ?? null,
+          maxOpenSizesPerColor: product?.concurrentReqs || card.concurrentLimit || 3,
+          groupCriteriaName: dropshippingProduct?.groupCriteriaId?.name ?? "MOQ",
+          colorGroups: [],
+        };
+        productGroups.set(card.productId, productGroup);
+      }
+
+      const duplicateColor = productGroup.colorGroups.some(
+        (group) => group.color.trim().toLowerCase() === card.color.trim().toLowerCase(),
+      );
+      if (!duplicateColor) {
+        productGroup.colorGroups.push({
+          color: card.color,
+          colorName: card.colorName,
+          group: card.group,
+          slots: card.slots,
+          concurrentLimit: card.concurrentLimit,
+          openSizeCount: card.openSizeCount,
+        });
+      }
+    }
+
+    return [...productGroups.values()]
+      .map((product) => ({
+        ...product,
+        colorGroups: [...product.colorGroups].sort((left, right) =>
+          String(left.colorName || left.color).localeCompare(
+            String(right.colorName || right.color),
+          ),
+        ),
+      }))
+      .sort((left, right) =>
+        String(left.productName).localeCompare(String(right.productName)),
+      );
   }
 
   /**

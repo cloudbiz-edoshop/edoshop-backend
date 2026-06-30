@@ -380,8 +380,8 @@ export const activeColorGroups = createRoute({
   request: {
     headers: jwtHeaderSchema,
   },
-  summary: "List active ongoing groups grouped by product and color",
-  description: "Returns storefront cards for ongoing groups that already have at least one taken slot.",
+  summary: "List active ongoing groups grouped by product",
+  description: "Returns one storefront card per product. Each card contains stacked color tables for every active color groupage.",
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
       activeOngoingColorGroupsResponseSchema,

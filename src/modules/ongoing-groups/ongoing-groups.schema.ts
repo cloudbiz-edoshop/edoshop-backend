@@ -305,18 +305,25 @@ export const groupageProductSummaryResponseSchema = z.object({
 
 export type GroupageProductSummaryResponse = z.infer<typeof groupageProductSummaryResponseSchema>;
 
+const activeOngoingColorGroupSchema = z.object({
+  color: z.string(),
+  colorName: z.string(),
+  group: groupageProductSummaryResponseSchema.shape.group,
+  slots: groupageProductSummaryResponseSchema.shape.slots,
+  concurrentLimit: z.number(),
+  openSizeCount: z.number(),
+});
+
 export const activeOngoingColorGroupsResponseSchema = z.array(
   z.object({
     productId: z.number(),
     productName: z.string(),
-    color: z.string(),
-    colorName: z.string(),
     imageUrl: z.string().nullable(),
     price: z.number().nullable(),
-    group: groupageProductSummaryResponseSchema.shape.group,
-    slots: groupageProductSummaryResponseSchema.shape.slots,
-    concurrentLimit: z.number(),
-    openSizeCount: z.number(),
+    moq: z.number().nullable(),
+    maxOpenSizesPerColor: z.number(),
+    groupCriteriaName: z.string().nullable().optional(),
+    colorGroups: z.array(activeOngoingColorGroupSchema),
   }),
 );
 export type ActiveOngoingColorGroupsResponse = z.infer<typeof activeOngoingColorGroupsResponseSchema>;
