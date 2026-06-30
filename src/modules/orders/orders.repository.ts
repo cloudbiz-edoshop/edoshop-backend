@@ -597,6 +597,28 @@ export class OrdersRepository {
     const now = new Date().toISOString();
     const orderCode = `ORD-${now.slice(0, 10).replace(/-/g, "")}-${Math.floor(Math.random() * 9000 + 1000)}`;
 
+    const resolvedItems = [];
+    for (const item of params.items) {
+      const variant = await this.resolveVariantForCheckout(item);
+      if (!variant?.product) {
+        throw new Error(`Variant not found for product ${item.productId}`);
+      }
+
+      const unitPrice = item.unitPrice.toFixed(2);
+      const lineSubtotal = (item.unitPrice * item.quantity).toFixed(2);
+      resolvedItems.push({
+        variant,
+        quantity: item.quantity,
+        unitPrice,
+        lineSubtotal,
+      });
+    }
+
+    const subtotal = resolvedItems
+      .reduce((sum, item) => sum + Number(item.lineSubtotal), 0)
+      .toFixed(2);
+    const totalAmount = subtotal;
+
     return await db.transaction(async (tx) => {
       const [shippingAddress] = await tx
         .insert(addresses)
@@ -623,28 +645,6 @@ export class OrdersRepository {
           updatedBy: params.userId,
         })
         .returning();
-
-      const resolvedItems = [];
-      for (const item of params.items) {
-        const variant = await this.resolveVariantForCheckout(item);
-        if (!variant?.product) {
-          throw new Error(`Variant not found for product ${item.productId}`);
-        }
-
-        const unitPrice = item.unitPrice.toFixed(2);
-        const lineSubtotal = (item.unitPrice * item.quantity).toFixed(2);
-        resolvedItems.push({
-          variant,
-          quantity: item.quantity,
-          unitPrice,
-          lineSubtotal,
-        });
-      }
-
-      const subtotal = resolvedItems
-        .reduce((sum, item) => sum + Number(item.lineSubtotal), 0)
-        .toFixed(2);
-      const totalAmount = subtotal;
 
       const [order] = await tx
         .insert(orders)
