@@ -351,3 +351,58 @@ export const approveOngoingGroupResponseSchema = z.object({
   approvedCount: z.number(),
 });
 export type ApproveOngoingGroupResponse = z.infer<typeof approveOngoingGroupResponseSchema>;
+
+export const rejectOngoingGroupBodySchema = z.object({
+  reasonForRejection: z.string().trim().min(1, "Reason for rejection is required"),
+});
+
+export const rejectOngoingGroupResponseSchema = z.object({
+  ongoingGroupId: z.number(),
+  rejectedCount: z.number(),
+});
+export type RejectOngoingGroupResponse = z.infer<typeof rejectOngoingGroupResponseSchema>;
+
+export const adminOngoingGroupRequestSchema = z.object({
+  id: z.number(),
+  requestId: z.string(),
+  customer: z.string(),
+  variant: z.string(),
+  size: z.string().nullable(),
+  color: z.string().nullable(),
+  quantity: z.number(),
+  status: z.string(),
+  statusId: z.number(),
+  reasonForRejection: z.string().nullable(),
+  createdAt: z.string(),
+});
+
+export const adminOngoingGroupRowSchema = z.object({
+  ongoingGroupId: z.number(),
+  groupId: z.string(),
+  productId: z.number(),
+  productName: z.string(),
+  productCode: z.string().nullable(),
+  moq: z.number().nullable(),
+  threshold: z.number(),
+  groupCompletion: z.string(),
+  groupProgress: z.string(),
+  contributorCount: z.number(),
+  contributors: z.array(z.string()),
+  colors: z.array(z.string()),
+  status: z.string(),
+  statusId: z.number(),
+  reasonForRejection: z.string().nullable(),
+  createdAt: z.string(),
+  anchorRequestId: z.number().nullable(),
+  isReadyForApproval: z.boolean(),
+  requests: z.array(adminOngoingGroupRequestSchema).optional(),
+});
+
+export const adminOngoingGroupsQuerySchema = z.object({
+  search: z.string().optional(),
+  status: z.enum(["pending", "approved", "rejected"]).optional(),
+  page: z.coerce.number().min(1).default(1),
+  limit: z.coerce.number().min(1).max(100).default(100),
+});
+
+export type AdminOngoingGroupRow = z.infer<typeof adminOngoingGroupRowSchema>;

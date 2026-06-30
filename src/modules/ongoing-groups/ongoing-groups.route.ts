@@ -23,6 +23,10 @@ import {
   groupageProductSummaryResponseSchema,
   activeOngoingColorGroupsResponseSchema,
   approveOngoingGroupResponseSchema,
+  adminOngoingGroupRowSchema,
+  adminOngoingGroupsQuerySchema,
+  rejectOngoingGroupBodySchema,
+  rejectOngoingGroupResponseSchema,
   paginatedOngoingGroupRequestsResponseSchema,
   patchOngoingGroupRequestSchema,
 } from "./ongoing-groups.schema";
@@ -304,6 +308,120 @@ export const approveGroup = createRoute({
   },
 });
 
+export const rejectGroup = createRoute({
+  path: "/ongoing-group-requests/{id}/reject-group",
+  method: "post",
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.ONGOING_GROUP_REQUESTS, operation: OperationType.UPDATE },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    params: idParams,
+    body: jsonContentRequired(rejectOngoingGroupBodySchema, "Reject Ongoing Group"),
+  },
+  tags,
+  summary: "Reject all pending requests in an ongoing group",
+  description:
+    "Rejects every pending request in the selected request's ongoing group and notifies each contributor.",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(rejectOngoingGroupResponseSchema),
+      "Ongoing group rejected successfully",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNPROCESSABLE_ENTITY,
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.FORBIDDEN,
+        HttpStatusCodes.NOT_FOUND,
+        HttpStatusCodes.BAD_REQUEST,
+        HttpStatusCodes.CONFLICT,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      idParams,
+    ),
+  },
+});
+
+export const adminGroups = createRoute({
+  path: "/ongoing-group-requests/admin-groups",
+  method: "get",
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.ONGOING_GROUP_REQUESTS, operation: OperationType.READ },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    query: adminOngoingGroupsQuerySchema,
+  },
+  tags,
+  summary: "List ongoing groups for admin review",
+  description:
+    "Returns one row per ongoing group (GRP-ID) with contributors, MOQ progress, and whole-group status.",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      z.object({
+        data: z.array(adminOngoingGroupRowSchema),
+        pagination: z.object({
+          page: z.number(),
+          limit: z.number(),
+          total: z.number(),
+          totalPages: z.number(),
+        }),
+      }),
+      "Admin ongoing groups",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.FORBIDDEN,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      z.object({}),
+    ),
+  },
+});
+
+export const adminGroupById = createRoute({
+  path: "/ongoing-group-requests/admin-groups/{ongoingGroupId}",
+  method: "get",
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.ONGOING_GROUP_REQUESTS, operation: OperationType.READ },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    params: z.object({
+      ongoingGroupId: z.coerce.number().min(1),
+    }),
+  },
+  tags,
+  summary: "Get ongoing group details for admin review",
+  description: "Returns one ongoing group with all contributor slot requests.",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(adminOngoingGroupRowSchema),
+      "Admin ongoing group details",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.FORBIDDEN,
+        HttpStatusCodes.NOT_FOUND,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      z.object({ ongoingGroupId: z.number() }),
+    ),
+  },
+});
+
 export const adminCancel = createRoute({
   path: "/ongoing-group-requests/{id}/admin-cancel",
   method: "post",
@@ -404,6 +522,9 @@ export type PatchRoute = typeof patch;
 export type RemoveRoute = typeof remove;
 export type UndoRoute = typeof undo;
 export type ApproveGroupRoute = typeof approveGroup;
+export type RejectGroupRoute = typeof rejectGroup;
+export type AdminGroupsRoute = typeof adminGroups;
+export type AdminGroupByIdRoute = typeof adminGroupById;
 export type AdminCancelRoute = typeof adminCancel;
 export type OngoingRequestsByUserRoute = typeof ongoingRequestsByUser;
 export type ActiveColorGroupsRoute = typeof activeColorGroups;

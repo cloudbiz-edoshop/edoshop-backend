@@ -4,6 +4,9 @@ import type {
   ListRoute,
   OngoingRequestsByUserRoute,
   ApproveGroupRoute,
+  RejectGroupRoute,
+  AdminGroupsRoute,
+  AdminGroupByIdRoute,
   AdminCancelRoute,
   PatchRoute,
   ProductSummaryRoute,
@@ -233,6 +236,38 @@ export const approveGroup: AppRouteHandler<ApproveGroupRoute> = async (c) => {
 
   return c.json(
     successResponse(result, "Ongoing group approved and customers notified"),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const rejectGroup: AppRouteHandler<RejectGroupRoute> = async (c) => {
+  const { id } = c.req.valid("param");
+  const { reasonForRejection } = c.req.valid("json");
+  const user = c.get("user");
+
+  const result = await service.rejectOngoingGroupByRequestId(
+    id,
+    user.id,
+    reasonForRejection,
+  );
+
+  return c.json(
+    successResponse(result, "Ongoing group rejected and customers notified"),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const adminGroups: AppRouteHandler<AdminGroupsRoute> = async (c) => {
+  const query = c.req.valid("query");
+  const result = await service.listAdminOngoingGroups(query);
+  return c.json(result, HttpStatusCodes.OK);
+};
+
+export const adminGroupById: AppRouteHandler<AdminGroupByIdRoute> = async (c) => {
+  const { ongoingGroupId } = c.req.valid("param");
+  const result = await service.getAdminOngoingGroupById(ongoingGroupId);
+  return c.json(
+    successResponse(result, STANDARD_MESSAGES.SUCCESS.FETCHED),
     HttpStatusCodes.OK,
   );
 };

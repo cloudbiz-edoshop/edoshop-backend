@@ -1,8 +1,9 @@
 import type {
+  AdminOngoingGroupRow,
   CreateOngoingGroupRequest,
 } from "./ongoing-groups.schema";
 
-import { and, eq, ne } from "drizzle-orm";
+import { and, desc, eq, ne } from "drizzle-orm";
 import { GroupApprovalStatusIds } from "@/constants/group-approval-statuses.constants";
 import { NotificationFrequencyIds } from "@/constants/notification-frequencies.constants";
 import { NotificationTypeIds } from "@/constants/notification-types.constants";
@@ -210,6 +211,312 @@ export class OngoingGroupRequestsService {
         console.error("Failed to send groupage approval WhatsApp notification", error);
       }
     }
+  }
+
+  private async notifyCustomerRequestRejected(
+    request: any,
+    reason: string,
+    rejectedBy: number,
+  ) {
+    const requestedById = typeof request.requestedBy === "object"
+      ? request.requestedBy?.id
+      : request.requestedBy;
+    if (!requestedById) return;
+
+    const requestedByUser = await db.query.users.findFirst({
+      where: eq(users.id, requestedById),
+    });
+    const productName = request.product?.name || "Your groupage item";
+    const message = `${productName} groupage was rejected. Reason: ${reason}`;
+
+    await this.createSystemNotification({
+      title: "Groupage rejected",
+      message,
+      notificationTypeId: NotificationTypeIds.WARNING,
+      recipientTypeId: RecipientTypeIds.REJECTED_GROUPS,
+      createdBy: rejectedBy,
+    });
+
+    if (requestedByUser?.phoneNumber) {
+      try {
+        await sendWhatsapp({
+          phoneNumber: requestedByUser.phoneNumber,
+          message,
+        });
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error("Failed to send groupage rejection WhatsApp notification", error);
+      }
+    }
+  }
+
+  private deriveAdminGroupStatus(
+    requests: Array<{ approvalStatusId: number }>,
+    group?: { approvalDate?: string | null; rejectionDate?: string | null } | null,
+  ) {
+    if (group?.rejectionDate) {
+      return GroupApprovalStatusIds.REJECTED;
+    }
+    if (group?.approvalDate) {
+      return GroupApprovalStatusIds.APPROVED;
+    }
+    if (!requests.length) {
+      return GroupApprovalStatusIds.PENDING;
+    }
+
+    const statusIds = requests.map((request) => request.approvalStatusId);
+    if (statusIds.every((statusId) => statusId === GroupApprovalStatusIds.REJECTED)) {
+      return GroupApprovalStatusIds.REJECTED;
+    }
+    if (statusIds.every((statusId) => statusId === GroupApprovalStatusIds.APPROVED)) {
+      return GroupApprovalStatusIds.APPROVED;
+    }
+    if (statusIds.some((statusId) => statusId === GroupApprovalStatusIds.PENDING)) {
+      return GroupApprovalStatusIds.PENDING;
+    }
+
+    return GroupApprovalStatusIds.PENDING;
+  }
+
+  private mapAdminGroupRequest(request: any) {
+    const variant = request.variant;
+    const colorMeta = getVariantColorMeta(variant?.color);
+    const customer =
+      request.requestedBy?.username ||
+      request.requestedBy?.customer?.customerCode ||
+      (request.requestedBy?.id ? `Customer ${request.requestedBy.id}` : "Customer");
+
+    return {
+      id: request.id,
+      requestId: `REQ-${request.id}`,
+      customer,
+      variant:
+        variant?.variantCode ||
+        [variant?.size?.description || variant?.size?.name, colorMeta.colorName]
+          .filter(Boolean)
+          .join(" / ") ||
+        `Variant ${request.variantId}`,
+      size: variant?.size?.description || variant?.size?.name || null,
+      color: colorMeta.colorName || colorMeta.colorCode || null,
+      quantity: request.quantity || 0,
+      status: request.approvalStatus?.name || "Pending",
+      statusId: request.approvalStatusId,
+      reasonForRejection: request.reasonForRejection || null,
+      createdAt: request.createdAt,
+    };
+  }
+
+  private buildAdminOngoingGroupRow(
+    ongoingGroupId: number,
+    requests: any[],
+    includeRequests = false,
+  ): AdminOngoingGroupRow {
+    const sortedRequests = [...requests].sort(
+      (left, right) =>
+        new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
+    );
+    const anchorRequest = sortedRequests[0];
+    const group = anchorRequest?.ongoingGroup;
+    const product = anchorRequest?.product;
+    const dropshippingProduct = product?.dropshippingProduct;
+    const criteriaName =
+      typeof dropshippingProduct?.groupCriteriaId === "object"
+        ? dropshippingProduct.groupCriteriaId?.name
+        : null;
+    const rawMoq =
+      dropshippingProduct?.completionCriteria ??
+      group?.thresholdToValidate ??
+      0;
+    const moqValue = Math.floor(Number(rawMoq) || 0);
+    const moq =
+      criteriaName === "MOQ" || !criteriaName
+        ? moqValue
+        : moqValue;
+    const orderedItems = Number(group?.orderedItems || 0);
+    const totalItems = Number(group?.totalItems || 0);
+    const threshold = Number(group?.thresholdToValidate || moqValue || 0);
+    const statusId = this.deriveAdminGroupStatus(sortedRequests, group);
+    const statusMap: Record<number, string> = {
+      [GroupApprovalStatusIds.PENDING]: "Pending",
+      [GroupApprovalStatusIds.APPROVED]: "Approved",
+      [GroupApprovalStatusIds.REJECTED]: "Rejected",
+    };
+    const contributors = [
+      ...new Set(sortedRequests.map((request) => this.mapAdminGroupRequest(request).customer)),
+    ];
+    const colors = [
+      ...new Set(
+        sortedRequests
+          .map((request) => this.mapAdminGroupRequest(request).color)
+          .filter(Boolean) as string[],
+      ),
+    ];
+
+    return {
+      ongoingGroupId,
+      groupId: `GRP-${ongoingGroupId}`,
+      productId: anchorRequest?.productId,
+      productName: product?.name || "Groupage product",
+      productCode:
+        dropshippingProduct?.dropshippingCode ||
+        (anchorRequest?.productId ? `PRD-${anchorRequest.productId}` : null),
+      moq: moqValue || null,
+      threshold,
+      groupCompletion:
+        totalItems > 0
+          ? `${Math.min(100, Math.round((orderedItems / totalItems) * 100))}%`
+          : "0%",
+      groupProgress: `${orderedItems}/${totalItems}`,
+      contributorCount: contributors.length,
+      contributors,
+      colors,
+      status: statusMap[statusId] || "Pending",
+      statusId,
+      reasonForRejection: group?.reasonForRejection || null,
+      createdAt: sortedRequests[sortedRequests.length - 1]?.createdAt || anchorRequest?.createdAt,
+      anchorRequestId: anchorRequest?.id ?? null,
+      isReadyForApproval: orderedItems >= threshold && threshold > 0,
+      ...(includeRequests
+        ? { requests: sortedRequests.map((request) => this.mapAdminGroupRequest(request)) }
+        : {}),
+    };
+  }
+
+  async listAdminOngoingGroups(params: {
+    search?: string;
+    status?: "pending" | "approved" | "rejected";
+    page?: number;
+    limit?: number;
+  }) {
+    const requests = await db.query.ongoingGroupRequests.findMany({
+      with: {
+        product: {
+          with: {
+            dropshippingProduct: {
+              with: {
+                groupCriteriaId: true,
+              },
+            },
+          },
+        },
+        variant: {
+          with: {
+            color: true,
+            size: true,
+          },
+        },
+        approvalStatus: true,
+        requestedBy: {
+          with: {
+            customer: {
+              columns: {
+                customerCode: true,
+              },
+            },
+          },
+        },
+        ongoingGroup: true,
+      },
+      orderBy: desc(ongoingGroupRequests.createdAt),
+    });
+
+    const groupedRequests = requests.reduce((acc, request) => {
+      if (!request.ongoingGroupId) return acc;
+      const current = acc.get(request.ongoingGroupId) || [];
+      current.push(request);
+      acc.set(request.ongoingGroupId, current);
+      return acc;
+    }, new Map<number, typeof requests>());
+
+    const statusFilterMap = {
+      pending: GroupApprovalStatusIds.PENDING,
+      approved: GroupApprovalStatusIds.APPROVED,
+      rejected: GroupApprovalStatusIds.REJECTED,
+    } as const;
+
+    const normalizedSearch = params.search?.trim().toLowerCase() || "";
+    let rows = [...groupedRequests.entries()].map(([ongoingGroupId, groupRequests]) =>
+      this.buildAdminOngoingGroupRow(ongoingGroupId, groupRequests),
+    );
+
+    if (params.status) {
+      rows = rows.filter((row) => row.statusId === statusFilterMap[params.status!]);
+    }
+
+    if (normalizedSearch) {
+      rows = rows.filter((row) =>
+        [
+          row.groupId,
+          row.productName,
+          row.productCode,
+          row.contributors.join(" "),
+          row.colors.join(" "),
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(normalizedSearch),
+      );
+    }
+
+    rows.sort(
+      (left, right) =>
+        new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
+    );
+
+    const page = params.page || 1;
+    const limit = params.limit || 100;
+    const start = (page - 1) * limit;
+
+    return {
+      data: rows.slice(start, start + limit),
+      pagination: {
+        page,
+        limit,
+        total: rows.length,
+        totalPages: Math.max(1, Math.ceil(rows.length / limit)),
+      },
+    };
+  }
+
+  async getAdminOngoingGroupById(ongoingGroupId: number) {
+    const requests = await db.query.ongoingGroupRequests.findMany({
+      where: eq(ongoingGroupRequests.ongoingGroupId, ongoingGroupId),
+      with: {
+        product: {
+          with: {
+            dropshippingProduct: {
+              with: {
+                groupCriteriaId: true,
+              },
+            },
+          },
+        },
+        variant: {
+          with: {
+            color: true,
+            size: true,
+          },
+        },
+        approvalStatus: true,
+        requestedBy: {
+          with: {
+            customer: {
+              columns: {
+                customerCode: true,
+              },
+            },
+          },
+        },
+        ongoingGroup: true,
+      },
+      orderBy: desc(ongoingGroupRequests.createdAt),
+    });
+
+    if (!requests.length) {
+      throw new NotFoundError("Ongoing group not found");
+    }
+
+    return this.buildAdminOngoingGroupRow(ongoingGroupId, requests, true);
   }
 
   /**
@@ -833,6 +1140,73 @@ export class OngoingGroupRequestsService {
     return {
       ongoingGroupId: request.ongoingGroupId,
       approvedCount: requestsToApprove.length,
+    };
+  }
+
+  async rejectOngoingGroupByRequestId(
+    requestId: number,
+    rejectedBy: number,
+    reason: string,
+  ) {
+    const trimmedReason = reason.trim();
+    if (!trimmedReason) {
+      throw new ValidationError("Reason for rejection is required");
+    }
+
+    const request = await this.repository.findById(requestId);
+    if (!request) {
+      throw new NotFoundError("Ongoing group request not found");
+    }
+    if (!request.ongoingGroupId || !request.ongoingGroup) {
+      throw new AppError("Ongoing group not found for this request");
+    }
+
+    const groupRequests = await this.repository.findByOngoingGroupId(request.ongoingGroupId);
+    const requestsToReject = groupRequests.filter(
+      (groupRequest) =>
+        groupRequest.approvalStatusId !== GroupApprovalStatusIds.APPROVED &&
+        groupRequest.approvalStatusId !== GroupApprovalStatusIds.REJECTED,
+    );
+
+    if (!requestsToReject.length) {
+      return {
+        ongoingGroupId: request.ongoingGroupId,
+        rejectedCount: 0,
+      };
+    }
+
+    await db.transaction(async (tx) => {
+      for (const groupRequest of requestsToReject) {
+        await this.repository.update(tx, groupRequest.id, {
+          approvalStatusId: GroupApprovalStatusIds.REJECTED,
+          reasonForRejection: trimmedReason,
+          updatedBy: rejectedBy,
+        });
+      }
+
+      await this.repository.updateOngoingGroupRejection(
+        request.ongoingGroupId,
+        rejectedBy,
+        trimmedReason,
+        tx,
+      );
+    });
+
+    const rejectedRequests = await Promise.all(
+      requestsToReject.map((groupRequest) => this.repository.findById(groupRequest.id)),
+    );
+
+    await Promise.all(
+      rejectedRequests
+        .filter(Boolean)
+        .map((groupRequest) =>
+          this.notifyCustomerRequestRejected(groupRequest!, trimmedReason, rejectedBy),
+        ),
+    );
+
+    return {
+      ongoingGroupId: request.ongoingGroupId,
+      rejectedCount: requestsToReject.length,
     };
   }
 
