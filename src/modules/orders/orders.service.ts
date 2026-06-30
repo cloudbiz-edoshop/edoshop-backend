@@ -4,7 +4,6 @@ import type {
 } from "./orders.schema";
 import {
   MOBILE_TRANSFER_PAYMENT_METHODS,
-  PaymentMethod,
 } from "@/constants/payment-methods.constants";
 import { NotFoundError, ValidationError } from "@/core/errors";
 import campayConfig from "@/config/campay.config";
