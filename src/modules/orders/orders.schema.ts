@@ -55,6 +55,12 @@ export const checkoutDirectOrderResponseSchema = z.object({
   totalAmount: z.string(),
   paymentMethod: z.string(),
   paymentStatus: z.string(),
+  paymentTransactionId: z.number().optional(),
+  transactionReference: z.string().optional(),
+  campayReference: z.string().optional(),
+  campayStatus: z.string().optional(),
+  campayOperator: z.string().nullable().optional(),
+  campayUssdCode: z.string().nullable().optional(),
 });
 
 export type CheckoutDirectOrderResponse = z.infer<

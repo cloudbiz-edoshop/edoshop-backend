@@ -81,6 +81,12 @@ const EnvSchema = z
     EXCHANGE_XAF_PER_USD: z.coerce.number().positive().default(600),
     EXCHANGE_XAF_PER_EUR: z.coerce.number().positive().default(655),
     STOREFRONT_URL: z.string().optional().default("http://localhost:3000"),
+    CAMPAY_APP_ID: z.string().optional().default(""),
+    CAMPAY_USERNAME: z.string().optional().default(""),
+    CAMPAY_PASSWORD: z.string().optional().default(""),
+    CAMPAY_ENVIRONMENT: z.enum(["dev", "prod", "DEV", "PROD"]).default("prod"),
+    CAMPAY_BASE_URL: z.string().optional().default(""),
+    CAMPAY_CURRENCY: z.string().default("xaf"),
   })
   .transform((input) => ({
     ...input,

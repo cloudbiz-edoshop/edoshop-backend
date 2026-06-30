@@ -2,7 +2,13 @@ import type {
   CheckoutDirectOrderRequest,
   UpdateAvailableQuantityForFulfillmentRequest,
 } from "./orders.schema";
+import {
+  MOBILE_TRANSFER_PAYMENT_METHODS,
+  PaymentMethod,
+} from "@/constants/payment-methods.constants";
 import { NotFoundError, ValidationError } from "@/core/errors";
+import campayConfig from "@/config/campay.config";
+import { campayService } from "@/modules/campay/campay.service";
 
 import { db } from "@/db";
 import { OrdersRepository } from "./orders.repository";
@@ -112,14 +118,54 @@ export class OrdersService {
       throw new ValidationError("Selected payment method is not available");
     }
 
-    return await this.ordersRepository.createDirectOrderCheckout({
+    const isMobileTransfer = (
+      MOBILE_TRANSFER_PAYMENT_METHODS as readonly string[]
+    ).includes(paymentMethod.name);
+    const payOnDelivery = payload.payOnDelivery ?? false;
+
+    const checkout = await this.ordersRepository.createDirectOrderCheckout({
       userId,
       customerId: customer.id,
       paymentMethodId: payload.paymentMethodId,
-      payOnDelivery: payload.payOnDelivery ?? false,
+      payOnDelivery,
+      paymentPending: isMobileTransfer && !payOnDelivery && campayConfig.enabled,
       billing: payload.billing,
       items: payload.items,
     });
+
+    if (isMobileTransfer && !payOnDelivery && campayConfig.enabled) {
+      const collect = await campayService.initCollect({
+        amount: Number(checkout.totalAmount),
+        phone: payload.billing.whatsappNumber,
+        description: `Edoshop order ${checkout.orderCode}`,
+        externalReference: checkout.orderCode,
+      });
+
+      if (!collect.reference) {
+        throw new ValidationError("Unable to initiate mobile money payment");
+      }
+
+      await this.ordersRepository.updatePaymentTransactionReference(
+        checkout.paymentTransactionId,
+        collect.reference,
+        userId,
+      );
+
+      return {
+        ...checkout,
+        transactionReference: collect.reference,
+        campayReference: collect.reference,
+        campayStatus: String(collect.status || "PENDING").toUpperCase(),
+        campayOperator: collect.operator ?? null,
+        campayUssdCode: collect.ussd_code ?? null,
+      };
+    }
+
+    if (isMobileTransfer && !payOnDelivery && !campayConfig.enabled) {
+      throw new ValidationError("Mobile money payments are not configured yet");
+    }
+
+    return checkout;
   }
 }
 

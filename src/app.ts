@@ -33,6 +33,7 @@ import reviews from "@/modules/reviews/reviews.index";
 import roles from "@/modules/roles/roles.index";
 import sizes from "@/modules/sizes/sizes.index";
 import stripe from "@/modules/stripe/stripe.index";
+import campay from "@/modules/campay/campay.index";
 import stores from "@/modules/stores/stores.index";
 import supportChat from "@/modules/support-chat/support-chat.index";
 import suppliers from "@/modules/suppliers/suppliers.index";
@@ -121,6 +122,7 @@ const routes = [
   orders,
   packages,
   stripe,
+  campay,
   uploads,
   publicStorefront,
 ] as const;
