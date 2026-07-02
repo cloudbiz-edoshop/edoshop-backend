@@ -84,6 +84,18 @@ export {
   notificationsRelations,
 } from "./notifications";
 export {
+  default as notificationRecipients,
+  notificationRecipientsRelations,
+} from "./notification-recipients";
+export {
+  default as userNotificationDeliveries,
+  userNotificationDeliveriesRelations,
+} from "./user-notification-deliveries";
+export {
+  default as userNotificationPreferences,
+  userNotificationPreferencesRelations,
+} from "./user-notification-preferences";
+export {
   default as ongoingGroupRequests,
   ongoingGroupRequestsRelations,
 } from "./ongoing-group-requests";

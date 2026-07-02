@@ -62,6 +62,8 @@ export class StripeService {
       paymentMethodId: stripeMethod.id,
       payOnDelivery: false,
       paymentPending: true,
+      fulfillmentMethod: payload.fulfillmentMethod,
+      pickupWarehouseId: payload.pickupWarehouseId,
       billing: payload.billing,
       items: payload.items,
     });

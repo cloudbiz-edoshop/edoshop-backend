@@ -1,5 +1,8 @@
 import type {
   CheckoutDirectOrderRoute,
+  GetFulfillmentOptionsRoute,
+  GetMyOrderTrackingRoute,
+  GetMyOrdersRoute,
   GetOrderDetailsForACustomerRoute,
   GetOrdersToFulfillRoute,
   UpdateAvailableQuantityForFulfillmentRoute,
@@ -102,5 +105,51 @@ export const checkoutDirectOrder: AppRouteHandler<
   return c.json(
     successResponse(result, "Direct order checkout completed successfully"),
     HttpStatusCodes.CREATED,
+  );
+};
+
+export const getFulfillmentOptions: AppRouteHandler<
+  GetFulfillmentOptionsRoute
+> = async (c) => {
+  const result = await ordersService.getFulfillmentOptions();
+  return c.json(
+    successResponse(result, "Fulfillment options retrieved successfully"),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const getMyOrders: AppRouteHandler<GetMyOrdersRoute> = async (c) => {
+  const { page, limit } = c.req.valid("query");
+  const accessTokenPayload = c.get("accessTokenPayload");
+  const result = await ordersService.getMyOrders(accessTokenPayload.userId, {
+    page: page ?? 1,
+    limit: limit ?? 20,
+  });
+  const pagination = createPagination(result.total, page ?? 1, limit ?? 20);
+
+  return c.json(
+    successResponseWithPagination(
+      result.data,
+      pagination,
+      [],
+      "Customer orders retrieved successfully",
+    ),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const getMyOrderTracking: AppRouteHandler<
+  GetMyOrderTrackingRoute
+> = async (c) => {
+  const { orderCode } = c.req.valid("param");
+  const accessTokenPayload = c.get("accessTokenPayload");
+  const result = await ordersService.getMyOrderTracking(
+    accessTokenPayload.userId,
+    orderCode,
+  );
+
+  return c.json(
+    successResponse(result, "Order tracking retrieved successfully"),
+    HttpStatusCodes.OK,
   );
 };

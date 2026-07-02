@@ -24,7 +24,10 @@ import {
   createNotificationsResponseSchema,
   getNotificationsResponseSchema,
   listNotificationsResponseSchema,
+  updateNotificationPreferencesSchema,
   updateNotificationsRequestSchema,
+  userNotificationDeliveryResponseSchema,
+  userNotificationPreferenceSchema,
 } from "./notifications.schema";
 
 const tags = ["Notifications"];
@@ -290,13 +293,170 @@ export const removeSelected = createRoute({
   },
 });
 
+export const getMyNotifications = createRoute({
+  path: "/customers/me/notifications",
+  method: "get",
+  tags: ["Customer Notifications"],
+  middleware: [jwtMiddleware()] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    query: commonQueryParamsSchema.pick({ page: true, limit: true }).extend({
+      unreadOnly: z
+        .enum(["true", "false"])
+        .optional()
+        .transform((value) => value === "true"),
+    }),
+  },
+  summary: "List my notifications",
+  description: "Returns the authenticated customer's in-app notifications.",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchemaWithPagination(
+        z.array(userNotificationDeliveryResponseSchema),
+      ),
+      "Customer notifications",
+    ),
+    ...commonErrorResponses(
+      [HttpStatusCodes.UNAUTHORIZED, HttpStatusCodes.INTERNAL_SERVER_ERROR],
+      z.object({}),
+    ),
+  },
+});
+
+export const getMyNotificationSettings = createRoute({
+  path: "/customers/me/notification-settings",
+  method: "get",
+  tags: ["Customer Notifications"],
+  middleware: [jwtMiddleware()] as const,
+  request: {
+    headers: jwtHeaderSchema,
+  },
+  summary: "Get my notification settings",
+  description: "Returns notification preference toggles for the authenticated customer.",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(z.array(userNotificationPreferenceSchema)),
+      "Customer notification settings",
+    ),
+    ...commonErrorResponses(
+      [HttpStatusCodes.UNAUTHORIZED, HttpStatusCodes.INTERNAL_SERVER_ERROR],
+      z.object({}),
+    ),
+  },
+});
+
+export const updateMyNotificationSettings = createRoute({
+  path: "/customers/me/notification-settings",
+  method: "patch",
+  tags: ["Customer Notifications"],
+  middleware: [jwtMiddleware()] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    body: jsonContentRequired(
+      updateNotificationPreferencesSchema,
+      "Notification settings",
+    ),
+  },
+  summary: "Update my notification settings",
+  description: "Updates optional notification preferences for the authenticated customer.",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(z.array(userNotificationPreferenceSchema)),
+      "Updated notification settings",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.UNPROCESSABLE_ENTITY,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      z.object({}),
+    ),
+  },
+});
+
+export const markMyNotificationRead = createRoute({
+  path: "/customers/me/notifications/{id}/read",
+  method: "patch",
+  tags: ["Customer Notifications"],
+  middleware: [jwtMiddleware()] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    params: idParams,
+  },
+  summary: "Mark one notification as read",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(userNotificationDeliveryResponseSchema),
+      "Notification marked as read",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.NOT_FOUND,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      idParams,
+    ),
+  },
+});
+
+export const markAllMyNotificationsRead = createRoute({
+  path: "/customers/me/notifications/read-all",
+  method: "patch",
+  tags: ["Customer Notifications"],
+  middleware: [jwtMiddleware()] as const,
+  request: {
+    headers: jwtHeaderSchema,
+  },
+  summary: "Mark all notifications as read",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(z.object({ success: z.literal(true) })),
+      "All notifications marked as read",
+    ),
+    ...commonErrorResponses(
+      [HttpStatusCodes.UNAUTHORIZED, HttpStatusCodes.INTERNAL_SERVER_ERROR],
+      z.object({}),
+    ),
+  },
+});
+
+export const getMyUnreadNotificationCount = createRoute({
+  path: "/customers/me/notifications/unread-count",
+  method: "get",
+  tags: ["Customer Notifications"],
+  middleware: [jwtMiddleware()] as const,
+  request: {
+    headers: jwtHeaderSchema,
+  },
+  summary: "Get unread notification count",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(z.object({ count: z.number() })),
+      "Unread notification count",
+    ),
+    ...commonErrorResponses(
+      [HttpStatusCodes.UNAUTHORIZED, HttpStatusCodes.INTERNAL_SERVER_ERROR],
+      z.object({}),
+    ),
+  },
+});
+
 export type ListRoute = typeof list;
 export type CreateRoute = typeof create;
 export type GetOneRoute = typeof getOne;
 export type PatchRoute = typeof patch;
 export type RemoveSelectedRoute = typeof removeSelected;
-
 export type GetNotificationTypesRoute = typeof getNotificationTypes;
 export type GetNotificationFrequenciesRoute = typeof getNotificationFrequencies;
 export type GetNotificationRecipientTypes =
   typeof getNotificationRecipientTypes;
+export type GetMyNotificationsRoute = typeof getMyNotifications;
+export type GetMyNotificationSettingsRoute = typeof getMyNotificationSettings;
+export type UpdateMyNotificationSettingsRoute =
+  typeof updateMyNotificationSettings;
+export type MarkMyNotificationReadRoute = typeof markMyNotificationRead;
+export type MarkAllMyNotificationsReadRoute = typeof markAllMyNotificationsRead;
+export type GetMyUnreadNotificationCountRoute =
+  typeof getMyUnreadNotificationCount;

@@ -13,8 +13,8 @@ import { AppError } from "@/core/errors/app-error";
 import db from "@/db";
 
 import { groupApprovalStatuses, notifications, ongoingGroupRequests, ongoingGroups, products, users, variants, dropshippingProducts } from "@/db/models";
-import sendWhatsapp from "@/lib/send-whatsapp";
 
+import { notificationDeliveryService } from "../notifications/notification-delivery.service";
 import { OngoingGroupRequestsRepository } from "./ongoing-groups.repository";
 
 const REQUEST_CANCEL_WINDOW_HOURS = 24;
@@ -186,9 +186,6 @@ export class OngoingGroupRequestsService {
       : request.requestedBy;
     if (!requestedById) return;
 
-    const requestedByUser = await db.query.users.findFirst({
-      where: eq(users.id, requestedById),
-    });
     const productName = request.product?.name || "Your groupage item";
     const message = `${productName} has been approved. Please proceed with payment in Edoshop.`;
 
@@ -200,17 +197,12 @@ export class OngoingGroupRequestsService {
       createdBy: approvedBy,
     });
 
-    if (requestedByUser?.phoneNumber) {
-      try {
-        await sendWhatsapp({
-          phoneNumber: requestedByUser.phoneNumber,
-          message,
-        });
-      } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error("Failed to send groupage approval WhatsApp notification", error);
-      }
-    }
+    await notificationDeliveryService.deliverToUser({
+      userId: requestedById,
+      title: "Groupage approved - proceed with payment",
+      message,
+      notificationTypeId: NotificationTypeIds.REQUEST_APPROVED,
+    });
   }
 
   private async notifyCustomerRequestRejected(
@@ -223,9 +215,6 @@ export class OngoingGroupRequestsService {
       : request.requestedBy;
     if (!requestedById) return;
 
-    const requestedByUser = await db.query.users.findFirst({
-      where: eq(users.id, requestedById),
-    });
     const productName = request.product?.name || "Your groupage item";
     const message = `${productName} groupage was rejected. Reason: ${reason}`;
 
@@ -237,17 +226,12 @@ export class OngoingGroupRequestsService {
       createdBy: rejectedBy,
     });
 
-    if (requestedByUser?.phoneNumber) {
-      try {
-        await sendWhatsapp({
-          phoneNumber: requestedByUser.phoneNumber,
-          message,
-        });
-      } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error("Failed to send groupage rejection WhatsApp notification", error);
-      }
-    }
+    await notificationDeliveryService.deliverToUser({
+      userId: requestedById,
+      title: "Groupage rejected",
+      message,
+      notificationTypeId: NotificationTypeIds.WARNING,
+    });
   }
 
   private deriveAdminGroupStatus(

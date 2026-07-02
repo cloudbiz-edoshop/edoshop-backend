@@ -5,6 +5,11 @@ import type {
 import {
   MOBILE_TRANSFER_PAYMENT_METHODS,
 } from "@/constants/payment-methods.constants";
+import {
+  computeDirectOrderShippingFee,
+  DIRECT_ORDER_DELIVERY_FEE_XAF,
+  DIRECT_ORDER_PICKUP_FEE_XAF,
+} from "@/constants/fulfillment.constants";
 import { NotFoundError, ValidationError } from "@/core/errors";
 import campayConfig from "@/config/campay.config";
 import { campayService, normalizeCameroonPhone } from "@/modules/campay/campay.service";
@@ -132,6 +137,8 @@ export class OrdersService {
       paymentMethodId: payload.paymentMethodId,
       payOnDelivery,
       paymentPending: isMobileTransfer && !payOnDelivery && campayConfig.enabled,
+      fulfillmentMethod: payload.fulfillmentMethod,
+      pickupWarehouseId: payload.pickupWarehouseId,
       billing: payload.billing,
       items: payload.items,
     });
@@ -169,6 +176,34 @@ export class OrdersService {
     }
 
     return checkout;
+  }
+
+  async getFulfillmentOptions() {
+    const locations = await this.ordersRepository.getPickupLocations();
+    return {
+      deliveryFee: DIRECT_ORDER_DELIVERY_FEE_XAF,
+      pickupFee: DIRECT_ORDER_PICKUP_FEE_XAF,
+      currency: "XAF",
+      pickupLocations: locations,
+    };
+  }
+
+  async getMyOrders(
+    userId: number,
+    params: { page: number; limit: number },
+  ) {
+    return this.ordersRepository.getCustomerOrders(userId, params);
+  }
+
+  async getMyOrderTracking(userId: number, orderCode: string) {
+    const tracking = await this.ordersRepository.getCustomerOrderTracking(
+      userId,
+      orderCode,
+    );
+    if (!tracking) {
+      throw new NotFoundError("Order not found");
+    }
+    return tracking;
   }
 }
 

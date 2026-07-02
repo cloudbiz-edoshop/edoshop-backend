@@ -26,12 +26,18 @@ import {
   shippingPriorityCodes,
   users,
   variants,
+  warehouses,
 } from "@/db/models";
+import {
+  computeDirectOrderShippingFee,
+  FulfillmentMethod,
+} from "@/constants/fulfillment.constants";
 import {
   createFilterConditions,
   createSortCondition,
   getPaginationValues,
 } from "@/lib/searching-sorting";
+import { buildCustomerOrderTrackingSteps } from "./order-tracking.util";
 
 /**
  * Repository for orders-related database operations
@@ -559,6 +565,8 @@ export class OrdersRepository {
     paymentMethodId: number;
     payOnDelivery: boolean;
     paymentPending?: boolean;
+    fulfillmentMethod?: string;
+    pickupWarehouseId?: number;
     billing: {
       firstName: string;
       lastName: string;
@@ -566,7 +574,7 @@ export class OrdersRepository {
       whatsappNumber: string;
       country: string;
       city: string;
-      streetAddress: string;
+      streetAddress?: string;
       apartmentAddress?: string;
       orderNotes?: string;
     };
@@ -579,6 +587,11 @@ export class OrdersRepository {
       size?: string;
     }>;
   }) {
+    const fulfillmentMethod =
+      params.fulfillmentMethod === FulfillmentMethod.PICKUP
+        ? FulfillmentMethod.PICKUP
+        : FulfillmentMethod.DELIVERY;
+
     const country =
       (await this.findCountryByName(params.billing.country))
       ?? (await db.query.countries.findFirst({ where: eq(countries.id, 1) }));
@@ -587,12 +600,62 @@ export class OrdersRepository {
       throw new Error("Country not found");
     }
 
-    const streetAddress = [
+    let pickupWarehouse: Awaited<
+      ReturnType<typeof db.query.warehouses.findFirst>
+    > = null;
+
+    if (fulfillmentMethod === FulfillmentMethod.PICKUP) {
+      pickupWarehouse = await db.query.warehouses.findFirst({
+        where: and(
+          eq(warehouses.id, params.pickupWarehouseId ?? 0),
+          eq(warehouses.isActive, true),
+          eq(warehouses.isDeleted, false),
+        ),
+        with: {
+          address: {
+            with: {
+              country: true,
+            },
+          },
+        },
+      });
+
+      if (!pickupWarehouse) {
+        throw new Error("Selected pickup location is not available");
+      }
+    }
+
+    const deliveryStreetAddress = [
       params.billing.streetAddress,
       params.billing.apartmentAddress,
     ]
       .filter(Boolean)
       .join(", ");
+
+    const pickupStreetAddress = pickupWarehouse?.address?.streetAddress
+      ? [
+          pickupWarehouse.name,
+          pickupWarehouse.address.streetAddress,
+          pickupWarehouse.address.landmark,
+        ]
+          .filter(Boolean)
+          .join(", ")
+      : pickupWarehouse?.name ?? "Edoshop Store Pickup";
+
+    const streetAddress =
+      fulfillmentMethod === FulfillmentMethod.PICKUP
+        ? pickupStreetAddress
+        : deliveryStreetAddress;
+
+    const city =
+      fulfillmentMethod === FulfillmentMethod.PICKUP
+        ? pickupWarehouse?.address?.landmark || params.billing.city
+        : params.billing.city;
+
+    const shippingCountryId =
+      fulfillmentMethod === FulfillmentMethod.PICKUP
+        ? pickupWarehouse?.address?.countryId ?? country.id
+        : country.id;
 
     const now = new Date().toISOString();
     const orderCode = `ORD-${now.slice(0, 10).replace(/-/g, "")}-${Math.floor(Math.random() * 9000 + 1000)}`;
@@ -617,7 +680,19 @@ export class OrdersRepository {
     const subtotal = resolvedItems
       .reduce((sum, item) => sum + Number(item.lineSubtotal), 0)
       .toFixed(2);
-    const totalAmount = subtotal;
+    const shippingAmount = computeDirectOrderShippingFee(fulfillmentMethod).toFixed(2);
+    const totalAmount = (
+      Number(subtotal) + Number(shippingAmount)
+    ).toFixed(2);
+
+    const orderNotes = [
+      params.billing.orderNotes,
+      fulfillmentMethod === FulfillmentMethod.PICKUP
+        ? `Pickup at ${pickupWarehouse?.name ?? "Edoshop store"}`
+        : null,
+    ]
+      .filter(Boolean)
+      .join(" | ");
 
     return await db.transaction(async (tx) => {
       const [shippingAddress] = await tx
@@ -626,8 +701,8 @@ export class OrdersRepository {
           userId: params.userId,
           addressTypeId: AddressTypeIds.SHIPPING,
           streetAddress,
-          countryId: country.id,
-          landmark: params.billing.city,
+          countryId: shippingCountryId,
+          landmark: city,
           createdBy: params.userId,
           updatedBy: params.userId,
         })
@@ -638,7 +713,10 @@ export class OrdersRepository {
         .values({
           userId: params.userId,
           addressTypeId: AddressTypeIds.BILLING,
-          streetAddress,
+          streetAddress:
+            fulfillmentMethod === FulfillmentMethod.DELIVERY
+              ? deliveryStreetAddress
+              : streetAddress,
           countryId: country.id,
           landmark: params.billing.city,
           createdBy: params.userId,
@@ -657,12 +735,17 @@ export class OrdersRepository {
           shippingAddressId: shippingAddress.id,
           billingAddressId: billingAddress.id,
           paymentMethodId: params.paymentMethodId,
+          fulfillmentMethod,
+          pickupWarehouseId:
+            fulfillmentMethod === FulfillmentMethod.PICKUP
+              ? params.pickupWarehouseId
+              : null,
           subtotal,
           taxAmount: "0.00",
-          shippingAmount: "0.00",
+          shippingAmount,
           discountAmount: "0.00",
           totalAmount,
-          notes: params.billing.orderNotes ?? null,
+          notes: orderNotes || null,
           createdBy: params.userId,
           updatedBy: params.userId,
         })
@@ -722,6 +805,9 @@ export class OrdersRepository {
       return {
         orderId: order.id,
         orderCode: order.orderCode,
+        subtotal,
+        shippingAmount,
+        fulfillmentMethod,
         totalAmount,
         paymentTransactionId: paymentTransaction.id,
         transactionReference,
@@ -732,6 +818,190 @@ export class OrdersRepository {
         paymentStatus: paymentStatus.name,
       };
     });
+  }
+
+  async getPickupLocations() {
+    const rows = await db.query.warehouses.findMany({
+      where: and(eq(warehouses.isActive, true), eq(warehouses.isDeleted, false)),
+      with: {
+        address: {
+          with: {
+            country: true,
+          },
+        },
+      },
+      orderBy: [warehouses.name],
+    });
+
+    return rows.map((warehouse) => ({
+      id: warehouse.id,
+      name: warehouse.name,
+      description: warehouse.description,
+      address: [
+        warehouse.address?.streetAddress,
+        warehouse.address?.landmark,
+        warehouse.address?.country?.name,
+      ]
+        .filter(Boolean)
+        .join(", "),
+    }));
+  }
+
+  async getCustomerOrders(userId: number, params: { page: number; limit: number }) {
+    const customer = await this.findCustomerByUserId(userId);
+    if (!customer) {
+      return { data: [], total: 0 };
+    }
+
+    const { limit, offset } = getPaginationValues(params.page, params.limit);
+    const whereClause = and(
+      eq(orders.customerId, customer.id),
+      eq(orders.isDeleted, false),
+    );
+
+    const [{ value: total }] = await db
+      .select({ value: count() })
+      .from(orders)
+      .where(whereClause);
+
+    const rows = await db.query.orders.findMany({
+      where: whereClause,
+      limit,
+      offset,
+      orderBy: [desc(orders.createdAt)],
+      with: {
+        orderStatus: true,
+        orderType: true,
+        orderItems: true,
+        paymentTransactions: {
+          with: {
+            paymentStatus: true,
+          },
+        },
+      },
+    });
+
+    return {
+      total,
+      data: rows.map((order) => ({
+        id: order.id,
+        orderCode: order.orderCode,
+        orderType: order.orderType?.name,
+        fulfillmentMethod: order.fulfillmentMethod ?? FulfillmentMethod.DELIVERY,
+        status: order.orderStatus?.name ?? "pending",
+        paymentStatus:
+          order.paymentTransactions?.[0]?.paymentStatus?.name ?? undefined,
+        totalAmount: String(order.totalAmount),
+        shippingAmount: String(order.shippingAmount ?? "0"),
+        createdAt: order.createdAt,
+        itemCount: order.orderItems?.length ?? 0,
+      })),
+    };
+  }
+
+  async getCustomerOrderTracking(userId: number, orderCode: string) {
+    const customer = await this.findCustomerByUserId(userId);
+    if (!customer) {
+      return null;
+    }
+
+    const order = await db.query.orders.findFirst({
+      where: and(
+        eq(orders.orderCode, orderCode),
+        eq(orders.customerId, customer.id),
+        eq(orders.isDeleted, false),
+      ),
+      with: {
+        orderStatus: true,
+        orderItems: true,
+        shippingAddress: {
+          with: {
+            country: true,
+          },
+        },
+        billingAddress: {
+          with: {
+            country: true,
+          },
+        },
+        pickupWarehouse: {
+          with: {
+            address: {
+              with: {
+                country: true,
+              },
+            },
+          },
+        },
+        paymentTransactions: {
+          with: {
+            paymentStatus: true,
+          },
+        },
+      },
+    });
+
+    if (!order) {
+      return null;
+    }
+
+    const formatAddress = (
+      address?: {
+        streetAddress?: string | null;
+        landmark?: string | null;
+        country?: { name?: string | null } | null;
+      } | null,
+    ) => {
+      if (!address) return null;
+      return [
+        address.streetAddress,
+        address.landmark,
+        address.country?.name,
+      ]
+        .filter(Boolean)
+        .join(", ");
+    };
+
+    const pickupLocation =
+      order.fulfillmentMethod === FulfillmentMethod.PICKUP
+        ? [
+            order.pickupWarehouse?.name,
+            formatAddress(order.pickupWarehouse?.address ?? null),
+          ]
+            .filter(Boolean)
+            .join(" — ")
+        : null;
+
+    return {
+      orderCode: order.orderCode,
+      fulfillmentMethod: order.fulfillmentMethod ?? FulfillmentMethod.DELIVERY,
+      status: order.orderStatus?.name ?? "pending",
+      paymentStatus:
+        order.paymentTransactions?.[0]?.paymentStatus?.name ?? undefined,
+      placedAt: order.createdAt,
+      totalAmount: String(order.totalAmount),
+      subtotal: String(order.subtotal),
+      shippingAmount: String(order.shippingAmount ?? "0"),
+      pickupLocation,
+      billingAddress: formatAddress(order.billingAddress),
+      shippingAddress: formatAddress(order.shippingAddress),
+      items: (order.orderItems ?? []).map((item) => ({
+        id: item.id,
+        productName: item.productName,
+        quantity: item.quantity,
+        unitPrice: String(item.unitPrice),
+        subTotal: String(item.subTotal),
+        productImageUrl: item.productImageUrl,
+        sizeName: item.sizeName ?? undefined,
+        colorName: item.colorName ?? undefined,
+      })),
+      steps: buildCustomerOrderTrackingSteps({
+        statusId: order.statusId,
+        fulfillmentMethod: order.fulfillmentMethod ?? FulfillmentMethod.DELIVERY,
+        createdAt: order.createdAt,
+        updatedAt: order.updatedAt,
+      }),
+    };
   }
 
   async findPaymentMethodByName(name: string) {

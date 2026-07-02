@@ -23,7 +23,8 @@ import { paymentMethods } from "./payment-methods";
 import { paymentTransactions } from "./payment-transactions";
 import { shippingPriorityCodes } from "./shipping-priority-codes";
 import { shippingTypes } from "./shipping-types";
-import { users } from "./users";
+import users from "./users";
+import warehouses from "./warehouses";
 
 export const orders = pgTable("orders", {
   id: serial().primaryKey(),
@@ -44,6 +45,8 @@ export const orders = pgTable("orders", {
   discountAmount: decimal({ precision: 10, scale: 2 }).notNull().default("0"),
   totalAmount: decimal({ precision: 10, scale: 2 }).notNull(),
   notes: text(),
+  fulfillmentMethod: varchar({ length: 20 }).notNull().default("delivery"),
+  pickupWarehouseId: integer().references(() => warehouses.id),
   version: integer().notNull().default(1),
   createdAt: timestamp({ mode: "string" }).defaultNow().notNull(),
   updatedAt: timestamp({ mode: "string" }).defaultNow(),
@@ -74,6 +77,7 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
   billingAddress: one(addresses, { fields: [orders.billingAddressId], references: [addresses.id], relationName: "billingAddress" }),
   paymentMethod: one(paymentMethods, { fields: [orders.paymentMethodId], references: [paymentMethods.id] }),
   shippingType: one(shippingTypes, { fields: [orders.shippingTypeId], references: [shippingTypes.id] }),
+  pickupWarehouse: one(warehouses, { fields: [orders.pickupWarehouseId], references: [warehouses.id] }),
   createdBy: one(users, { fields: [orders.createdBy], references: [users.id] }),
   updatedBy: one(users, { fields: [orders.updatedBy], references: [users.id] }),
   deletedBy: one(users, { fields: [orders.deletedBy], references: [users.id] }),

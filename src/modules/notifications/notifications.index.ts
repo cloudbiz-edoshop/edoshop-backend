@@ -18,5 +18,23 @@ router.openapi(routes.create, handlers.create);
 router.openapi(routes.getOne, handlers.getOne);
 router.openapi(routes.patch, handlers.patch);
 router.openapi(routes.removeSelected, handlers.removeSelected);
+router.openapi(routes.getMyNotifications, handlers.getMyNotifications);
+router.openapi(
+  routes.getMyNotificationSettings,
+  handlers.getMyNotificationSettings,
+);
+router.openapi(
+  routes.updateMyNotificationSettings,
+  handlers.updateMyNotificationSettings,
+);
+router.openapi(routes.markMyNotificationRead, handlers.markMyNotificationRead);
+router.openapi(
+  routes.markAllMyNotificationsRead,
+  handlers.markAllMyNotificationsRead,
+);
+router.openapi(
+  routes.getMyUnreadNotificationCount,
+  handlers.getMyUnreadNotificationCount,
+);
 
 export default router;

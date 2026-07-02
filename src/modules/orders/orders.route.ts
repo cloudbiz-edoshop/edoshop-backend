@@ -1,4 +1,4 @@
-import { createRoute } from "@hono/zod-openapi";
+import { createRoute, z } from "@hono/zod-openapi";
 
 import { EntityType } from "@/constants/entities.constants";
 import { OperationType } from "@/constants/operations.constants";
@@ -155,3 +155,96 @@ export const checkoutDirectOrder = createRoute({
 });
 
 export type CheckoutDirectOrderRoute = typeof checkoutDirectOrder;
+
+export const getFulfillmentOptions = createRoute({
+  path: "/public/fulfillment-options",
+  method: "get",
+  tags,
+  summary: "Get pickup and delivery options",
+  description: "Returns pickup locations and shipping fees for checkout",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(
+        z.object({
+          deliveryFee: z.number(),
+          pickupFee: z.number(),
+          currency: z.string(),
+          pickupLocations: z.array(
+            z.object({
+              id: z.number(),
+              name: z.string(),
+              description: z.string().nullable().optional(),
+              address: z.string(),
+            }),
+          ),
+        }),
+      ),
+      "Fulfillment options",
+    ),
+    ...commonErrorResponses(
+      [HttpStatusCodes.INTERNAL_SERVER_ERROR],
+      z.object({}),
+    ),
+  },
+});
+
+export const getMyOrders = createRoute({
+  path: "/orders/me",
+  method: "get",
+  tags,
+  middleware: [jwtMiddleware()] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    query: commonQueryParamsSchema.pick({ page: true, limit: true }),
+  },
+  summary: "List my orders",
+  description: "Returns orders placed by the authenticated customer",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchemaWithPagination(
+        z.array(schemas.customerOrderSummarySchema),
+      ),
+      "Customer orders",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      z.object({}),
+    ),
+  },
+});
+
+export const getMyOrderTracking = createRoute({
+  path: "/orders/me/{orderCode}/tracking",
+  method: "get",
+  tags,
+  middleware: [jwtMiddleware()] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    params: z.object({
+      orderCode: z.string().min(1),
+    }),
+  },
+  summary: "Track one of my orders",
+  description: "Returns tracking details for an order owned by the authenticated customer",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(schemas.customerOrderTrackingSchema),
+      "Order tracking",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.NOT_FOUND,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      z.object({ orderCode: z.string() }),
+    ),
+  },
+});
+
+export type GetFulfillmentOptionsRoute = typeof getFulfillmentOptions;
+export type GetMyOrdersRoute = typeof getMyOrders;
+export type GetMyOrderTrackingRoute = typeof getMyOrderTracking;

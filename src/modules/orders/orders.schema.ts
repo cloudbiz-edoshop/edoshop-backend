@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { orderItemsSchema } from "@/db/models/order-items";
+import { FulfillmentMethod } from "@/constants/fulfillment.constants";
 import { commonStringSchema } from "@/lib/zod-schemas";
 
 export const ordersToFulfillSchema = z.array(
@@ -28,22 +29,51 @@ export const checkoutCartItemSchema = z.object({
   size: z.string().optional(),
 });
 
-export const checkoutDirectOrderRequestSchema = z.object({
-  paymentMethodId: z.number().min(1).optional(),
-  payOnDelivery: z.boolean().optional().default(false),
-  billing: z.object({
-    firstName: z.string().min(1),
-    lastName: z.string().min(1),
-    email: z.string().email(),
-    whatsappNumber: z.string().min(1),
-    country: z.string().min(1),
-    city: z.string().min(1),
-    streetAddress: z.string().min(1),
-    apartmentAddress: z.string().optional(),
-    orderNotes: z.string().optional(),
-  }),
-  items: z.array(checkoutCartItemSchema).min(1),
+const checkoutBillingSchema = z.object({
+  firstName: z.string().min(1),
+  lastName: z.string().min(1),
+  email: z.string().email(),
+  whatsappNumber: z.string().min(1),
+  country: z.string().min(1),
+  city: z.string().min(1),
+  streetAddress: z.string().optional(),
+  apartmentAddress: z.string().optional(),
+  orderNotes: z.string().optional(),
 });
+
+export const checkoutDirectOrderRequestSchema = z
+  .object({
+    paymentMethodId: z.number().min(1).optional(),
+    payOnDelivery: z.boolean().optional().default(false),
+    fulfillmentMethod: z
+      .enum([FulfillmentMethod.PICKUP, FulfillmentMethod.DELIVERY])
+      .default(FulfillmentMethod.DELIVERY),
+    pickupWarehouseId: z.number().min(1).optional(),
+    billing: checkoutBillingSchema,
+    items: z.array(checkoutCartItemSchema).min(1),
+  })
+  .superRefine((data, ctx) => {
+    if (data.fulfillmentMethod === FulfillmentMethod.DELIVERY) {
+      if (!data.billing.streetAddress?.trim()) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Street address is required for delivery",
+          path: ["billing", "streetAddress"],
+        });
+      }
+    }
+
+    if (
+      data.fulfillmentMethod === FulfillmentMethod.PICKUP
+      && !data.pickupWarehouseId
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Pickup location is required",
+        path: ["pickupWarehouseId"],
+      });
+    }
+  });
 
 export type CheckoutDirectOrderRequest = z.infer<
   typeof checkoutDirectOrderRequestSchema
@@ -53,6 +83,9 @@ export const checkoutDirectOrderResponseSchema = z.object({
   orderId: z.number(),
   orderCode: z.string(),
   totalAmount: z.string(),
+  subtotal: z.string().optional(),
+  shippingAmount: z.string().optional(),
+  fulfillmentMethod: z.string().optional(),
   paymentMethod: z.string(),
   paymentStatus: z.string(),
   paymentTransactionId: z.number().optional(),
@@ -61,6 +94,55 @@ export const checkoutDirectOrderResponseSchema = z.object({
   campayStatus: z.string().optional(),
   campayOperator: z.string().nullable().optional(),
   campayUssdCode: z.string().nullable().optional(),
+});
+
+export const customerOrderSummarySchema = z.object({
+  id: z.number(),
+  orderCode: z.string(),
+  orderType: z.string().optional(),
+  fulfillmentMethod: z.string(),
+  status: z.string(),
+  paymentStatus: z.string().optional(),
+  totalAmount: z.string(),
+  shippingAmount: z.string(),
+  createdAt: z.string(),
+  itemCount: z.number(),
+});
+
+export const customerOrderTrackingStepSchema = z.object({
+  id: z.number(),
+  label: z.string(),
+  details: z.string(),
+  date: z.string().nullable(),
+  completed: z.boolean(),
+  active: z.boolean(),
+});
+
+export const customerOrderTrackingSchema = z.object({
+  orderCode: z.string(),
+  fulfillmentMethod: z.string(),
+  status: z.string(),
+  paymentStatus: z.string().optional(),
+  placedAt: z.string(),
+  totalAmount: z.string(),
+  subtotal: z.string(),
+  shippingAmount: z.string(),
+  pickupLocation: z.string().nullable().optional(),
+  billingAddress: z.string().nullable().optional(),
+  shippingAddress: z.string().nullable().optional(),
+  items: z.array(
+    z.object({
+      id: z.number(),
+      productName: z.string(),
+      quantity: z.number(),
+      unitPrice: z.string(),
+      subTotal: z.string(),
+      productImageUrl: z.string().nullable().optional(),
+      sizeName: z.string().optional(),
+      colorName: z.string().optional(),
+    }),
+  ),
+  steps: z.array(customerOrderTrackingStepSchema),
 });
 
 export type CheckoutDirectOrderResponse = z.infer<

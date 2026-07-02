@@ -45,7 +45,12 @@ export const createNotificationsRequestSchema = z.object({
       },
     )
     .optional()
-    .describe("Notifications recipient ids"),
+    .describe("Notifications recipient user ids"),
+  sendWhatsapp: z
+    .boolean()
+    .optional()
+    .default(true)
+    .describe("Also send this notification through WhatsApp when possible"),
 });
 
 export type CreateNotificationsRequest = z.infer<
@@ -82,3 +87,32 @@ export const listNotificationsResponseSchema = z.array(
 export type ListNotificationsResponse = z.infer<
   typeof listNotificationsResponseSchema
 >;
+
+export const userNotificationDeliveryResponseSchema = z.object({
+  id: z.number(),
+  notificationId: z.number().nullable(),
+  userId: z.number(),
+  title: z.string(),
+  message: z.string(),
+  categoryKey: z.string(),
+  channel: z.string(),
+  isRead: z.boolean(),
+  readAt: z.string().nullable(),
+  sentAt: z.string(),
+  createdAt: z.string(),
+});
+
+export const userNotificationPreferenceSchema = z.object({
+  preferenceKey: z.string(),
+  enabled: z.boolean(),
+  mandatory: z.boolean(),
+});
+
+export const updateNotificationPreferencesSchema = z.object({
+  preferences: z.array(
+    z.object({
+      preferenceKey: z.string(),
+      enabled: z.boolean(),
+    }),
+  ),
+});

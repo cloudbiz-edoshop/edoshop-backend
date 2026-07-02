@@ -1,12 +1,18 @@
 import type {
   CreateRoute,
+  GetMyNotificationsRoute,
+  GetMyNotificationSettingsRoute,
+  GetMyUnreadNotificationCountRoute,
   GetNotificationFrequenciesRoute,
   GetNotificationRecipientTypes,
   GetNotificationTypesRoute,
   GetOneRoute,
   ListRoute,
+  MarkAllMyNotificationsReadRoute,
+  MarkMyNotificationReadRoute,
   PatchRoute,
   RemoveSelectedRoute,
+  UpdateMyNotificationSettingsRoute,
 } from "./notifications.route";
 
 import type {
@@ -63,6 +69,7 @@ export const create: AppRouteHandler<CreateRoute> = async (c) => {
     notificationFrequencyId,
     recipientTypeId,
     recipientIds,
+    sendWhatsapp,
   } = c.req.valid("json");
 
   const payload = c.get("accessTokenPayload");
@@ -75,6 +82,7 @@ export const create: AppRouteHandler<CreateRoute> = async (c) => {
     notificationFrequencyId,
     recipientTypeId,
     recipientIds,
+    sendWhatsapp,
     createdBy,
   });
 
@@ -162,4 +170,89 @@ export const getNotificationRecipientTypes: AppRouteHandler<
     "Notification recipient types retrieved successfully",
   );
   return c.json(response, HttpStatusCodes.OK);
+};
+
+export const getMyNotifications: AppRouteHandler<GetMyNotificationsRoute> = async (c) => {
+  const query = c.req.valid("query");
+  const payload = c.get("accessTokenPayload");
+
+  const result = await notificationsService.getMyNotifications({
+    userId: payload.userId,
+    page: query.page ?? 1,
+    limit: query.limit ?? 20,
+    unreadOnly: query.unreadOnly,
+  });
+
+  const pagination = createPagination(
+    result.total,
+    query.page ?? 1,
+    query.limit ?? 20,
+  );
+
+  return c.json(
+    successResponseWithPagination(
+      result.data,
+      pagination,
+      [],
+      "Notifications retrieved successfully",
+    ),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const getMyNotificationSettings: AppRouteHandler<GetMyNotificationSettingsRoute> = async (c) => {
+  const payload = c.get("accessTokenPayload");
+  const settings = await notificationsService.getMyNotificationSettings(
+    payload.userId,
+  );
+  return c.json(
+    successResponse(settings, "Notification settings retrieved successfully"),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const updateMyNotificationSettings: AppRouteHandler<UpdateMyNotificationSettingsRoute> = async (c) => {
+  const payload = c.get("accessTokenPayload");
+  const { preferences } = c.req.valid("json");
+  const settings = await notificationsService.updateMyNotificationSettings(
+    payload.userId,
+    preferences,
+  );
+  return c.json(
+    successResponse(settings, "Notification settings updated successfully"),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const markMyNotificationRead: AppRouteHandler<MarkMyNotificationReadRoute> = async (c) => {
+  const payload = c.get("accessTokenPayload");
+  const { id } = c.req.valid("param");
+  const updated = await notificationsService.markMyNotificationRead(
+    payload.userId,
+    id,
+  );
+  return c.json(
+    successResponse(updated, "Notification marked as read"),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const markAllMyNotificationsRead: AppRouteHandler<MarkAllMyNotificationsReadRoute> = async (c) => {
+  const payload = c.get("accessTokenPayload");
+  await notificationsService.markAllMyNotificationsRead(payload.userId);
+  return c.json(
+    successResponse({ success: true }, "All notifications marked as read"),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const getMyUnreadNotificationCount: AppRouteHandler<GetMyUnreadNotificationCountRoute> = async (c) => {
+  const payload = c.get("accessTokenPayload");
+  const count = await notificationsService.getMyUnreadNotificationCount(
+    payload.userId,
+  );
+  return c.json(
+    successResponse({ count }, "Unread notification count retrieved successfully"),
+    HttpStatusCodes.OK,
+  );
 };

@@ -8,6 +8,7 @@ import { AppError } from "@/core/errors/app-error";
 
 import db from "@/db";
 
+import { notificationDeliveryService } from "./notification-delivery.service";
 import { NotificationsRepository } from "./notifications.repository";
 
 export class NotificationsService {
@@ -32,14 +33,30 @@ export class NotificationsService {
       createdBy: number;
     },
   ): Promise<CreateNotificationsResponse> {
+    const { recipientIds, sendWhatsapp, ...notificationPayload } =
+      notificationsData;
+
     const notifications = await db.transaction(async (tx) => {
-      // Create notifications
       const notifications = await this.notificationsRepository.create(tx, {
-        ...notificationsData,
+        ...notificationPayload,
         updatedBy: notificationsData.createdBy,
       });
 
       return notifications;
+    });
+
+    if (recipientIds?.length) {
+      await notificationDeliveryService.saveNotificationRecipients(
+        notifications.id,
+        recipientIds,
+      );
+    }
+
+    await notificationDeliveryService.publishNotification({
+      notificationId: notifications.id,
+      recipientTypeId: notificationsData.recipientTypeId,
+      recipientIds,
+      sendWhatsapp: sendWhatsapp !== false,
     });
 
     // fetch notifications
@@ -169,5 +186,44 @@ export class NotificationsService {
    */
   async getNotificationRecipientTypes() {
     return await this.notificationsRepository.getNotificationRecipientTypes();
+  }
+
+  async getMyNotifications(params: {
+    userId: number;
+    page: number;
+    limit: number;
+    unreadOnly?: boolean;
+  }) {
+    return notificationDeliveryService.listUserNotifications(params);
+  }
+
+  async getMyNotificationSettings(userId: number) {
+    return notificationDeliveryService.getUserPreferences(userId);
+  }
+
+  async updateMyNotificationSettings(
+    userId: number,
+    updates: Array<{ preferenceKey: string; enabled: boolean }>,
+  ) {
+    return notificationDeliveryService.updateUserPreferences(userId, updates);
+  }
+
+  async markMyNotificationRead(userId: number, deliveryId: number) {
+    const updated = await notificationDeliveryService.markNotificationRead(
+      userId,
+      deliveryId,
+    );
+    if (!updated) {
+      throw new NotFoundError("Notification not found");
+    }
+    return updated;
+  }
+
+  async markAllMyNotificationsRead(userId: number) {
+    await notificationDeliveryService.markAllNotificationsRead(userId);
+  }
+
+  async getMyUnreadNotificationCount(userId: number) {
+    return notificationDeliveryService.getUnreadCount(userId);
   }
 }

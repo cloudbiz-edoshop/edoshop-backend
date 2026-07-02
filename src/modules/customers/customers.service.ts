@@ -18,6 +18,7 @@ import db from "@/db";
 import { countries } from "@/db/models";
 
 import { AddressService } from "../addresses/addresses.service";
+import { notificationDeliveryService } from "../notifications/notification-delivery.service";
 import { RetailersService } from "../retailers/retailers.service";
 import { UserRepository } from "../users/users.repository";
 import { UsersService } from "../users/users.service";
@@ -227,6 +228,7 @@ export class CustomersService {
     if (customerData.accountType === "retailer") {
       await this.retailersService.becomeRetailer(customer.userId);
     }
+    await notificationDeliveryService.initializeUserPreferences(customer.userId);
     return customerWithAddresses as CreateCustomerResponse;
   }
 
@@ -302,6 +304,8 @@ export class CustomersService {
     if (customerData.accountType === "retailer") {
       await this.retailersService.becomeRetailer(customer.userId);
     }
+
+    await notificationDeliveryService.initializeUserPreferences(customer.userId);
 
     return {
       id: customer.id,

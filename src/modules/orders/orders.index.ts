@@ -8,5 +8,8 @@ router.openapi(routes.getOrdersToFulfill, handlers.getOrdersToFulfill);
 router.openapi(routes.getOrderDetailsForACustomer, handlers.getOrderDetailsForACustomer);
 router.openapi(routes.updateAvailableQuantityForFulfillment, handlers.updateAvailableQuantity);
 router.openapi(routes.checkoutDirectOrder, handlers.checkoutDirectOrder);
+router.openapi(routes.getFulfillmentOptions, handlers.getFulfillmentOptions);
+router.openapi(routes.getMyOrders, handlers.getMyOrders);
+router.openapi(routes.getMyOrderTracking, handlers.getMyOrderTracking);
 
 export default router;
