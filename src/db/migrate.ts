@@ -1,4 +1,4 @@
-import config from "$/drizzle.config";
+import { migrateConfig } from "@/db/migrate.config";
 import { sql } from "drizzle-orm";
 
 import { migrate } from "drizzle-orm/postgres-js/migrator";
@@ -22,8 +22,8 @@ if (!env.DB_MIGRATING) {
 }
 
 await migrate(db, {
-  migrationsFolder: config.out!,
-  migrationsSchema: config.migrations!.schema,
+  migrationsFolder: migrateConfig.migrationsFolder,
+  migrationsSchema: migrateConfig.migrationsSchema,
 });
 
 await db.execute(sql.raw(nextSupplierCode));
