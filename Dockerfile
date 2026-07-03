@@ -7,9 +7,11 @@ RUN npm ci --omit=dev
 
 COPY . .
 
+RUN chmod +x scripts/docker-entrypoint.sh
+
 ENV NODE_ENV=production
 ENV PORT=9999
 
 EXPOSE 9999
 
-CMD ["npm", "start"]
+ENTRYPOINT ["./scripts/docker-entrypoint.sh"]

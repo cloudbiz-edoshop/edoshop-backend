@@ -1,2 +1,6 @@
 [variables]
 NIXPACKS_NODE_VERSION = "22"
+
+# Dokploy uses Nixpacks (not Dockerfile). Run migrations before the API starts.
+[start]
+cmd = "npm run start:prod"
