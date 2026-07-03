@@ -25,13 +25,18 @@ fi
 export PATH="/app/node_modules/.bin:$PATH"
 
 echo ""
-echo "-- Step 1: Database migrations --"
-if DB_MIGRATING=true tsx src/db/migrate.ts; then
-  echo "Migrations OK."
+if [ "${SKIP_DB_MIGRATE:-false}" = "true" ]; then
+  echo "-- Step 1: Skipping migrations (SKIP_DB_MIGRATE=true) --"
 else
-  echo ""
-  echo "FATAL: Migration failed. Check DATABASE_URL and that Postgres is running."
-  exit 1
+  echo "-- Step 1: Database migrations --"
+  if DB_MIGRATING=true tsx src/db/migrate.ts; then
+    echo "Migrations OK."
+  else
+    echo ""
+    echo "FATAL: Migration failed. Check DATABASE_URL and that Postgres is running."
+    echo "Tip: set SKIP_DB_MIGRATE=true temporarily to test if the API starts without migrate."
+    exit 1
+  fi
 fi
 
 echo ""
