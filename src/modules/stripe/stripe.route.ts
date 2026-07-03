@@ -9,15 +9,9 @@ import {
 } from "@/lib/openapi/helpers";
 import { createSuccessResponseSchema } from "@/lib/openapi/schemas";
 import { jwtHeaderSchema } from "@/lib/zod-schemas";
-import {
-  checkoutDirectOrderRequestSchema,
-} from "@/modules/orders/orders.schema";
+import { checkoutStripeOrderRequestSchema } from "@/modules/orders/orders.schema";
 
-export const checkoutStripeOrderRequestSchema = checkoutDirectOrderRequestSchema
-  .omit({ paymentMethodId: true, payOnDelivery: true })
-  .extend({
-    currency: z.enum(["xaf", "usd", "eur"]).optional().default("xaf"),
-  });
+export { checkoutStripeOrderRequestSchema };
 
 const tags = ["Stripe"];
 

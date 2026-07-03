@@ -41,39 +41,55 @@ const checkoutBillingSchema = z.object({
   orderNotes: z.string().optional(),
 });
 
-export const checkoutDirectOrderRequestSchema = z
-  .object({
-    paymentMethodId: z.number().min(1).optional(),
-    payOnDelivery: z.boolean().optional().default(false),
-    fulfillmentMethod: z
-      .enum([FulfillmentMethod.PICKUP, FulfillmentMethod.DELIVERY])
-      .default(FulfillmentMethod.DELIVERY),
-    pickupWarehouseId: z.number().min(1).optional(),
-    billing: checkoutBillingSchema,
-    items: z.array(checkoutCartItemSchema).min(1),
-  })
-  .superRefine((data, ctx) => {
-    if (data.fulfillmentMethod === FulfillmentMethod.DELIVERY) {
-      if (!data.billing.streetAddress?.trim()) {
-        ctx.addIssue({
-          code: "custom",
-          message: "Street address is required for delivery",
-          path: ["billing", "streetAddress"],
-        });
-      }
-    }
+const checkoutFulfillmentFieldsSchema = z.object({
+  fulfillmentMethod: z
+    .enum([FulfillmentMethod.PICKUP, FulfillmentMethod.DELIVERY])
+    .default(FulfillmentMethod.DELIVERY),
+  pickupWarehouseId: z.number().min(1).optional(),
+  billing: checkoutBillingSchema,
+  items: z.array(checkoutCartItemSchema).min(1),
+});
 
-    if (
-      data.fulfillmentMethod === FulfillmentMethod.PICKUP
-      && !data.pickupWarehouseId
-    ) {
+type CheckoutFulfillmentInput = z.infer<typeof checkoutFulfillmentFieldsSchema>;
+
+const applyCheckoutFulfillmentRefine = (
+  data: CheckoutFulfillmentInput,
+  ctx: z.RefinementCtx,
+) => {
+  if (data.fulfillmentMethod === FulfillmentMethod.DELIVERY) {
+    if (!data.billing.streetAddress?.trim()) {
       ctx.addIssue({
         code: "custom",
-        message: "Pickup location is required",
-        path: ["pickupWarehouseId"],
+        message: "Street address is required for delivery",
+        path: ["billing", "streetAddress"],
       });
     }
-  });
+  }
+
+  if (
+    data.fulfillmentMethod === FulfillmentMethod.PICKUP
+    && !data.pickupWarehouseId
+  ) {
+    ctx.addIssue({
+      code: "custom",
+      message: "Pickup location is required",
+      path: ["pickupWarehouseId"],
+    });
+  }
+};
+
+export const checkoutDirectOrderRequestSchema = checkoutFulfillmentFieldsSchema
+  .extend({
+    paymentMethodId: z.number().min(1).optional(),
+    payOnDelivery: z.boolean().optional().default(false),
+  })
+  .superRefine(applyCheckoutFulfillmentRefine);
+
+export const checkoutStripeOrderRequestSchema = checkoutFulfillmentFieldsSchema
+  .extend({
+    currency: z.enum(["xaf", "usd", "eur"]).optional().default("xaf"),
+  })
+  .superRefine(applyCheckoutFulfillmentRefine);
 
 export type CheckoutDirectOrderRequest = z.infer<
   typeof checkoutDirectOrderRequestSchema
