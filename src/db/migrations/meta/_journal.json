@@ -57,6 +57,13 @@
       "when": 1778454700205,
       "tag": "0007_order_fulfillment_method",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1778454700206,
+      "tag": "0008_newsletter_subscribers",
+      "breakpoints": true
     }
   ]
 }

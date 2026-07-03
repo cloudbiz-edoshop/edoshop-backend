@@ -6,9 +6,11 @@ import {
   PAYMENT_METHOD_GATEWAYS,
   PaymentMethod,
 } from "@/constants/payment-methods.constants";
-import { successResponseWithPagination } from "@/lib/api-response";
+import { successResponse, successResponseWithPagination } from "@/lib/api-response";
 import * as HttpStatusCodes from "@/lib/http-status-codes";
 import { createPagination } from "@/lib/searching-sorting";
+import db from "@/db";
+import { newsletterSubscribers } from "@/db/models/newsletter-subscribers";
 import { BannersService } from "@/modules/banners/banners.service";
 import { CategoriesService } from "@/modules/categories/categories.service";
 import { CustomersService } from "@/modules/customers/customers.service";
@@ -430,5 +432,23 @@ export const listPaymentMethods = async (c: any) => {
     params.page,
     params.limit,
     "Public payment methods retrieved successfully",
+  );
+};
+
+export const subscribeNewsletter = async (c: any) => {
+  const { email } = c.req.valid("json");
+  const normalizedEmail = email.trim().toLowerCase();
+
+  await db
+    .insert(newsletterSubscribers)
+    .values({ email: normalizedEmail })
+    .onConflictDoNothing({ target: newsletterSubscribers.email });
+
+  return c.json(
+    successResponse(
+      { subscribed: true, email: normalizedEmail },
+      "Newsletter subscription saved successfully",
+    ),
+    HttpStatusCodes.OK,
   );
 };

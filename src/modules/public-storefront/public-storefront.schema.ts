@@ -144,3 +144,12 @@ export const publicPaymentMethodSchema = z.object({
   isMobileTransfer: z.boolean(),
   isStripe: z.boolean().optional(),
 });
+
+export const subscribeNewsletterRequestSchema = z.object({
+  email: z.string().email(),
+});
+
+export const subscribeNewsletterResponseSchema = z.object({
+  subscribed: z.boolean(),
+  email: z.string().email(),
+});

@@ -1,8 +1,9 @@
 import { createRoute, z } from "@hono/zod-openapi";
 
 import * as HttpStatusCodes from "@/lib/http-status-codes";
-import { jsonContent } from "@/lib/openapi/helpers";
+import { jsonContent, jsonContentRequired } from "@/lib/openapi/helpers";
 import { createSuccessResponseSchemaWithPagination } from "@/lib/openapi/schemas/create-api-response";
+import { createSuccessResponseSchema } from "@/lib/openapi/schemas";
 import commonQueryParamsSchema from "@/lib/openapi/schemas/query-params-schema";
 
 import {
@@ -17,6 +18,8 @@ import {
   publicProductSchema,
   publicRetailerSchema,
   publicReviewSchema,
+  subscribeNewsletterRequestSchema,
+  subscribeNewsletterResponseSchema,
 } from "./public-storefront.schema";
 
 const tags = ["Public Storefront"];
@@ -103,6 +106,25 @@ export const listPaymentMethods = publicListRoute(
   "Public payment methods",
 );
 
+export const subscribeNewsletter = createRoute({
+  path: "/public/newsletter/subscribe",
+  method: "post",
+  tags,
+  summary: "Subscribe to the storefront newsletter",
+  request: {
+    body: jsonContentRequired(
+      subscribeNewsletterRequestSchema,
+      "Newsletter subscription email",
+    ),
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(subscribeNewsletterResponseSchema),
+      "Newsletter subscription saved",
+    ),
+  },
+});
+
 export type ListBannersRoute = typeof listBanners;
 export type ListFaqsRoute = typeof listFaqs;
 export type ListFiltersRoute = typeof listFilters;
@@ -114,3 +136,4 @@ export type ListReviewsRoute = typeof listReviews;
 export type ListCustomersRoute = typeof listCustomers;
 export type ListRetailersRoute = typeof listRetailers;
 export type ListPaymentMethodsRoute = typeof listPaymentMethods;
+export type SubscribeNewsletterRoute = typeof subscribeNewsletter;

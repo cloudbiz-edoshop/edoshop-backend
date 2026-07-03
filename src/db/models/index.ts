@@ -83,6 +83,7 @@ export {
   default as notifications,
   notificationsRelations,
 } from "./notifications";
+export { default as newsletterSubscribers } from "./newsletter-subscribers";
 export {
   default as notificationRecipients,
   notificationRecipientsRelations,

@@ -59,6 +59,12 @@ const MIGRATION_CHECKS: Record<string, string> = {
       WHERE table_schema = 'public' AND table_name = 'orders' AND column_name = 'fulfillment_method'
     ) AS ok
   `,
+  "0008_newsletter_subscribers": `
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_name = 'newsletter_subscribers'
+    ) AS ok
+  `,
 };
 
 type ExistsRow = { ok: boolean };
