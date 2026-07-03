@@ -8,6 +8,55 @@
       "when": 1778454700198,
       "tag": "0000_graceful_stingray",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1778454700199,
+      "tag": "0001_add_faq_store_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1778454700200,
+      "tag": "0002_add_product_image_urls",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1778454700201,
+      "tag": "0003_add_direct_order_total_items",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1778454700202,
+      "tag": "0004_add_predefined_variant_options",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1778454700203,
+      "tag": "0005_scope_bin_location_codes_to_warehouse",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1778454700204,
+      "tag": "0006_user_notification_system",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1778454700205,
+      "tag": "0007_order_fulfillment_method",
+      "breakpoints": true
     }
   ]
 }

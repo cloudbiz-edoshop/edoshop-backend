@@ -1,3 +1,4 @@
+import { baselineAppliedMigrations } from "@/db/baseline-migrations";
 import { migrateConfig } from "@/db/migrate.config";
 import { sql } from "drizzle-orm";
 
@@ -20,6 +21,8 @@ import { nextWarehouseTransferCode } from "./functions/next-warehouse-transfer-c
 if (!env.DB_MIGRATING && env.NODE_ENV !== "production") {
   throw new Error("You must set DB_MIGRATING to true when running migrations");
 }
+
+await baselineAppliedMigrations();
 
 await migrate(db, {
   migrationsFolder: migrateConfig.migrationsFolder,
