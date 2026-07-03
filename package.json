@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
-    "start:prod": "npm run db:migrate && tsx src/index.ts",
+    "start:prod": "sh scripts/start-prod.sh",
     "check": "tsc --noEmit",
     "test": "cross-env NODE_ENV=test vitest run",
     "test:watch": "cross-env NODE_ENV=test vitest",

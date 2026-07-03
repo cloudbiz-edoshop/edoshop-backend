@@ -7,7 +7,7 @@ RUN npm ci --omit=dev
 
 COPY . .
 
-RUN chmod +x scripts/docker-entrypoint.sh
+RUN chmod +x scripts/docker-entrypoint.sh scripts/start-prod.sh
 
 ENV NODE_ENV=production
 ENV PORT=9999

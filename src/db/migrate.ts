@@ -17,7 +17,7 @@ import nextSeriesCode from "@/db/functions/next-series-code";
 import nextSupplierCode from "@/db/functions/next-supplier-code";
 import { nextWarehouseTransferCode } from "./functions/next-warehouse-transfer-code";
 
-if (!env.DB_MIGRATING) {
+if (!env.DB_MIGRATING && env.NODE_ENV !== "production") {
   throw new Error("You must set DB_MIGRATING to true when running migrations");
 }
 
