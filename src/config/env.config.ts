@@ -87,6 +87,11 @@ const EnvSchema = z
     CAMPAY_ENVIRONMENT: z.enum(["dev", "prod", "DEV", "PROD"]).default("prod"),
     CAMPAY_BASE_URL: z.string().optional().default(""),
     CAMPAY_CURRENCY: z.string().default("xaf"),
+    OPENAI_API_KEY: z.string().optional().default(""),
+    OPENAI_MODEL: z.string().optional().default("gpt-4o-mini"),
+    AI_PROVIDER: z.enum(["auto", "openai", "ollama", "rules"]).default("auto"),
+    OLLAMA_BASE_URL: z.string().optional().default("http://localhost:11434"),
+    OLLAMA_MODEL: z.string().optional().default("llama3.1:8b"),
   })
   .transform((input) => ({
     ...input,
