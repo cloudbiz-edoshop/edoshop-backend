@@ -46,6 +46,13 @@ type SupportProductCard = {
   imageUrl: string;
 };
 
+function normalizeReply(text: string) {
+  return String(text || "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 const SUPPORT_THREAD_PATTERN = /\[\[EDOSHOP_SUPPORT_THREAD:([^\]]+)\]\]\s*/;
 const PRODUCT_CARDS_MARKER_PREFIX = "[[EDOSHOP_PRODUCT_CARDS:";
 const PRODUCT_CARDS_MARKER_SUFFIX = "]]";
@@ -677,13 +684,6 @@ const buildRuleBasedReply = (message: string) => {
     "I am not fully sure yet. Share the exact issue or choose one of these quick options so I can help faster.",
     getIntentSuggestions(normalized),
   );
-};
-
-const normalizeReply = (text: string) => {
-  return String(text || "")
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .trim();
 };
 
 const buildChatHistory = (recentMessages: SupportMessage[]) =>
