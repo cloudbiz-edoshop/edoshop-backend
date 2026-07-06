@@ -19,6 +19,14 @@ const formatTrackingDate = (value?: string | null) => {
 };
 
 const resolveTrackingStage = (statusId: number) => {
+  if (
+    statusId === OrderStatusTypeIds.CANCELLED
+    || statusId === OrderStatusTypeIds.REFUNDED
+    || statusId === OrderStatusTypeIds.RETURNED
+  ) {
+    return 0;
+  }
+
   const stageThree = new Set<number>([
     OrderStatusTypeIds.PACKAGING,
     OrderStatusTypeIds.PROCESSING,
@@ -56,15 +64,31 @@ export const buildCustomerOrderTrackingSteps = (params: {
   createdAt: string;
   updatedAt?: string | null;
 }) => {
-  const isPickup = params.fulfillmentMethod === FulfillmentMethod.PICKUP;
-  const currentStage = resolveTrackingStage(params.statusId);
   const eventDate = formatTrackingDate(params.updatedAt || params.createdAt);
   const placedDate = formatTrackingDate(params.createdAt);
+
+  if (params.statusId === OrderStatusTypeIds.CANCELLED) {
+    return [
+      {
+        id: 1,
+        label: "Order Cancelled",
+        details:
+          ORDER_STATUS_TYPE_DESCRIPTIONS[OrderStatusType.CANCELLED]
+          ?? "This order has been cancelled.",
+        date: eventDate,
+        completed: true,
+        active: true,
+      },
+    ];
+  }
+
+  const isPickup = params.fulfillmentMethod === FulfillmentMethod.PICKUP;
+  const currentStage = resolveTrackingStage(params.statusId);
 
   const steps = [
     {
       id: 1,
-      label: "Order Placed",
+      label: "Ordered",
       details:
         ORDER_STATUS_TYPE_DESCRIPTIONS[OrderStatusType.ORDER_PLACED]
         ?? "Your order has been received by Edoshop.",
@@ -72,7 +96,7 @@ export const buildCustomerOrderTrackingSteps = (params: {
     },
     {
       id: 2,
-      label: "Payment",
+      label: "Payment confirmed",
       details:
         ORDER_STATUS_TYPE_DESCRIPTIONS[OrderStatusType.PAYMENT]
         ?? "Payment confirmation is being processed.",
@@ -80,11 +104,11 @@ export const buildCustomerOrderTrackingSteps = (params: {
     },
     {
       id: 3,
-      label: isPickup ? "Ready for Pickup" : "Packaging & Shipping",
+      label: isPickup ? "Ready for pickup" : "Shipped",
       details: isPickup
         ? "Your order is being prepared for collection at the Edoshop store."
         : ORDER_STATUS_TYPE_DESCRIPTIONS[OrderStatusType.SHIPPED]
-          ?? "Your order is being packed and prepared for delivery.",
+          ?? "Your order is on its way.",
       date: currentStage >= 3 ? eventDate : null,
     },
     {

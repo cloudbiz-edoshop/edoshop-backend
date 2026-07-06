@@ -195,7 +195,12 @@ export const getMyOrders = createRoute({
   middleware: [jwtMiddleware()] as const,
   request: {
     headers: jwtHeaderSchema,
-    query: commonQueryParamsSchema.pick({ page: true, limit: true }),
+    query: commonQueryParamsSchema.pick({ page: true, limit: true }).extend({
+      cancelled: z
+        .enum(["true", "false"])
+        .optional()
+        .describe("Filter cancelled orders when true, active orders when false"),
+    }),
   },
   summary: "List my orders",
   description: "Returns orders placed by the authenticated customer",

@@ -143,6 +143,7 @@ export const publicPaymentMethodSchema = z.object({
   gateway: z.enum(["mtn", "orange", "cash", "stripe", "paypal", "western_union", "money_gram"]),
   isMobileTransfer: z.boolean(),
   isStripe: z.boolean().optional(),
+  isPayPal: z.boolean().optional(),
 });
 
 export const subscribeNewsletterRequestSchema = z.object({

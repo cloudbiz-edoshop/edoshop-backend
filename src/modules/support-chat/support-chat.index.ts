@@ -34,7 +34,7 @@ const supportThreadSchema = z.object({
 
 const createSupportMessageSchema = z.object({
   sender: z.enum(["customer", "support"]),
-  text: z.string().min(1).max(1000),
+  text: z.string().min(1).max(2000),
 });
 
 type SupportMessage = z.infer<typeof supportMessageSchema>;
@@ -60,6 +60,9 @@ const SUGGESTIONS_MARKER_PREFIX = "[[EDOSHOP_SUGGESTIONS:";
 const SUGGESTIONS_MARKER_SUFFIX = "]]";
 const BOT_MARKER = "[[EDOSHOP_BOT]]";
 const AGENT_HANDOFF_REQUEST_MARKER = "[[EDOSHOP_AGENT_HANDOFF_REQUEST]]";
+const ATTACHMENT_MARKER_PREFIX = "[[EDOSHOP_ATTACHMENT:";
+const ATTACHMENT_MARKER_SUFFIX = "]]";
+const LEGACY_ATTACHMENT_PATTERN = /^Attachment:\s*(.+?)\n(https?:\/\/\S+)/im;
 const PRODUCT_DISCOVERY_PATTERN = /product|products|catalog|show me|item|items|trending|dropshipping|drop shipping|direct order/i;
 const ORDER_TRACKING_INTENT_PATTERN = /\b(track|tracking|where is my order|order status|status of my order|delivery status|shipment status)\b/i;
 const AGENT_HANDOFF_PATTERN = /\b(talk to (a )?(human )?agent|live agent|support agent|human support|admin support|connect me to agent|real person|representative)\b/i;
@@ -133,9 +136,63 @@ const stripThreadMarker = (text: string) => {
     .replace(SUPPORT_THREAD_PATTERN, "")
     .replace(/\[\[EDOSHOP_PRODUCT_CARDS:[^\]]+\]\]/g, "")
     .replace(/\[\[EDOSHOP_SUGGESTIONS:[^\]]+\]\]/g, "")
+    .replace(/\[\[EDOSHOP_ATTACHMENT:[^\]]+\]\]/g, "")
+    .replace(LEGACY_ATTACHMENT_PATTERN, "")
     .replace(BOT_MARKER, "")
     .replace(AGENT_HANDOFF_REQUEST_MARKER, "")
     .trim();
+};
+
+type SupportAttachment = {
+  fileName?: string;
+  url: string;
+  mimeType?: string;
+};
+
+const parseSupportAttachment = (text: string): SupportAttachment | null => {
+  const raw = String(text || "");
+  const markerMatch = raw.match(/\[\[EDOSHOP_ATTACHMENT:([^\]]+)\]\]/);
+
+  if (markerMatch?.[1]) {
+    try {
+      const parsed = JSON.parse(Buffer.from(markerMatch[1], "base64").toString("utf8"));
+      if (parsed?.url) {
+        return {
+          fileName: parsed.fileName,
+          url: parsed.url,
+          mimeType: parsed.mimeType,
+        };
+      }
+    } catch {
+      return null;
+    }
+  }
+
+  const legacyMatch = raw.match(LEGACY_ATTACHMENT_PATTERN);
+  if (legacyMatch) {
+    return {
+      fileName: legacyMatch[1]?.trim(),
+      url: legacyMatch[2]?.trim(),
+    };
+  }
+
+  return null;
+};
+
+const buildAttachmentReply = () =>
+  withAgentHandoffMarker(
+    "Thanks, I received your attachment and message. A human support agent will review it and reply here shortly.",
+  );
+
+const getMessagePreview = (text: string) => {
+  const attachment = parseSupportAttachment(text);
+  if (attachment) {
+    return attachment.fileName
+      ? `Attachment: ${attachment.fileName}`
+      : "Image attachment";
+  }
+
+  return stripThreadMarker(text);
 };
 
 const withThreadMarker = (text: string, threadId: string) => {
@@ -164,7 +221,7 @@ const buildSupportThreads = (allMessages: SupportMessage[]): SupportThreadSummar
     if (!threadId) return;
 
     const existing = threadMap.get(threadId);
-    const cleanedText = stripThreadMarker(message.text);
+    const cleanedText = getMessagePreview(message.text);
     const latestAt = message.createdAt;
 
     if (!existing) {
@@ -392,10 +449,7 @@ const resolveEta = (order: any, currentStepLabel: string) => {
 
 const buildAgentHandoffReply = () => {
   return withAgentHandoffMarker(
-    withSuggestionsMarker(
-      "Understood. I have notified a human support agent. They will reply here soon. While you wait, you can share your order code or exact error to speed things up.",
-      AGENT_WAITING_SUGGESTIONS,
-    ),
+    "Understood. I have notified a human support agent. They will reply here soon. While you wait, you can share your order code or exact error to speed things up.",
   );
 };
 
@@ -586,7 +640,46 @@ const getSupportOrderTrackingReply = async (message: string) => {
 };
 
 const buildRuleBasedReply = (message: string) => {
+  if (parseSupportAttachment(message)) {
+    return buildAttachmentReply();
+  }
+
   const normalized = message.toLowerCase();
+  const normalizedChip = normalizeReply(stripThreadMarker(message));
+
+  if (KNOWN_SUPPORT_CHIPS_NORMALIZED.has(normalizedChip)) {
+    if (/track|order|delivery|shipping|where/.test(normalizedChip)) {
+      return withSuggestionsMarker(
+        "I can help you check your order. Send your order code (ORD-...) or pick one of these options.",
+        ORDER_SUGGESTIONS,
+      );
+    }
+
+    if (/payment|campay|stripe|card|checkout|failed|declin/.test(normalizedChip)) {
+      return withSuggestionsMarker(
+        "I can help with payment issues. Share the method you used and the exact error text.",
+        PAYMENT_SUGGESTIONS,
+      );
+    }
+
+    if (/login|sign in|signin|otp|password|profile|account/.test(normalizedChip)) {
+      return withSuggestionsMarker(
+        "I can help with account access. Tell me if this is login, OTP, password reset, or profile update.",
+        ACCOUNT_SUGGESTIONS,
+      );
+    }
+
+    if (/product|products|catalog|show me|item|items|trending|dropshipping|drop shipping/.test(normalizedChip)) {
+      return withSuggestionsMarker(
+        "Sure. Tell me what you want to browse, or pick one of these product options.",
+        PRODUCT_SUGGESTIONS,
+      );
+    }
+
+    if (/agent|support|human|representative/.test(normalizedChip)) {
+      return buildAgentHandoffReply();
+    }
+  }
 
   if (/^thanks?$|^thank you$|^thx$|^ty$|thank\b|thank you so much|thanks a lot|gotcha|got it|ok got it|cool thanks|nice thanks/.test(normalized)) {
     return "You are welcome. If you want, I can also help you with orders, payments, account settings, or product discovery.";
@@ -755,6 +848,17 @@ const createAiReply = async (
     return "Please share a bit more detail so I can help you faster.";
   }
 
+  if (parseSupportAttachment(customerMessage)) {
+    return buildAttachmentReply();
+  }
+
+  if (KNOWN_SUPPORT_CHIPS_NORMALIZED.has(normalizeReply(cleanedMessage))) {
+    if (PRODUCT_DISCOVERY_PATTERN.test(cleanedMessage)) {
+      return buildProductCardsReply(cleanedMessage);
+    }
+    return buildRuleBasedReply(cleanedMessage);
+  }
+
   if (AGENT_HANDOFF_PATTERN.test(cleanedMessage)) {
     return buildAgentHandoffReply();
   }
@@ -852,12 +956,31 @@ const messages: SupportMessage[] = [
     id: "welcome",
     sender: "support",
     text: withBotMarker(withSuggestionsMarker(
-      "Pick an option to get started, or type your issue.",
+      "Hi! Welcome to Edoshop Support. Pick an option below to get started, or type your issue.",
       GENERAL_SUGGESTIONS,
     )),
     createdAt: new Date().toISOString(),
   },
 ];
+
+void (async () => {
+  try {
+    const cards = await getSupportProductCards("");
+    if (!cards.length) return;
+
+    messages[0].text = withBotMarker(
+      withSuggestionsMarker(
+        withProductCardsMarker(
+          "Hi! Welcome to Edoshop Support. Here are a few products you can browse, or pick an option below to get started.",
+          cards,
+        ),
+        GENERAL_SUGGESTIONS,
+      ),
+    );
+  } catch {
+    // Keep text-only welcome if product cards fail to load.
+  }
+})();
 
 const listMessagesRoute = createRoute({
   method: "get",
@@ -925,36 +1048,10 @@ router.openapi(createMessageRoute, (async (c) => {
 
   if (message.sender === "customer") {
     if (threadId && escalatedThreads.has(threadId)) {
-      const normalizedCustomerMessage = normalizeReply(stripThreadMarker(message.text));
-      const now = Date.now();
-      const lastAckAt = escalatedThreadLastAckAt.get(threadId) || 0;
-      const lastCustomerMessage = escalatedThreadLastCustomerText.get(threadId) || "";
-      const isKnownChipClick = KNOWN_SUPPORT_CHIPS_NORMALIZED.has(normalizedCustomerMessage);
-      const isRepeatedMessage = normalizedCustomerMessage === lastCustomerMessage;
-      const shouldSuppressReply = (
-        (isKnownChipClick && now - lastAckAt < 60_000)
-        || (isRepeatedMessage && now - lastAckAt < 120_000)
+      escalatedThreadLastCustomerText.set(
+        threadId,
+        normalizeReply(stripThreadMarker(message.text)),
       );
-
-      escalatedThreadLastCustomerText.set(threadId, normalizedCustomerMessage);
-
-      if (shouldSuppressReply) {
-        return c.json(successResponse(message, "Support chat message created"));
-      }
-
-      const relevantMessages = messages.filter((item) => getThreadIdFromText(item.text) === threadId);
-      const waitingReplyText = buildEscalatedWaitingReply(message.text, relevantMessages);
-      const waitingReply = createMessage(
-        "support",
-        withThreadMarker(
-          withBotMarker(
-            waitingReplyText,
-          ),
-          threadId,
-        ),
-      );
-      messages.push(waitingReply);
-      escalatedThreadLastAckAt.set(threadId, now);
       return c.json(successResponse(message, "Support chat message created"));
     }
 
@@ -964,7 +1061,13 @@ router.openapi(createMessageRoute, (async (c) => {
 
     const replyText = await createAiReply(message.text, relevantMessages);
 
-    if (threadId && replyText.includes(AGENT_HANDOFF_REQUEST_MARKER)) {
+    if (
+      threadId
+      && (
+        parseSupportAttachment(message.text)
+        || replyText.includes(AGENT_HANDOFF_REQUEST_MARKER)
+      )
+    ) {
       escalatedThreads.add(threadId);
       escalatedThreadLastAckAt.set(threadId, Date.now());
       escalatedThreadLastCustomerText.set(threadId, normalizeReply(stripThreadMarker(message.text)));

@@ -39,6 +39,8 @@ const checkoutBillingSchema = z.object({
   streetAddress: z.string().optional(),
   apartmentAddress: z.string().optional(),
   orderNotes: z.string().optional(),
+  latitude: z.union([z.number(), z.string()]).optional(),
+  longitude: z.union([z.number(), z.string()]).optional(),
 });
 
 const checkoutFulfillmentFieldsSchema = z.object({
@@ -51,6 +53,17 @@ const checkoutFulfillmentFieldsSchema = z.object({
 });
 
 type CheckoutFulfillmentInput = z.infer<typeof checkoutFulfillmentFieldsSchema>;
+
+const parseCheckoutCoordinate = (value?: string | number) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const hasCheckoutCoordinates = (billing: CheckoutFulfillmentInput["billing"]) => {
+  const latitude = parseCheckoutCoordinate(billing.latitude);
+  const longitude = parseCheckoutCoordinate(billing.longitude);
+  return latitude !== null && longitude !== null && (latitude !== 0 || longitude !== 0);
+};
 
 const applyCheckoutFulfillmentRefine = (
   data: CheckoutFulfillmentInput,
@@ -66,15 +79,14 @@ const applyCheckoutFulfillmentRefine = (
     }
   }
 
-  if (
-    data.fulfillmentMethod === FulfillmentMethod.PICKUP
-    && !data.pickupWarehouseId
-  ) {
-    ctx.addIssue({
-      code: "custom",
-      message: "Pickup location is required",
-      path: ["pickupWarehouseId"],
-    });
+  if (data.fulfillmentMethod === FulfillmentMethod.PICKUP) {
+    if (!data.pickupWarehouseId && !hasCheckoutCoordinates(data.billing)) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Select a pickup location on the map",
+        path: ["billing", "latitude"],
+      });
+    }
   }
 };
 
@@ -88,6 +100,7 @@ export const checkoutDirectOrderRequestSchema = checkoutFulfillmentFieldsSchema
 export const checkoutStripeOrderRequestSchema = checkoutFulfillmentFieldsSchema
   .extend({
     currency: z.enum(["xaf", "usd", "eur"]).optional().default("xaf"),
+    paymentGateway: z.enum(["stripe", "paypal"]).optional().default("stripe"),
   })
   .superRefine(applyCheckoutFulfillmentRefine);
 
@@ -123,6 +136,7 @@ export const customerOrderSummarySchema = z.object({
   shippingAmount: z.string(),
   createdAt: z.string(),
   itemCount: z.number(),
+  previewImages: z.array(z.string()).optional(),
 });
 
 export const customerOrderTrackingStepSchema = z.object({
@@ -139,6 +153,7 @@ export const customerOrderTrackingSchema = z.object({
   fulfillmentMethod: z.string(),
   status: z.string(),
   paymentStatus: z.string().optional(),
+  paymentMethod: z.string().optional(),
   placedAt: z.string(),
   totalAmount: z.string(),
   subtotal: z.string(),

@@ -3,7 +3,7 @@ import type { OrderDetailsForCustomerToFulfill, OrdersToFulfill } from "./orders
 import type { UpdateOrderItems } from "@/db/models/order-items";
 import type { TX } from "@/lib/types";
 
-import { and, count, desc, eq, inArray, like, not, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, like, ne, not, or, sql } from "drizzle-orm";
 import { OrderStatusTypeIds } from "@/constants";
 import { AddressTypeIds } from "@/constants/address-types.constants";
 import { OrderItemFulfillmentStatusIds } from "@/constants/order-item-fulfillment-statuses.constants";
@@ -577,6 +577,8 @@ export class OrdersRepository {
       streetAddress?: string;
       apartmentAddress?: string;
       orderNotes?: string;
+      latitude?: string | number;
+      longitude?: string | number;
     };
     items: Array<{
       productId: number;
@@ -604,21 +606,49 @@ export class OrdersRepository {
       ReturnType<typeof db.query.warehouses.findFirst>
     > = null;
 
+    const pickupLatitude = Number(params.billing.latitude);
+    const pickupLongitude = Number(params.billing.longitude);
+    const pickupMapCoordinates =
+      Number.isFinite(pickupLatitude)
+      && Number.isFinite(pickupLongitude)
+      && (pickupLatitude !== 0 || pickupLongitude !== 0)
+        ? `${pickupLatitude}, ${pickupLongitude}`
+        : null;
+
     if (fulfillmentMethod === FulfillmentMethod.PICKUP) {
-      pickupWarehouse = await db.query.warehouses.findFirst({
-        where: and(
-          eq(warehouses.id, params.pickupWarehouseId ?? 0),
-          eq(warehouses.isActive, true),
-          eq(warehouses.isDeleted, false),
-        ),
-        with: {
-          address: {
-            with: {
-              country: true,
+      if (params.pickupWarehouseId) {
+        pickupWarehouse = await db.query.warehouses.findFirst({
+          where: and(
+            eq(warehouses.id, params.pickupWarehouseId),
+            eq(warehouses.isActive, true),
+            eq(warehouses.isDeleted, false),
+          ),
+          with: {
+            address: {
+              with: {
+                country: true,
+              },
             },
           },
-        },
-      });
+        });
+      }
+
+      if (!pickupWarehouse) {
+        pickupWarehouse = await db.query.warehouses.findFirst({
+          where: and(
+            eq(warehouses.isActive, true),
+            eq(warehouses.isDeleted, false),
+          ),
+          with: {
+            address: {
+              with: {
+                country: true,
+              },
+            },
+          },
+          orderBy: [warehouses.name],
+        });
+      }
 
       if (!pickupWarehouse) {
         throw new Error("Selected pickup location is not available");
@@ -632,15 +662,17 @@ export class OrdersRepository {
       .filter(Boolean)
       .join(", ");
 
-    const pickupStreetAddress = pickupWarehouse?.address?.streetAddress
-      ? [
-          pickupWarehouse.name,
-          pickupWarehouse.address.streetAddress,
-          pickupWarehouse.address.landmark,
-        ]
-          .filter(Boolean)
-          .join(", ")
-      : pickupWarehouse?.name ?? "Edoshop Store Pickup";
+    const pickupStreetAddress = pickupMapCoordinates
+      ? `Pickup map location (${pickupMapCoordinates})`
+      : pickupWarehouse?.address?.streetAddress
+        ? [
+            pickupWarehouse.name,
+            pickupWarehouse.address.streetAddress,
+            pickupWarehouse.address.landmark,
+          ]
+            .filter(Boolean)
+            .join(", ")
+        : pickupWarehouse?.name ?? "Edoshop Store Pickup";
 
     const streetAddress =
       fulfillmentMethod === FulfillmentMethod.PICKUP
@@ -649,7 +681,9 @@ export class OrdersRepository {
 
     const city =
       fulfillmentMethod === FulfillmentMethod.PICKUP
-        ? pickupWarehouse?.address?.landmark || params.billing.city
+        ? pickupMapCoordinates
+          || pickupWarehouse?.address?.landmark
+          || params.billing.city
         : params.billing.city;
 
     const shippingCountryId =
@@ -688,7 +722,9 @@ export class OrdersRepository {
     const orderNotes = [
       params.billing.orderNotes,
       fulfillmentMethod === FulfillmentMethod.PICKUP
-        ? `Pickup at ${pickupWarehouse?.name ?? "Edoshop store"}`
+        ? pickupMapCoordinates
+          ? `Pickup map location: ${pickupMapCoordinates}`
+          : `Pickup at ${pickupWarehouse?.name ?? "Edoshop store"}`
         : null,
     ]
       .filter(Boolean)
@@ -738,7 +774,7 @@ export class OrdersRepository {
           fulfillmentMethod,
           pickupWarehouseId:
             fulfillmentMethod === FulfillmentMethod.PICKUP
-              ? params.pickupWarehouseId
+              ? params.pickupWarehouseId ?? pickupWarehouse?.id ?? null
               : null,
           subtotal,
           taxAmount: "0.00",
@@ -847,16 +883,27 @@ export class OrdersRepository {
     }));
   }
 
-  async getCustomerOrders(userId: number, params: { page: number; limit: number }) {
+  async getCustomerOrders(
+    userId: number,
+    params: { page: number; limit: number; cancelled?: boolean },
+  ) {
     const customer = await this.findCustomerByUserId(userId);
     if (!customer) {
       return { data: [], total: 0 };
     }
 
     const { limit, offset } = getPaginationValues(params.page, params.limit);
+    const statusFilter =
+      params.cancelled === true
+        ? eq(orders.statusId, OrderStatusTypeIds.CANCELLED)
+        : params.cancelled === false
+          ? ne(orders.statusId, OrderStatusTypeIds.CANCELLED)
+          : undefined;
+
     const whereClause = and(
       eq(orders.customerId, customer.id),
       eq(orders.isDeleted, false),
+      ...(statusFilter ? [statusFilter] : []),
     );
 
     const [{ value: total }] = await db
@@ -895,6 +942,10 @@ export class OrdersRepository {
         shippingAmount: String(order.shippingAmount ?? "0"),
         createdAt: order.createdAt,
         itemCount: order.orderItems?.length ?? 0,
+        previewImages: (order.orderItems ?? [])
+          .map((item) => item.productImageUrl)
+          .filter((url): url is string => Boolean(url))
+          .slice(0, 4),
       })),
     };
   }
@@ -914,6 +965,7 @@ export class OrdersRepository {
       with: {
         orderStatus: true,
         orderItems: true,
+        paymentMethod: true,
         shippingAddress: {
           with: {
             country: true,
@@ -978,6 +1030,10 @@ export class OrdersRepository {
       status: order.orderStatus?.name ?? "pending",
       paymentStatus:
         order.paymentTransactions?.[0]?.paymentStatus?.name ?? undefined,
+      paymentMethod:
+        order.paymentMethod?.description
+        ?? order.paymentMethod?.name
+        ?? undefined,
       placedAt: order.createdAt,
       totalAmount: String(order.totalAmount),
       subtotal: String(order.subtotal),

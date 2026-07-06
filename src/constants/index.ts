@@ -107,6 +107,7 @@ export {
   PAYMENT_METHOD_DESCRIPTIONS,
   PAYMENT_METHOD_GATEWAYS,
   PaymentMethod,
+  STOREFRONT_CHECKOUT_PAYMENT_METHODS,
 } from "./payment-methods.constants";
 
 // Payment Status Constants

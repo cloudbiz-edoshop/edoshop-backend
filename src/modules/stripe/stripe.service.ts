@@ -11,6 +11,7 @@ import type { CheckoutDirectOrderRequest } from "@/modules/orders/orders.schema"
 
 type StripeCheckoutRequest = CheckoutDirectOrderRequest & {
   currency?: string;
+  paymentGateway?: "stripe" | "paypal";
 };
 
 export class StripeService {
@@ -49,17 +50,25 @@ export class StripeService {
       throw new ValidationError("Customer profile not found for this account");
     }
 
-    const stripeMethod = await this.ordersRepository.findPaymentMethodByName(
-      PaymentMethod.STRIPE,
+    const paymentGateway = payload.paymentGateway === "paypal" ? "paypal" : "stripe";
+    const checkoutPaymentMethodName =
+      paymentGateway === "paypal" ? PaymentMethod.PAYPAL : PaymentMethod.STRIPE;
+
+    const checkoutMethod = await this.ordersRepository.findPaymentMethodByName(
+      checkoutPaymentMethodName,
     );
-    if (!stripeMethod) {
-      throw new ValidationError("Stripe payment method is not configured");
+    if (!checkoutMethod) {
+      throw new ValidationError(
+        paymentGateway === "paypal"
+          ? "PayPal payment method is not configured"
+          : "Stripe payment method is not configured",
+      );
     }
 
     const checkout = await this.ordersRepository.createDirectOrderCheckout({
       userId,
       customerId: customer.id,
-      paymentMethodId: stripeMethod.id,
+      paymentMethodId: checkoutMethod.id,
       payOnDelivery: false,
       paymentPending: true,
       fulfillmentMethod: payload.fulfillmentMethod,
@@ -77,7 +86,9 @@ export class StripeService {
     const paymentIntent = await stripe.paymentIntents.create({
       amount,
       currency,
-      automatic_payment_methods: { enabled: true },
+      ...(paymentGateway === "paypal"
+        ? { payment_method_types: ["paypal"] }
+        : { automatic_payment_methods: { enabled: true } }),
       receipt_email: payload.billing.email,
       metadata: {
         orderId: String(checkout.orderId),
@@ -85,6 +96,7 @@ export class StripeService {
         paymentTransactionId: String(checkout.paymentTransactionId),
         userId: String(userId),
         chargeCurrency: currency,
+        paymentGateway,
       },
       description: `Edoshop order ${checkout.orderCode}`,
     });

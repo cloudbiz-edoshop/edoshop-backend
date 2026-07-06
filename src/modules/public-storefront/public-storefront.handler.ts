@@ -1,10 +1,10 @@
 import { ReviewStatusIds } from "@/constants/review-statuses.constants";
 import stripeConfig from "@/config/stripe.config";
 import {
-  CHECKOUT_PAYMENT_METHODS,
   MOBILE_TRANSFER_PAYMENT_METHODS,
   PAYMENT_METHOD_GATEWAYS,
   PaymentMethod,
+  STOREFRONT_CHECKOUT_PAYMENT_METHODS,
 } from "@/constants/payment-methods.constants";
 import { successResponse, successResponseWithPagination } from "@/lib/api-response";
 import * as HttpStatusCodes from "@/lib/http-status-codes";
@@ -393,12 +393,21 @@ export const listPaymentMethods = async (c: any) => {
     limit: Math.max(params.limit, 50),
   });
 
-  const checkoutMethodNames = new Set<string>(CHECKOUT_PAYMENT_METHODS);
+  const checkoutMethodNames = new Set<string>(STOREFRONT_CHECKOUT_PAYMENT_METHODS);
   const mobileTransferNames = new Set<string>(MOBILE_TRANSFER_PAYMENT_METHODS);
+  const gatewayOrder: Record<string, number> = {
+    mtn: 0,
+    orange: 1,
+    stripe: 2,
+    paypal: 3,
+  };
 
   const publicMethods = result.data
     .filter((method) => {
-      if (method.name === PaymentMethod.STRIPE) {
+      if (
+        method.name === PaymentMethod.STRIPE
+        || method.name === PaymentMethod.PAYPAL
+      ) {
         return stripeConfig.enabled;
       }
       return checkoutMethodNames.has(method.name);
@@ -415,14 +424,13 @@ export const listPaymentMethods = async (c: any) => {
         gateway,
         isMobileTransfer: mobileTransferNames.has(method.name),
         isStripe: method.name === PaymentMethod.STRIPE,
+        isPayPal: method.name === PaymentMethod.PAYPAL,
       };
     })
-    .sort((left, right) => {
-      if (left.isMobileTransfer !== right.isMobileTransfer) {
-        return left.isMobileTransfer ? -1 : 1;
-      }
-      return left.name.localeCompare(right.name);
-    });
+    .sort(
+      (left, right) =>
+        (gatewayOrder[left.gateway] ?? 99) - (gatewayOrder[right.gateway] ?? 99),
+    );
 
   return sendPublicList(
     c,

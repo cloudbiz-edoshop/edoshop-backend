@@ -17,7 +17,7 @@ export enum PaymentMethod {
  * Provides descriptions for payment methods
  */
 export const PAYMENT_METHOD_DESCRIPTIONS: Record<PaymentMethod, string> = {
-  [PaymentMethod.PAYPAL]: "Paypal",
+  [PaymentMethod.PAYPAL]: "PayPal",
   [PaymentMethod.WESTERN_UNION]: "Western Union",
   [PaymentMethod.MONEY_GRAM]: "Money Gram",
   [PaymentMethod.CASH]: "Cash",
@@ -27,11 +27,19 @@ export const PAYMENT_METHOD_DESCRIPTIONS: Record<PaymentMethod, string> = {
   [PaymentMethod.STRIPE]: "Card (Stripe)",
 };
 
-/** Mobile transfer gateways offered at storefront checkout */
-export const CHECKOUT_PAYMENT_METHODS = [
+/** Methods shown on the Edoshop storefront checkout */
+export const STOREFRONT_CHECKOUT_PAYMENT_METHODS = [
   PaymentMethod.MTN_MOBILE_MONEY,
   PaymentMethod.ORANGE_MONEY,
   PaymentMethod.STRIPE,
+  PaymentMethod.PAYPAL,
+] as const;
+
+/** Mobile transfer gateways offered at storefront checkout */
+export const CHECKOUT_PAYMENT_METHODS = [
+  ...STOREFRONT_CHECKOUT_PAYMENT_METHODS,
+  PaymentMethod.WESTERN_UNION,
+  PaymentMethod.MONEY_GRAM,
   PaymentMethod.CASH,
 ] as const;
 
