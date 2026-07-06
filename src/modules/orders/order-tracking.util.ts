@@ -5,6 +5,15 @@ import {
   OrderStatusTypeIds,
 } from "@/constants/order-statuses.constants";
 
+export type CustomerTrackingStep = {
+  id: number;
+  label: string;
+  details: string;
+  date: string | null;
+  completed: boolean;
+  active: boolean;
+};
+
 const formatTrackingDate = (value?: string | null) => {
   if (!value) return null;
   const date = new Date(value);
@@ -18,12 +27,194 @@ const formatTrackingDate = (value?: string | null) => {
   });
 };
 
+const isTerminalStatus = (statusId: number) =>
+  statusId === OrderStatusTypeIds.CANCELLED
+  || statusId === OrderStatusTypeIds.REFUNDED
+  || statusId === OrderStatusTypeIds.RETURNED;
+
+const MANUFACTURER_STEP_DEFINITIONS = [
+  {
+    id: 1,
+    label: "Approval",
+    statusKey: OrderStatusType.APPROVAL,
+    statusIds: [OrderStatusTypeIds.APPROVAL, OrderStatusTypeIds.ORDER_PLACED],
+  },
+  {
+    id: 2,
+    label: "Payment Of Items (HT)",
+    statusKey: OrderStatusType.PAYMENT_OF_ITEMS,
+    statusIds: [
+      OrderStatusTypeIds.PAYMENT_OF_ITEMS,
+      OrderStatusTypeIds.PAYMENT,
+      OrderStatusTypeIds.PENDING,
+    ],
+  },
+  {
+    id: 3,
+    label: "Order Received By Manufacturer",
+    statusKey: OrderStatusType.ORDER_RECEIVE_BY_MANUFACTURER,
+    statusIds: [OrderStatusTypeIds.ORDER_RECEIVE_BY_MANUFACTURER],
+  },
+  {
+    id: 4,
+    label: "Order Shipped By Agent",
+    statusKey: OrderStatusType.ORDER_SHIPPED_BY_AGENT,
+    statusIds: [OrderStatusTypeIds.ORDER_SHIPPED_BY_AGENT],
+  },
+  {
+    id: 5,
+    label: "Orders Arrived At Local Custom",
+    statusKey: OrderStatusType.ORDER_ARRIVED_AT_LOCALE_CUSTOMS,
+    statusIds: [OrderStatusTypeIds.ORDER_ARRIVED_AT_LOCALE_CUSTOMS],
+  },
+  {
+    id: 6,
+    label: "Order At The Store",
+    statusKey: OrderStatusType.ORDER_AT_STORE,
+    statusIds: [OrderStatusTypeIds.ORDER_AT_STORE],
+  },
+  {
+    id: 7,
+    label: "Payment Of Kilo",
+    statusKey: OrderStatusType.PAYMENT_OF_KILO,
+    statusIds: [OrderStatusTypeIds.PAYMENT_OF_KILO],
+  },
+] as const;
+
+const STORE_DELIVERY_STEP_DEFINITIONS = [
+  {
+    id: 1,
+    label: "Packaging",
+    statusKey: OrderStatusType.PACKAGING,
+    statusIds: [
+      OrderStatusTypeIds.PACKAGING,
+      OrderStatusTypeIds.READY_FOR_FULFILLMENT,
+      OrderStatusTypeIds.PROCESSING,
+    ],
+  },
+  {
+    id: 2,
+    label: "Payment For Deliveries",
+    statusKey: OrderStatusType.PAYMENT_FOR_DELIVERIES,
+    statusIds: [OrderStatusTypeIds.PAYMENT_FOR_DELIVERIES],
+  },
+  {
+    id: 3,
+    label: "Deliveries",
+    statusKey: OrderStatusType.SHIPPED,
+    statusIds: [OrderStatusTypeIds.SHIPPED, OrderStatusTypeIds.DELIVERED],
+  },
+] as const;
+
+const STORE_PICKUP_STEP_DEFINITIONS = [
+  {
+    id: 1,
+    label: "Packaging",
+    statusKey: OrderStatusType.PACKAGING,
+    statusIds: [
+      OrderStatusTypeIds.PACKAGING,
+      OrderStatusTypeIds.READY_FOR_FULFILLMENT,
+      OrderStatusTypeIds.PROCESSING,
+    ],
+  },
+  {
+    id: 2,
+    label: "Ready For Pickup",
+    statusKey: OrderStatusType.ORDER_AT_STORE,
+    statusIds: [OrderStatusTypeIds.ORDER_AT_STORE],
+  },
+  {
+    id: 3,
+    label: "Collected",
+    statusKey: OrderStatusType.DELIVERED,
+    statusIds: [OrderStatusTypeIds.DELIVERED],
+  },
+] as const;
+
+const resolveManufacturerStage = (statusId: number) => {
+  if (isTerminalStatus(statusId)) return 0;
+
+  for (const step of MANUFACTURER_STEP_DEFINITIONS) {
+    if (step.statusIds.includes(statusId)) {
+      return step.id;
+    }
+  }
+
+  const storeLegStatuses = new Set<number>([
+    OrderStatusTypeIds.PACKAGING,
+    OrderStatusTypeIds.PAYMENT_FOR_DELIVERIES,
+    OrderStatusTypeIds.READY_FOR_FULFILLMENT,
+    OrderStatusTypeIds.PROCESSING,
+    OrderStatusTypeIds.SHIPPED,
+    OrderStatusTypeIds.DELIVERED,
+  ]);
+
+  if (storeLegStatuses.has(statusId)) {
+    return MANUFACTURER_STEP_DEFINITIONS.length;
+  }
+
+  return 0;
+};
+
+const resolveStoreStage = (
+  statusId: number,
+  fulfillmentMethod: string,
+) => {
+  if (isTerminalStatus(statusId)) return 0;
+
+  const definitions =
+    fulfillmentMethod === FulfillmentMethod.PICKUP
+      ? STORE_PICKUP_STEP_DEFINITIONS
+      : STORE_DELIVERY_STEP_DEFINITIONS;
+
+  if (statusId === OrderStatusTypeIds.DELIVERED) {
+    return definitions.length;
+  }
+
+  for (const step of definitions) {
+    if (step.statusIds.includes(statusId)) {
+      return step.id;
+    }
+  }
+
+  const manufacturerOnly = new Set<number>(
+    MANUFACTURER_STEP_DEFINITIONS.flatMap((step) => [...step.statusIds]),
+  );
+
+  if (manufacturerOnly.has(statusId)) {
+    return 0;
+  }
+
+  return 0;
+};
+
+const buildStepList = (
+  definitions: ReadonlyArray<{
+    id: number;
+    label: string;
+    statusKey: OrderStatusType;
+    statusIds: readonly number[];
+  }>,
+  currentStage: number,
+  placedDate: string | null,
+  eventDate: string | null,
+) =>
+  definitions.map((step) => ({
+    id: step.id,
+    label: step.label,
+    details:
+      ORDER_STATUS_TYPE_DESCRIPTIONS[step.statusKey]
+      ?? step.label,
+    date:
+      currentStage >= step.id && currentStage > 0
+        ? eventDate ?? placedDate
+        : null,
+    completed: currentStage > 0 && step.id < currentStage,
+    active: currentStage > 0 && step.id === currentStage,
+  }));
+
 const resolveTrackingStage = (statusId: number) => {
-  if (
-    statusId === OrderStatusTypeIds.CANCELLED
-    || statusId === OrderStatusTypeIds.REFUNDED
-    || statusId === OrderStatusTypeIds.RETURNED
-  ) {
+  if (isTerminalStatus(statusId)) {
     return 0;
   }
 
@@ -56,6 +247,78 @@ const resolveTrackingStage = (statusId: number) => {
   }
 
   return 1;
+};
+
+export const buildManufacturerToStoreSteps = (params: {
+  statusId: number;
+  createdAt: string;
+  updatedAt?: string | null;
+}): CustomerTrackingStep[] => {
+  const placedDate = formatTrackingDate(params.createdAt);
+  const eventDate = formatTrackingDate(params.updatedAt || params.createdAt);
+  const currentStage = resolveManufacturerStage(params.statusId);
+
+  if (params.statusId === OrderStatusTypeIds.CANCELLED) {
+    return [
+      {
+        id: 1,
+        label: "Order Cancelled",
+        details:
+          ORDER_STATUS_TYPE_DESCRIPTIONS[OrderStatusType.CANCELLED]
+          ?? "This order has been cancelled.",
+        date: eventDate,
+        completed: true,
+        active: true,
+      },
+    ];
+  }
+
+  return buildStepList(
+    MANUFACTURER_STEP_DEFINITIONS,
+    currentStage,
+    placedDate,
+    eventDate,
+  );
+};
+
+export const buildStoreToCustomerSteps = (params: {
+  statusId: number;
+  fulfillmentMethod: string;
+  createdAt: string;
+  updatedAt?: string | null;
+}): CustomerTrackingStep[] => {
+  const placedDate = formatTrackingDate(params.createdAt);
+  const eventDate = formatTrackingDate(params.updatedAt || params.createdAt);
+  const isPickup = params.fulfillmentMethod === FulfillmentMethod.PICKUP;
+  const definitions = isPickup
+    ? STORE_PICKUP_STEP_DEFINITIONS
+    : STORE_DELIVERY_STEP_DEFINITIONS;
+  const currentStage = resolveStoreStage(
+    params.statusId,
+    params.fulfillmentMethod,
+  );
+
+  if (params.statusId === OrderStatusTypeIds.CANCELLED) {
+    return [
+      {
+        id: 1,
+        label: "Order Cancelled",
+        details:
+          ORDER_STATUS_TYPE_DESCRIPTIONS[OrderStatusType.CANCELLED]
+          ?? "This order has been cancelled.",
+        date: eventDate,
+        completed: true,
+        active: true,
+      },
+    ];
+  }
+
+  return buildStepList(
+    definitions,
+    currentStage,
+    placedDate,
+    eventDate,
+  );
 };
 
 export const buildCustomerOrderTrackingSteps = (params: {
@@ -128,3 +391,14 @@ export const buildCustomerOrderTrackingSteps = (params: {
     active: step.id === currentStage,
   }));
 };
+
+export const buildDetailedOrderTracking = (params: {
+  statusId: number;
+  fulfillmentMethod: string;
+  createdAt: string;
+  updatedAt?: string | null;
+}) => ({
+  steps: buildCustomerOrderTrackingSteps(params),
+  manufacturerToStoreSteps: buildManufacturerToStoreSteps(params),
+  storeToCustomerSteps: buildStoreToCustomerSteps(params),
+});

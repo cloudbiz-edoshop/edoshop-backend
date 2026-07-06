@@ -174,6 +174,10 @@ export const customerOrderTrackingSchema = z.object({
     }),
   ),
   steps: z.array(customerOrderTrackingStepSchema),
+  manufacturerToStoreSteps: z.array(customerOrderTrackingStepSchema).optional(),
+  storeToCustomerSteps: z.array(customerOrderTrackingStepSchema).optional(),
+  orderType: z.string().optional(),
+  bundleCode: z.string().nullable().optional(),
 });
 
 export type CheckoutDirectOrderResponse = z.infer<

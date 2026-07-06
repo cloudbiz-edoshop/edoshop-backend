@@ -37,7 +37,7 @@ import {
   createSortCondition,
   getPaginationValues,
 } from "@/lib/searching-sorting";
-import { buildCustomerOrderTrackingSteps } from "./order-tracking.util";
+import { buildDetailedOrderTracking } from "./order-tracking.util";
 
 /**
  * Repository for orders-related database operations
@@ -964,6 +964,7 @@ export class OrdersRepository {
       ),
       with: {
         orderStatus: true,
+        orderType: true,
         orderItems: true,
         paymentMethod: true,
         shippingAddress: {
@@ -1024,8 +1025,16 @@ export class OrdersRepository {
             .join(" — ")
         : null;
 
+    const trackingDetails = buildDetailedOrderTracking({
+      statusId: order.statusId,
+      fulfillmentMethod: order.fulfillmentMethod ?? FulfillmentMethod.DELIVERY,
+      createdAt: order.createdAt,
+      updatedAt: order.updatedAt,
+    });
+
     return {
       orderCode: order.orderCode,
+      orderType: order.orderType?.name ?? undefined,
       fulfillmentMethod: order.fulfillmentMethod ?? FulfillmentMethod.DELIVERY,
       status: order.orderStatus?.name ?? "pending",
       paymentStatus:
@@ -1041,6 +1050,7 @@ export class OrdersRepository {
       pickupLocation,
       billingAddress: formatAddress(order.billingAddress),
       shippingAddress: formatAddress(order.shippingAddress),
+      bundleCode: null,
       items: (order.orderItems ?? []).map((item) => ({
         id: item.id,
         productName: item.productName,
@@ -1051,12 +1061,9 @@ export class OrdersRepository {
         sizeName: item.sizeName ?? undefined,
         colorName: item.colorName ?? undefined,
       })),
-      steps: buildCustomerOrderTrackingSteps({
-        statusId: order.statusId,
-        fulfillmentMethod: order.fulfillmentMethod ?? FulfillmentMethod.DELIVERY,
-        createdAt: order.createdAt,
-        updatedAt: order.updatedAt,
-      }),
+      steps: trackingDetails.steps,
+      manufacturerToStoreSteps: trackingDetails.manufacturerToStoreSteps,
+      storeToCustomerSteps: trackingDetails.storeToCustomerSteps,
     };
   }
 
