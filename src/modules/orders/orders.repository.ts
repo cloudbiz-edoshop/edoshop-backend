@@ -39,6 +39,16 @@ import {
 } from "@/lib/searching-sorting";
 import { buildDetailedOrderTracking } from "./order-tracking.util";
 
+const PLACEHOLDER_IMAGE_HOSTS = ["example.com"];
+
+const sanitizeOrderImageUrl = (url?: string | null) => {
+  if (!url) return null;
+  if (PLACEHOLDER_IMAGE_HOSTS.some((host) => url.includes(host))) {
+    return null;
+  }
+  return url;
+};
+
 /**
  * Repository for orders-related database operations
  */
@@ -943,7 +953,7 @@ export class OrdersRepository {
         createdAt: order.createdAt,
         itemCount: order.orderItems?.length ?? 0,
         previewImages: (order.orderItems ?? [])
-          .map((item) => item.productImageUrl)
+          .map((item) => sanitizeOrderImageUrl(item.productImageUrl))
           .filter((url): url is string => Boolean(url))
           .slice(0, 4),
       })),
@@ -1057,7 +1067,7 @@ export class OrdersRepository {
         quantity: item.quantity,
         unitPrice: String(item.unitPrice),
         subTotal: String(item.subTotal),
-        productImageUrl: item.productImageUrl,
+        productImageUrl: sanitizeOrderImageUrl(item.productImageUrl),
         sizeName: item.sizeName ?? undefined,
         colorName: item.colorName ?? undefined,
       })),
