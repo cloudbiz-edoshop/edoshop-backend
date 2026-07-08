@@ -184,6 +184,16 @@ export { default as suppliers, suppliersRelations } from "./suppliers";
 export { default as tags, tagsRelations } from "./tags";
 export { default as testimonials, testimonialsRelations } from "./testimonials";
 export {
+  default as trackingBundles,
+  trackingBundleHistory,
+  trackingBundleHistoryRelations,
+  trackingBundleItems,
+  trackingBundleItemsRelations,
+  trackingBundlesRelations,
+  trackingSteps,
+  trackingStepsRelations,
+} from "./tracking-bundles";
+export {
   default as transferStatuses,
   transferStatusesRelations,
 } from "./transfer-statuses";

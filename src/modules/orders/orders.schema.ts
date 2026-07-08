@@ -137,6 +137,8 @@ export const customerOrderSummarySchema = z.object({
   createdAt: z.string(),
   itemCount: z.number(),
   previewImages: z.array(z.string()).optional(),
+  bundleCode: z.string().nullable().optional(),
+  currentStepLabel: z.string().nullable().optional(),
 });
 
 export const customerOrderTrackingStepSchema = z.object({
@@ -178,6 +180,18 @@ export const customerOrderTrackingSchema = z.object({
   storeToCustomerSteps: z.array(customerOrderTrackingStepSchema).optional(),
   orderType: z.string().optional(),
   bundleCode: z.string().nullable().optional(),
+  trackingHistory: z
+    .array(
+      z.object({
+        id: z.number(),
+        stepLabel: z.string(),
+        notes: z.string().nullable().optional(),
+        attachmentUrl: z.string().nullable().optional(),
+        createdAt: z.string(),
+        updatedByName: z.string().nullable().optional(),
+      }),
+    )
+    .optional(),
 });
 
 export type CheckoutDirectOrderResponse = z.infer<

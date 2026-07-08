@@ -1,0 +1,289 @@
+import { createRoute, z } from "@hono/zod-openapi";
+
+import { EntityType, OperationType } from "@/constants";
+import {
+  jwtMiddleware,
+  rolesAndPermissionsMiddleware,
+} from "@/core/middlewares";
+import * as HttpStatusCodes from "@/lib/http-status-codes";
+import {
+  commonErrorResponses,
+  jsonContent,
+  jsonContentRequired,
+} from "@/lib/openapi/helpers";
+import { createSuccessResponseSchema, idParams } from "@/lib/openapi/schemas";
+import { createSuccessResponseSchemaWithPagination } from "@/lib/openapi/schemas/create-api-response";
+import commonQueryParamsSchema from "@/lib/openapi/schemas/query-params-schema";
+import { jwtHeaderSchema } from "@/lib/zod-schemas";
+
+import {
+  assignOrdersToBundleRequestSchema,
+  createTrackingBundleRequestSchema,
+  searchOrderForBundleSchema,
+  trackingBundleDetailSchema,
+  trackingBundleSchema,
+  trackingStepSchema,
+  updateBundleStepRequestSchema,
+  updateTrackingBundleRequestSchema,
+} from "./tracking-bundles.schema";
+
+const tags = ["Tracking Bundles"];
+
+export const listSteps = createRoute({
+  path: "/tracking-bundles/steps",
+  method: "get",
+  tags,
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.ORDERS, operation: OperationType.READ },
+    ]),
+  ] as const,
+  request: { headers: jwtHeaderSchema },
+  summary: "List tracking steps",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(z.array(trackingStepSchema)),
+      "Tracking steps",
+    ),
+    ...commonErrorResponses(
+      [HttpStatusCodes.UNAUTHORIZED, HttpStatusCodes.FORBIDDEN],
+      z.object({}),
+    ),
+  },
+});
+
+export const list = createRoute({
+  path: "/tracking-bundles",
+  method: "get",
+  tags,
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.ORDERS, operation: OperationType.READ },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    query: commonQueryParamsSchema,
+  },
+  summary: "List tracking bundles",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchemaWithPagination(z.array(trackingBundleSchema)),
+      "Tracking bundles",
+    ),
+    ...commonErrorResponses(
+      [HttpStatusCodes.UNAUTHORIZED, HttpStatusCodes.FORBIDDEN],
+      commonQueryParamsSchema,
+    ),
+  },
+});
+
+export const create = createRoute({
+  path: "/tracking-bundles",
+  method: "post",
+  tags,
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.ORDERS, operation: OperationType.CREATE },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    body: jsonContentRequired(createTrackingBundleRequestSchema, "Create bundle"),
+  },
+  summary: "Create tracking bundle",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(trackingBundleDetailSchema),
+      "Created bundle",
+    ),
+    ...commonErrorResponses(
+      [HttpStatusCodes.UNAUTHORIZED, HttpStatusCodes.FORBIDDEN, HttpStatusCodes.BAD_REQUEST],
+      z.object({}),
+    ),
+  },
+});
+
+export const getOne = createRoute({
+  path: "/tracking-bundles/{id}",
+  method: "get",
+  tags,
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.ORDERS, operation: OperationType.READ },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    params: idParams,
+  },
+  summary: "Get tracking bundle detail",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(trackingBundleDetailSchema),
+      "Bundle detail",
+    ),
+    ...commonErrorResponses(
+      [HttpStatusCodes.UNAUTHORIZED, HttpStatusCodes.FORBIDDEN, HttpStatusCodes.NOT_FOUND],
+      idParams,
+    ),
+  },
+});
+
+export const patch = createRoute({
+  path: "/tracking-bundles/{id}",
+  method: "patch",
+  tags,
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.ORDERS, operation: OperationType.UPDATE },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    params: idParams,
+    body: jsonContentRequired(updateTrackingBundleRequestSchema, "Update bundle"),
+  },
+  summary: "Update tracking bundle",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(trackingBundleDetailSchema),
+      "Updated bundle",
+    ),
+    ...commonErrorResponses(
+      [HttpStatusCodes.UNAUTHORIZED, HttpStatusCodes.FORBIDDEN, HttpStatusCodes.NOT_FOUND],
+      idParams,
+    ),
+  },
+});
+
+export const searchOrder = createRoute({
+  path: "/tracking-bundles/search-order",
+  method: "get",
+  tags,
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.ORDERS, operation: OperationType.READ },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    query: z.object({
+      orderCode: z.string().min(1),
+    }),
+  },
+  summary: "Search order for bundle assignment",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(searchOrderForBundleSchema),
+      "Order search result",
+    ),
+    ...commonErrorResponses(
+      [HttpStatusCodes.UNAUTHORIZED, HttpStatusCodes.FORBIDDEN, HttpStatusCodes.NOT_FOUND],
+      z.object({ orderCode: z.string() }),
+    ),
+  },
+});
+
+export const assignOrders = createRoute({
+  path: "/tracking-bundles/{id}/orders",
+  method: "post",
+  tags,
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.ORDERS, operation: OperationType.UPDATE },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    params: idParams,
+    body: jsonContentRequired(assignOrdersToBundleRequestSchema, "Assign orders"),
+  },
+  summary: "Assign orders to bundle",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(z.object({
+        bundle: trackingBundleDetailSchema,
+        assigned: z.array(z.any()),
+        missing: z.array(z.string()),
+      })),
+      "Assigned orders",
+    ),
+    ...commonErrorResponses(
+      [HttpStatusCodes.UNAUTHORIZED, HttpStatusCodes.FORBIDDEN, HttpStatusCodes.BAD_REQUEST],
+      idParams,
+    ),
+  },
+});
+
+export const removeOrder = createRoute({
+  path: "/tracking-bundles/{id}/orders/{orderId}",
+  method: "delete",
+  tags,
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.ORDERS, operation: OperationType.UPDATE },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    params: idParams.extend({ orderId: z.coerce.number() }),
+  },
+  summary: "Remove order from bundle",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(trackingBundleDetailSchema),
+      "Order removed",
+    ),
+    ...commonErrorResponses(
+      [HttpStatusCodes.UNAUTHORIZED, HttpStatusCodes.FORBIDDEN, HttpStatusCodes.NOT_FOUND],
+      idParams,
+    ),
+  },
+});
+
+export const updateStep = createRoute({
+  path: "/tracking-bundles/{id}/step",
+  method: "post",
+  tags,
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.ORDERS, operation: OperationType.UPDATE },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    params: idParams,
+    body: jsonContentRequired(updateBundleStepRequestSchema, "Update step"),
+  },
+  summary: "Update bundle tracking step",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(trackingBundleDetailSchema),
+      "Step updated",
+    ),
+    ...commonErrorResponses(
+      [HttpStatusCodes.UNAUTHORIZED, HttpStatusCodes.FORBIDDEN, HttpStatusCodes.BAD_REQUEST],
+      idParams,
+    ),
+  },
+});
+
+export type ListStepsRoute = typeof listSteps;
+export type ListRoute = typeof list;
+export type CreateRoute = typeof create;
+export type GetOneRoute = typeof getOne;
+export type PatchRoute = typeof patch;
+export type SearchOrderRoute = typeof searchOrder;
+export type AssignOrdersRoute = typeof assignOrders;
+export type RemoveOrderRoute = typeof removeOrder;
+export type UpdateStepRoute = typeof updateStep;

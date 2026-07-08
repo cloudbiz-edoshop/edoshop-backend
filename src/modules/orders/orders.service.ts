@@ -190,7 +190,7 @@ export class OrdersService {
 
   async getMyOrders(
     userId: number,
-    params: { page: number; limit: number; cancelled?: boolean },
+    params: { page: number; limit: number; cancelled?: boolean; trackableOnly?: boolean },
   ) {
     return this.ordersRepository.getCustomerOrders(userId, params);
   }

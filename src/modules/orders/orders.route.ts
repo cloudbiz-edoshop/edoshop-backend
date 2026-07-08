@@ -200,6 +200,10 @@ export const getMyOrders = createRoute({
         .enum(["true", "false"])
         .optional()
         .describe("Filter cancelled orders when true, active orders when false"),
+      trackable: z
+        .enum(["true", "false"])
+        .optional()
+        .describe("When true, only orders assigned to an active tracking bundle"),
     }),
   },
   summary: "List my orders",

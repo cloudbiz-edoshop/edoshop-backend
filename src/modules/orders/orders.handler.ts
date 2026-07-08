@@ -119,15 +119,17 @@ export const getFulfillmentOptions: AppRouteHandler<
 };
 
 export const getMyOrders: AppRouteHandler<GetMyOrdersRoute> = async (c) => {
-  const { page, limit, cancelled } = c.req.valid("query");
+  const { page, limit, cancelled, trackable } = c.req.valid("query");
   const accessTokenPayload = c.get("accessTokenPayload");
   const cancelledFilter =
     cancelled === "true" ? true : cancelled === "false" ? false : undefined;
+  const trackableOnly = trackable === "true";
 
   const result = await ordersService.getMyOrders(accessTokenPayload.userId, {
     page: page ?? 1,
     limit: limit ?? 20,
     cancelled: cancelledFilter,
+    trackableOnly,
   });
   const pagination = createPagination(result.total, page ?? 1, limit ?? 20);
 

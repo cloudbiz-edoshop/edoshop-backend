@@ -402,3 +402,125 @@ export const buildDetailedOrderTracking = (params: {
   manufacturerToStoreSteps: buildManufacturerToStoreSteps(params),
   storeToCustomerSteps: buildStoreToCustomerSteps(params),
 });
+
+type BundleTrackingInput = {
+  currentStepOrder: number;
+  steps: Array<{
+    id: number;
+    stepOrder: number;
+    label: string;
+    leg: string;
+    description?: string | null;
+  }>;
+  history?: Array<{
+    stepId: number;
+    createdAt: string;
+  }>;
+  createdAt: string;
+};
+
+const formatTrackingDateFromIso = (value?: string | null) => {
+  if (!value) return null;
+  return formatTrackingDate(value);
+};
+
+export const buildBundleBasedTracking = (params: BundleTrackingInput) => {
+  const historyByStepId = new Map(
+    (params.history ?? []).map((entry) => [entry.stepId, entry.createdAt]),
+  );
+
+  const manufacturerSteps = params.steps
+    .filter((step) => step.leg === "manufacturer")
+    .map((step) => {
+      const completed = step.stepOrder < params.currentStepOrder;
+      const active = step.stepOrder === params.currentStepOrder;
+      const date = completed || active
+        ? formatTrackingDateFromIso(
+            historyByStepId.get(step.id) ?? params.createdAt,
+          )
+        : null;
+
+      return {
+        id: step.id,
+        label: step.label,
+        details: step.description ?? step.label,
+        date,
+        completed,
+        active,
+      };
+    });
+
+  const storeSteps = params.steps
+    .filter((step) => step.leg === "store")
+    .map((step) => {
+      const completed = step.stepOrder < params.currentStepOrder;
+      const active = step.stepOrder === params.currentStepOrder;
+      const date = completed || active
+        ? formatTrackingDateFromIso(
+            historyByStepId.get(step.id) ?? params.createdAt,
+          )
+        : null;
+
+      return {
+        id: step.id,
+        label: step.label,
+        details: step.description ?? step.label,
+        date,
+        completed,
+        active,
+      };
+    });
+
+  const activeStep = params.steps.find(
+    (step) => step.stepOrder === params.currentStepOrder,
+  );
+
+  const simplifiedSteps = [
+    {
+      id: 1,
+      label: "Ordered",
+      details: "Your order is linked to a bundle and is being tracked.",
+      date: formatTrackingDateFromIso(params.createdAt),
+      completed: params.currentStepOrder > 1,
+      active: params.currentStepOrder === 1,
+    },
+    {
+      id: 2,
+      label: activeStep?.label ?? "In progress",
+      details: activeStep?.description ?? "Bundle tracking is in progress.",
+      date: formatTrackingDateFromIso(
+        historyByStepId.get(activeStep?.id ?? 0) ?? params.createdAt,
+      ),
+      completed: false,
+      active: true,
+    },
+    {
+      id: 3,
+      label: "Delivery",
+      details: "Final delivery stage for your order.",
+      date:
+        params.currentStepOrder >= 10
+          ? formatTrackingDateFromIso(historyByStepId.get(10) ?? params.createdAt)
+          : null,
+      completed: params.currentStepOrder >= 10,
+      active: params.currentStepOrder >= 8 && params.currentStepOrder < 10,
+    },
+    {
+      id: 4,
+      label: "Completed",
+      details: "Your order journey is complete.",
+      date:
+        params.currentStepOrder >= 10
+          ? formatTrackingDateFromIso(historyByStepId.get(10) ?? params.createdAt)
+          : null,
+      completed: params.currentStepOrder >= 10,
+      active: params.currentStepOrder === 10,
+    },
+  ];
+
+  return {
+    steps: simplifiedSteps,
+    manufacturerToStoreSteps: manufacturerSteps,
+    storeToCustomerSteps: storeSteps,
+  };
+};

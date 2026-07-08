@@ -147,4 +147,79 @@ export async function ensureRuntimeMigrations() {
         "updated_at" = now()
     `),
   );
+
+  await db.execute(
+    sql.raw(`
+      CREATE TABLE IF NOT EXISTS "tracking_steps" (
+        "id" serial PRIMARY KEY,
+        "step_order" integer NOT NULL,
+        "code" varchar(100) UNIQUE NOT NULL,
+        "label" varchar(255) NOT NULL,
+        "leg" varchar(50) NOT NULL,
+        "description" text
+      )
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
+      CREATE TABLE IF NOT EXISTS "tracking_bundles" (
+        "id" serial PRIMARY KEY,
+        "bundle_code" varchar(100) UNIQUE NOT NULL,
+        "name" varchar(255) NOT NULL,
+        "description" text,
+        "store_type" varchar(50) NOT NULL,
+        "status" varchar(50) NOT NULL DEFAULT 'active',
+        "current_step_id" integer NOT NULL REFERENCES "tracking_steps"("id"),
+        "created_at" timestamp NOT NULL,
+        "updated_at" timestamp,
+        "created_by" integer REFERENCES "users"("id"),
+        "updated_by" integer REFERENCES "users"("id")
+      )
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
+      CREATE TABLE IF NOT EXISTS "tracking_bundle_items" (
+        "id" serial PRIMARY KEY,
+        "bundle_id" integer NOT NULL REFERENCES "tracking_bundles"("id") ON DELETE CASCADE,
+        "order_id" integer NOT NULL UNIQUE,
+        "created_at" timestamp NOT NULL,
+        "created_by" integer REFERENCES "users"("id")
+      )
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
+      CREATE TABLE IF NOT EXISTS "tracking_bundle_history" (
+        "id" serial PRIMARY KEY,
+        "bundle_id" integer NOT NULL REFERENCES "tracking_bundles"("id") ON DELETE CASCADE,
+        "step_id" integer NOT NULL REFERENCES "tracking_steps"("id"),
+        "notes" text,
+        "attachment_url" varchar(500),
+        "created_at" timestamp NOT NULL,
+        "created_by" integer REFERENCES "users"("id")
+      )
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
+      INSERT INTO "tracking_steps" ("step_order", "code", "label", "leg", "description")
+      VALUES
+        (1, 'approval', 'Approval', 'manufacturer', 'Bundle orders are approved and ready to proceed.'),
+        (2, 'payment_of_items', 'Payment Of Items (HT)', 'manufacturer', 'Payment for bundle items has been received.'),
+        (3, 'order_received_by_manufacturer', 'Order Received By Manufacturer', 'manufacturer', 'Manufacturer has received the bundle order.'),
+        (4, 'order_shipped_by_agent', 'Order Shipped By Agent', 'manufacturer', 'Agent has shipped the bundle order.'),
+        (5, 'orders_arrived_at_local_customs', 'Orders Arrived At Local Custom', 'manufacturer', 'Bundle has arrived at local customs.'),
+        (6, 'order_at_the_store', 'Order At The Store', 'manufacturer', 'Bundle goods are now at the Edoshop store.'),
+        (7, 'payment_of_kilo', 'Payment Of Kilo', 'manufacturer', 'Kilo/shipping payment for the bundle has been received.'),
+        (8, 'packaging', 'Packaging', 'store', 'Bundle orders are being packaged for delivery.'),
+        (9, 'payment_for_deliveries', 'Payment For Deliveries', 'store', 'Delivery payment has been received.'),
+        (10, 'deliveries', 'Deliveries', 'store', 'Bundle orders are out for delivery or collected.')
+      ON CONFLICT ("code") DO NOTHING
+    `),
+  );
 }
