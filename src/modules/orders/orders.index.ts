@@ -11,5 +11,6 @@ router.openapi(routes.checkoutDirectOrder, handlers.checkoutDirectOrder);
 router.openapi(routes.getFulfillmentOptions, handlers.getFulfillmentOptions);
 router.openapi(routes.getMyOrders, handlers.getMyOrders);
 router.openapi(routes.getMyOrderTracking, handlers.getMyOrderTracking);
+router.openapi(routes.requestPostCheckoutDelivery, handlers.requestPostCheckoutDelivery);
 
 export default router;

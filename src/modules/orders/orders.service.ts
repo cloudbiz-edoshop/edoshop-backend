@@ -1,5 +1,6 @@
 import type {
   CheckoutDirectOrderRequest,
+  RequestPostCheckoutDeliveryRequest,
   UpdateAvailableQuantityForFulfillmentRequest,
 } from "./orders.schema";
 import {
@@ -204,6 +205,60 @@ export class OrdersService {
       throw new NotFoundError("Order not found");
     }
     return tracking;
+  }
+
+  async requestPostCheckoutDelivery(
+    userId: number,
+    orderCode: string,
+    payload: RequestPostCheckoutDeliveryRequest,
+  ) {
+    const result = await this.ordersRepository.requestPostCheckoutDelivery({
+      userId,
+      orderCode,
+      streetAddress: payload.streetAddress,
+      city: payload.city,
+    });
+
+    if (!result) return null;
+
+    const isMobileTransfer = (
+      MOBILE_TRANSFER_PAYMENT_METHODS as readonly string[]
+    ).includes(result.paymentMethodName ?? "");
+
+    if (isMobileTransfer && campayConfig.enabled) {
+      if (!payload.whatsappNumber) {
+        throw new ValidationError("A mobile money phone number is required");
+      }
+      const collect = await campayService.initCollect({
+        amount: Number(result.deliveryFee),
+        phone: normalizeCameroonPhone(payload.whatsappNumber),
+        description: `Edoshop delivery fee ${result.orderCode}`,
+        externalReference: result.transactionReference,
+      });
+
+      if (!collect.reference) {
+        throw new ValidationError("Unable to initiate delivery fee payment");
+      }
+
+      await this.ordersRepository.updatePaymentTransactionReference(
+        result.paymentTransactionId,
+        collect.reference,
+        userId,
+      );
+
+      const { paymentMethodName, ...publicResult } = result;
+      return {
+        ...publicResult,
+        transactionReference: collect.reference,
+        campayReference: collect.reference,
+        campayStatus: String(collect.status || "PENDING").toUpperCase(),
+        campayOperator: collect.operator ?? null,
+        campayUssdCode: collect.ussd_code ?? null,
+      };
+    }
+
+    const { paymentMethodName, ...publicResult } = result;
+    return publicResult;
   }
 }
 

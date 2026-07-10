@@ -5,6 +5,7 @@ import type {
   GetMyOrdersRoute,
   GetOrderDetailsForACustomerRoute,
   GetOrdersToFulfillRoute,
+  RequestPostCheckoutDeliveryRoute,
   UpdateAvailableQuantityForFulfillmentRoute,
 } from "./orders.route";
 
@@ -158,4 +159,32 @@ export const getMyOrderTracking: AppRouteHandler<
     successResponse(result, "Order tracking retrieved successfully"),
     HttpStatusCodes.OK,
   );
+};
+
+export const requestPostCheckoutDelivery: AppRouteHandler<
+  RequestPostCheckoutDeliveryRoute
+> = async (c) => {
+  const { orderCode } = c.req.valid("param");
+  const payload = c.req.valid("json");
+  const accessTokenPayload = c.get("accessTokenPayload");
+
+  try {
+    const result = await ordersService.requestPostCheckoutDelivery(
+      accessTokenPayload.userId,
+      orderCode,
+      payload,
+    );
+
+    if (!result) {
+      return c.json({ success: false, message: "Order not found" }, HttpStatusCodes.NOT_FOUND);
+    }
+
+    return c.json(
+      successResponse(result, "Delivery request created successfully"),
+      HttpStatusCodes.OK,
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to request delivery";
+    return c.json({ success: false, message }, HttpStatusCodes.BAD_REQUEST);
+  }
 };

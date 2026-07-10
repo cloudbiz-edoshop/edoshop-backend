@@ -1202,10 +1202,22 @@ export class OrdersRepository {
       };
     });
 
-    const primaryTracking = trackingGroups[0];
-    const trackingDetails = primaryTracking
+    const slowestBundleTracking = bundleGroupsBase.length
+      ? bundleGroupsBase.reduce((slowest, bundle) =>
+          bundle.currentStepOrder < slowest.currentStepOrder ? bundle : slowest,
+        )
+      : null;
+    const combinedTrackingHistory = trackingHistoryRows.map((entry) => ({
+      id: entry.id,
+      stepLabel: entry.step?.label ?? "",
+      notes: entry.notes,
+      attachmentUrl: entry.attachmentUrl,
+      createdAt: entry.createdAt,
+      updatedByName: entry.createdByUser?.fullName ?? null,
+    }));
+    const trackingDetails = slowestBundleTracking
       ? buildBundleBasedTracking({
-          currentStepOrder: bundleGroupsBase[0]?.currentStepOrder ?? 3,
+          currentStepOrder: slowestBundleTracking.currentStepOrder,
           steps: bundlePhaseSteps.map((step) => ({
             id: step.id,
             stepOrder: step.stepOrder,
@@ -1217,7 +1229,7 @@ export class OrdersRepository {
             stepId: entry.stepId,
             createdAt: entry.createdAt,
           })),
-          createdAt: bundleGroupsBase[0]?.createdAt ?? order.createdAt,
+          createdAt: slowestBundleTracking.createdAt ?? order.createdAt,
         })
       : buildDetailedOrderTracking({
           statusId: order.statusId,
@@ -1244,9 +1256,8 @@ export class OrdersRepository {
       pickupLocation,
       billingAddress: formatAddress(order.billingAddress),
       shippingAddress: formatAddress(order.shippingAddress),
-      bundleCode: primaryTracking?.bundleCode ?? null,
-      trackingGroups,
-      trackingHistory: primaryTracking?.trackingHistory ?? [],
+      bundleCode: null,
+      trackingHistory: combinedTrackingHistory,
       items: (order.orderItems ?? []).map((item) => ({
         id: item.id,
         productName: item.productName,
@@ -1261,6 +1272,122 @@ export class OrdersRepository {
       manufacturerToStoreSteps: trackingDetails.manufacturerToStoreSteps,
       storeToCustomerSteps: trackingDetails.storeToCustomerSteps,
     };
+  }
+
+  async requestPostCheckoutDelivery(params: {
+    userId: number;
+    orderCode: string;
+    streetAddress: string;
+    city?: string;
+  }) {
+    const order = await db.query.orders.findFirst({
+      where: and(
+        eq(orders.orderCode, params.orderCode),
+        eq(orders.isDeleted, false),
+      ),
+      with: {
+        customer: true,
+        billingAddress: true,
+        paymentMethod: true,
+      },
+    });
+
+    if (!order || order.customer?.userId !== params.userId) {
+      return null;
+    }
+    if (order.fulfillmentMethod !== FulfillmentMethod.PICKUP) {
+      throw new Error("Delivery can only be requested for pickup orders");
+    }
+    if (!order.paymentMethodId) {
+      throw new Error("Order has no payment method for delivery fee payment");
+    }
+
+    const deliveryFee = computeDirectOrderShippingFee(FulfillmentMethod.DELIVERY);
+    const currentShipping = Number(order.shippingAmount ?? 0);
+    const additionalDeliveryFee = Math.max(deliveryFee - currentShipping, 0);
+    if (additionalDeliveryFee <= 0) {
+      throw new Error("Delivery fee is already paid for this order");
+    }
+
+    const now = new Date().toISOString();
+    const paymentStatus = await db.query.paymentStatuses.findFirst({
+      where: eq(paymentStatuses.name, PAYMENT_STATUSES.PENDING),
+    });
+    if (!paymentStatus) {
+      throw new Error("Payment status not found");
+    }
+
+    return await db.transaction(async (tx) => {
+      const [shippingAddress] = await tx
+        .insert(addresses)
+        .values({
+          userId: params.userId,
+          addressTypeId: AddressTypeIds.SHIPPING,
+          streetAddress: params.streetAddress.trim(),
+          countryId: order.billingAddress?.countryId ?? 1,
+          cityId: order.billingAddress?.cityId ?? null,
+          landmark: params.city?.trim() || order.billingAddress?.landmark || null,
+          createdBy: params.userId,
+          updatedBy: params.userId,
+        })
+        .returning();
+
+      const newTotalAmount = (
+        Number(order.totalAmount) + additionalDeliveryFee
+      ).toFixed(2);
+      const newShippingAmount = (
+        Number(order.shippingAmount ?? 0) + additionalDeliveryFee
+      ).toFixed(2);
+
+      await tx
+        .update(orders)
+        .set({
+          fulfillmentMethod: FulfillmentMethod.DELIVERY,
+          pickupWarehouseId: null,
+          shippingAddressId: shippingAddress.id,
+          shippingAmount: newShippingAmount,
+          totalAmount: newTotalAmount,
+          notes: [
+            order.notes,
+            "Customer requested delivery after checkout",
+          ].filter(Boolean).join(" | "),
+          updatedAt: now,
+          updatedBy: params.userId,
+        })
+        .where(eq(orders.id, order.id));
+
+      const transactionReference = `DELIVERY-${order.orderCode}-${Date.now()}`;
+      const [paymentTransaction] = await tx
+        .insert(paymentTransactions)
+        .values({
+          orderId: order.id,
+          amount: additionalDeliveryFee.toFixed(2),
+          paymentMethodId: order.paymentMethodId,
+          paymentStatusId: paymentStatus.id,
+          transactionReference,
+          transactionDate: now,
+          createdBy: params.userId,
+          updatedBy: params.userId,
+        })
+        .returning();
+
+      return {
+        orderId: order.id,
+        orderCode: order.orderCode,
+        fulfillmentMethod: FulfillmentMethod.DELIVERY,
+        deliveryFee: additionalDeliveryFee.toFixed(2),
+        shippingAmount: newShippingAmount,
+        totalAmount: newTotalAmount,
+        paymentTransactionId: paymentTransaction.id,
+        transactionReference,
+        paymentMethod:
+          order.paymentMethod?.description
+          ?? order.paymentMethod?.name
+          ?? "N/A",
+        paymentMethodName: order.paymentMethod?.name ?? null,
+        paymentStatus: paymentStatus.name,
+      };
+    });
   }
 
   async findPaymentMethodByName(name: string) {

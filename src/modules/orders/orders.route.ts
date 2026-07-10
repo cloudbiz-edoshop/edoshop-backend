@@ -156,6 +156,42 @@ export const checkoutDirectOrder = createRoute({
 
 export type CheckoutDirectOrderRoute = typeof checkoutDirectOrder;
 
+export const requestPostCheckoutDelivery = createRoute({
+  path: "/orders/me/{orderCode}/request-delivery",
+  method: "post",
+  tags,
+  middleware: [jwtMiddleware()] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    params: z.object({
+      orderCode: z.string().min(1),
+    }),
+    body: jsonContentRequired(
+      schemas.requestPostCheckoutDeliveryRequestSchema,
+      "Post-checkout delivery request",
+    ),
+  },
+  summary: "Request delivery after checkout",
+  description: "Allows a customer who selected pickup to switch to delivery and pay the delivery fee",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(schemas.requestPostCheckoutDeliveryResponseSchema),
+      "Delivery request created",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.NOT_FOUND,
+        HttpStatusCodes.BAD_REQUEST,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      z.object({ orderCode: z.string() }),
+    ),
+  },
+});
+
+export type RequestPostCheckoutDeliveryRoute = typeof requestPostCheckoutDelivery;
+
 export const getFulfillmentOptions = createRoute({
   path: "/public/fulfillment-options",
   method: "get",

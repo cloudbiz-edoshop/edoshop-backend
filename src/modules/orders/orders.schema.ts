@@ -108,6 +108,29 @@ export type CheckoutDirectOrderRequest = z.infer<
   typeof checkoutDirectOrderRequestSchema
 >;
 
+export const requestPostCheckoutDeliveryRequestSchema = z.object({
+  streetAddress: z.string().min(1),
+  city: z.string().optional(),
+  whatsappNumber: z.string().optional(),
+});
+
+export const requestPostCheckoutDeliveryResponseSchema = z.object({
+  orderId: z.number(),
+  orderCode: z.string(),
+  fulfillmentMethod: z.string(),
+  deliveryFee: z.string(),
+  shippingAmount: z.string(),
+  totalAmount: z.string(),
+  paymentTransactionId: z.number(),
+  transactionReference: z.string(),
+  paymentMethod: z.string(),
+  paymentStatus: z.string(),
+  campayReference: z.string().optional(),
+  campayStatus: z.string().optional(),
+  campayOperator: z.string().nullable().optional(),
+  campayUssdCode: z.string().nullable().optional(),
+});
+
 export const checkoutDirectOrderResponseSchema = z.object({
   orderId: z.number(),
   orderCode: z.string(),
@@ -209,6 +232,9 @@ export const customerOrderTrackingSchema = z.object({
 
 export type CheckoutDirectOrderResponse = z.infer<
   typeof checkoutDirectOrderResponseSchema
+>;
+export type RequestPostCheckoutDeliveryRequest = z.infer<
+  typeof requestPostCheckoutDeliveryRequestSchema
 >;
 
 export type OrdersToFulfill = z.infer<typeof ordersToFulfillSchema>;
