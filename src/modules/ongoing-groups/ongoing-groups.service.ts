@@ -22,6 +22,14 @@ const SYSTEM_USER_ID = 1;
 
 type ColorLike = { name?: string | null; description?: string | null } | null | undefined;
 
+function toResponseDate(value?: string | Date | null) {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  return value || new Date().toISOString();
+}
+
 function isHexColor(value: string) {
   return /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(value.trim());
 }
@@ -286,7 +294,7 @@ export class OngoingGroupRequestsService {
       status: request.approvalStatus?.name || "Pending",
       statusId: request.approvalStatusId,
       reasonForRejection: request.reasonForRejection || null,
-      createdAt: request.createdAt,
+      createdAt: toResponseDate(request.createdAt),
     };
   }
 
@@ -339,7 +347,7 @@ export class OngoingGroupRequestsService {
     return {
       ongoingGroupId,
       groupId: `GRP-${ongoingGroupId}`,
-      productId: anchorRequest?.productId,
+      productId: anchorRequest?.productId ?? 0,
       productName: product?.name || "Groupage product",
       productCode:
         dropshippingProduct?.dropshippingCode ||
@@ -357,7 +365,10 @@ export class OngoingGroupRequestsService {
       status: statusMap[statusId] || "Pending",
       statusId,
       reasonForRejection: group?.reasonForRejection || null,
-      createdAt: sortedRequests[sortedRequests.length - 1]?.createdAt || anchorRequest?.createdAt,
+      createdAt: toResponseDate(
+        sortedRequests[sortedRequests.length - 1]?.createdAt ||
+        anchorRequest?.createdAt,
+      ),
       anchorRequestId: anchorRequest?.id ?? null,
       isReadyForApproval: orderedItems >= threshold && threshold > 0,
       ...(includeRequests
