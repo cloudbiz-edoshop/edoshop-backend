@@ -165,6 +165,7 @@ export async function ensureRuntimeMigrations() {
     sql.raw(`
       CREATE TABLE IF NOT EXISTS "tracking_bundles" (
         "id" serial PRIMARY KEY,
+        "source_bundle_id" integer UNIQUE REFERENCES "bundles"("id"),
         "bundle_code" varchar(100) UNIQUE NOT NULL,
         "name" varchar(255) NOT NULL,
         "description" text,
@@ -184,7 +185,8 @@ export async function ensureRuntimeMigrations() {
       CREATE TABLE IF NOT EXISTS "tracking_bundle_items" (
         "id" serial PRIMARY KEY,
         "bundle_id" integer NOT NULL REFERENCES "tracking_bundles"("id") ON DELETE CASCADE,
-        "order_id" integer NOT NULL UNIQUE,
+        "order_id" integer REFERENCES "orders"("id"),
+        "order_item_id" integer REFERENCES "order_items"("id"),
         "created_at" timestamp NOT NULL,
         "created_by" integer REFERENCES "users"("id")
       )
@@ -220,6 +222,60 @@ export async function ensureRuntimeMigrations() {
         (9, 'payment_for_deliveries', 'Payment For Deliveries', 'store', 'Delivery payment has been received.'),
         (10, 'deliveries', 'Deliveries', 'store', 'Bundle orders are out for delivery or collected.')
       ON CONFLICT ("code") DO NOTHING
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
+      ALTER TABLE "tracking_bundles"
+      ADD COLUMN IF NOT EXISTS "source_bundle_id" integer REFERENCES "bundles"("id")
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
+      UPDATE "tracking_bundles" AS tb
+      SET "source_bundle_id" = b."id"
+      FROM "bundles" AS b
+      WHERE tb."source_bundle_id" IS NULL
+        AND tb."bundle_code" = b."bundle_code"
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1
+          FROM pg_constraint
+          WHERE conname = 'tracking_bundles_source_bundle_id_unique'
+        ) THEN
+          ALTER TABLE "tracking_bundles"
+          ADD CONSTRAINT "tracking_bundles_source_bundle_id_unique" UNIQUE ("source_bundle_id");
+        END IF;
+      END $$;
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
+      ALTER TABLE "tracking_bundle_items"
+      ALTER COLUMN "order_id" DROP NOT NULL
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
+      ALTER TABLE "tracking_bundle_items"
+      ADD COLUMN IF NOT EXISTS "order_item_id" integer REFERENCES "order_items"("id")
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
+      ALTER TABLE "tracking_bundle_items"
+      DROP CONSTRAINT IF EXISTS "tracking_bundle_items_order_id_key"
     `),
   );
 }

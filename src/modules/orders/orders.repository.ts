@@ -15,6 +15,8 @@ import {
   cities,
   countries,
   customers,
+  bundles as sourceBundles,
+  items as inventoryItems,
   orderFulfillmentStatuses,
   orderItemFulfillmentStatuses,
   orderItems,
@@ -24,8 +26,8 @@ import {
   paymentStatuses,
   paymentTransactions,
   shippingPriorityCodes,
+  series,
   trackingBundleHistory,
-  trackingBundleItems,
   trackingBundles,
   trackingSteps,
   users,
@@ -927,15 +929,15 @@ export class OrdersRepository {
     if (params.trackableOnly) {
       const bundleAssignments = await db
         .select({
-          orderId: trackingBundleItems.orderId,
+          orderId: orderItems.orderId,
           bundleCode: trackingBundles.bundleCode,
           currentStepLabel: trackingSteps.label,
         })
-        .from(trackingBundleItems)
-        .innerJoin(
-          trackingBundles,
-          eq(trackingBundleItems.bundleId, trackingBundles.id),
-        )
+        .from(orderItems)
+        .innerJoin(variants, eq(orderItems.variantId, variants.id))
+        .innerJoin(inventoryItems, eq(variants.itemId, inventoryItems.id))
+        .innerJoin(series, eq(inventoryItems.seriesId, series.id))
+        .innerJoin(trackingBundles, eq(trackingBundles.sourceBundleId, series.bundleId))
         .innerJoin(
           trackingSteps,
           eq(trackingBundles.currentStepId, trackingSteps.id),
@@ -1088,51 +1090,62 @@ export class OrdersRepository {
             .join(" — ")
         : null;
 
-    const bundleAssignment = await db.query.trackingBundleItems.findFirst({
-      where: eq(trackingBundleItems.orderId, order.id),
-      with: {
-        bundle: {
-          with: {
-            currentStep: true,
-            history: {
-              orderBy: [desc(trackingBundleHistory.createdAt)],
-            },
-          },
-        },
-      },
-    });
-
     const allSteps = await db.query.trackingSteps.findMany({
       orderBy: [trackingSteps.stepOrder],
     });
 
-    const bundle = bundleAssignment?.bundle;
-    const trackingDetails = bundle?.currentStep
-      ? buildBundleBasedTracking({
-          currentStepOrder: bundle.currentStep.stepOrder,
-          steps: allSteps.map((step) => ({
-            id: step.id,
-            stepOrder: step.stepOrder,
-            label: step.label,
-            leg: step.leg,
-            description: step.description,
-          })),
-          history: (bundle.history ?? []).map((entry) => ({
-            stepId: entry.stepId,
-            createdAt: entry.createdAt,
-          })),
-          createdAt: bundle.createdAt,
-        })
-      : buildDetailedOrderTracking({
-          statusId: order.statusId,
-          fulfillmentMethod: order.fulfillmentMethod ?? FulfillmentMethod.DELIVERY,
-          createdAt: order.createdAt,
-          updatedAt: order.updatedAt,
-        });
+    const bundleRows = await db
+      .select({
+        sourceBundleId: sourceBundles.id,
+        bundleCode: sourceBundles.bundleCode,
+        bundleCreatedAt: sourceBundles.createdAt,
+        trackingBundleId: trackingBundles.id,
+        trackingCreatedAt: trackingBundles.createdAt,
+        currentStepOrder: trackingSteps.stepOrder,
+        currentStepLabel: trackingSteps.label,
+        orderItemId: orderItems.id,
+      })
+      .from(orderItems)
+      .innerJoin(variants, eq(orderItems.variantId, variants.id))
+      .innerJoin(inventoryItems, eq(variants.itemId, inventoryItems.id))
+      .innerJoin(series, eq(inventoryItems.seriesId, series.id))
+      .innerJoin(sourceBundles, eq(series.bundleId, sourceBundles.id))
+      .leftJoin(trackingBundles, eq(trackingBundles.sourceBundleId, sourceBundles.id))
+      .leftJoin(trackingSteps, eq(trackingBundles.currentStepId, trackingSteps.id))
+      .where(eq(orderItems.orderId, order.id));
 
-    const trackingHistory = bundle
+    const bundleBySourceId = new Map<number, {
+      sourceBundleId: number;
+      bundleCode: string;
+      trackingBundleId: number | null;
+      createdAt: string;
+      currentStepOrder: number;
+      currentStepLabel: string | null;
+      orderItemIds: number[];
+    }>();
+
+    for (const row of bundleRows) {
+      const existing = bundleBySourceId.get(row.sourceBundleId) ?? {
+        sourceBundleId: row.sourceBundleId,
+        bundleCode: row.bundleCode,
+        trackingBundleId: row.trackingBundleId,
+        createdAt: row.trackingCreatedAt ?? row.bundleCreatedAt,
+        currentStepOrder: row.currentStepOrder ?? 3,
+        currentStepLabel: row.currentStepLabel ?? "Order Received By Manufacturer",
+        orderItemIds: [],
+      };
+      existing.orderItemIds.push(row.orderItemId);
+      bundleBySourceId.set(row.sourceBundleId, existing);
+    }
+
+    const bundleGroupsBase = [...bundleBySourceId.values()];
+    const trackingBundleIds = bundleGroupsBase
+      .map((bundle) => bundle.trackingBundleId)
+      .filter((id): id is number => Boolean(id));
+
+    const trackingHistoryRows = trackingBundleIds.length
       ? await db.query.trackingBundleHistory.findMany({
-          where: eq(trackingBundleHistory.bundleId, bundle.id),
+          where: inArray(trackingBundleHistory.bundleId, trackingBundleIds),
           with: {
             step: true,
             createdByUser: true,
@@ -1140,6 +1153,77 @@ export class OrdersRepository {
           orderBy: [desc(trackingBundleHistory.createdAt)],
         })
       : [];
+
+    const historyByBundleId = new Map<number, typeof trackingHistoryRows>();
+    for (const entry of trackingHistoryRows) {
+      const entries = historyByBundleId.get(entry.bundleId) ?? [];
+      entries.push(entry);
+      historyByBundleId.set(entry.bundleId, entries);
+    }
+
+    const trackingGroups = bundleGroupsBase.map((bundle) => {
+      const history = bundle.trackingBundleId
+        ? historyByBundleId.get(bundle.trackingBundleId) ?? []
+        : [];
+      const details = buildBundleBasedTracking({
+        currentStepOrder: bundle.currentStepOrder,
+        steps: allSteps.map((step) => ({
+          id: step.id,
+          stepOrder: step.stepOrder,
+          label: step.label,
+          leg: step.leg,
+          description: step.description,
+        })),
+        history: history.map((entry) => ({
+          stepId: entry.stepId,
+          createdAt: entry.createdAt,
+        })),
+        createdAt: bundle.createdAt,
+      });
+
+      return {
+        sourceBundleId: bundle.sourceBundleId,
+        trackingBundleId: bundle.trackingBundleId,
+        bundleCode: bundle.bundleCode,
+        currentStepLabel: bundle.currentStepLabel,
+        orderItemIds: bundle.orderItemIds,
+        trackingHistory: history.map((entry) => ({
+          id: entry.id,
+          stepLabel: entry.step?.label ?? "",
+          notes: entry.notes,
+          attachmentUrl: entry.attachmentUrl,
+          createdAt: entry.createdAt,
+          updatedByName: entry.createdByUser?.fullName ?? null,
+        })),
+        steps: details.steps,
+        manufacturerToStoreSteps: details.manufacturerToStoreSteps,
+        storeToCustomerSteps: details.storeToCustomerSteps,
+      };
+    });
+
+    const primaryTracking = trackingGroups[0];
+    const trackingDetails = primaryTracking
+      ? buildBundleBasedTracking({
+          currentStepOrder: bundleGroupsBase[0]?.currentStepOrder ?? 3,
+          steps: allSteps.map((step) => ({
+            id: step.id,
+            stepOrder: step.stepOrder,
+            label: step.label,
+            leg: step.leg,
+            description: step.description,
+          })),
+          history: (trackingHistoryRows ?? []).map((entry) => ({
+            stepId: entry.stepId,
+            createdAt: entry.createdAt,
+          })),
+          createdAt: bundleGroupsBase[0]?.createdAt ?? order.createdAt,
+        })
+      : buildDetailedOrderTracking({
+          statusId: order.statusId,
+          fulfillmentMethod: order.fulfillmentMethod ?? FulfillmentMethod.DELIVERY,
+          createdAt: order.createdAt,
+          updatedAt: order.updatedAt,
+        });
 
     return {
       orderCode: order.orderCode,
@@ -1159,15 +1243,9 @@ export class OrdersRepository {
       pickupLocation,
       billingAddress: formatAddress(order.billingAddress),
       shippingAddress: formatAddress(order.shippingAddress),
-      bundleCode: bundle?.bundleCode ?? null,
-      trackingHistory: trackingHistory.map((entry) => ({
-        id: entry.id,
-        stepLabel: entry.step?.label ?? "",
-        notes: entry.notes,
-        attachmentUrl: entry.attachmentUrl,
-        createdAt: entry.createdAt,
-        updatedByName: entry.createdByUser?.fullName ?? null,
-      })),
+      bundleCode: primaryTracking?.bundleCode ?? null,
+      trackingGroups,
+      trackingHistory: primaryTracking?.trackingHistory ?? [],
       items: (order.orderItems ?? []).map((item) => ({
         id: item.id,
         productName: item.productName,

@@ -150,6 +150,15 @@ export const customerOrderTrackingStepSchema = z.object({
   active: z.boolean(),
 });
 
+const customerOrderTrackingHistorySchema = z.object({
+  id: z.number(),
+  stepLabel: z.string(),
+  notes: z.string().nullable().optional(),
+  attachmentUrl: z.string().nullable().optional(),
+  createdAt: z.string(),
+  updatedByName: z.string().nullable().optional(),
+});
+
 export const customerOrderTrackingSchema = z.object({
   orderCode: z.string(),
   fulfillmentMethod: z.string(),
@@ -180,18 +189,22 @@ export const customerOrderTrackingSchema = z.object({
   storeToCustomerSteps: z.array(customerOrderTrackingStepSchema).optional(),
   orderType: z.string().optional(),
   bundleCode: z.string().nullable().optional(),
-  trackingHistory: z
+  trackingGroups: z
     .array(
       z.object({
-        id: z.number(),
-        stepLabel: z.string(),
-        notes: z.string().nullable().optional(),
-        attachmentUrl: z.string().nullable().optional(),
-        createdAt: z.string(),
-        updatedByName: z.string().nullable().optional(),
+        sourceBundleId: z.number(),
+        trackingBundleId: z.number().nullable().optional(),
+        bundleCode: z.string(),
+        currentStepLabel: z.string().nullable().optional(),
+        orderItemIds: z.array(z.number()),
+        trackingHistory: z.array(customerOrderTrackingHistorySchema).optional(),
+        steps: z.array(customerOrderTrackingStepSchema),
+        manufacturerToStoreSteps: z.array(customerOrderTrackingStepSchema).optional(),
+        storeToCustomerSteps: z.array(customerOrderTrackingStepSchema).optional(),
       }),
     )
     .optional(),
+  trackingHistory: z.array(customerOrderTrackingHistorySchema).optional(),
 });
 
 export type CheckoutDirectOrderResponse = z.infer<

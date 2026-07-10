@@ -18,8 +18,13 @@ export const trackingStepSchema = z.object({
 export const trackingBundleOrderSchema = z.object({
   id: z.number(),
   orderId: z.number(),
+  orderItemId: z.number().optional(),
   orderCode: z.string(),
   customerId: z.number().optional(),
+  customerName: z.string().optional(),
+  productName: z.string().optional(),
+  variantCode: z.string().optional(),
+  quantity: z.number().optional(),
   totalAmount: z.string().optional(),
   status: z.string().optional(),
   createdAt: z.string().optional(),
@@ -37,9 +42,14 @@ export const trackingBundleHistorySchema = z.object({
 
 export const trackingBundleSchema = z.object({
   id: z.number(),
+  trackingBundleId: z.number().nullable().optional(),
+  sourceBundleId: z.number().nullable().optional(),
   bundleCode: z.string(),
   name: z.string(),
   description: z.string().nullable().optional(),
+  supplierId: z.number().nullable().optional(),
+  supplierName: z.string().nullable().optional(),
+  supplierCode: z.string().nullable().optional(),
   storeType: z.string(),
   status: z.string(),
   currentStepId: z.number(),

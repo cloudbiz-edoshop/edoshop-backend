@@ -11,6 +11,9 @@ import {
 } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 
+import { bundles } from "./bundles";
+import { orderItems } from "./order-items";
+import { orders } from "./orders";
 import { users } from "./users";
 
 export const trackingSteps = pgTable("tracking_steps", {
@@ -24,6 +27,9 @@ export const trackingSteps = pgTable("tracking_steps", {
 
 export const trackingBundles = pgTable("tracking_bundles", {
   id: serial().primaryKey(),
+  sourceBundleId: integer()
+    .references(() => bundles.id)
+    .unique(),
   bundleCode: varchar({ length: 100 }).unique().notNull(),
   name: varchar({ length: 255 }).notNull(),
   description: text(),
@@ -43,7 +49,8 @@ export const trackingBundleItems = pgTable("tracking_bundle_items", {
   bundleId: integer()
     .notNull()
     .references(() => trackingBundles.id, { onDelete: "cascade" }),
-  orderId: integer().notNull().unique(),
+  orderId: integer().references(() => orders.id),
+  orderItemId: integer().references(() => orderItems.id),
   createdAt: timestamp({ mode: "string" }).notNull(),
   createdBy: integer().references(() => users.id),
 });
@@ -94,6 +101,10 @@ export const trackingBundlesRelations = relations(trackingBundles, ({ one, many 
     fields: [trackingBundles.updatedBy],
     references: [users.id],
   }),
+  sourceBundle: one(bundles, {
+    fields: [trackingBundles.sourceBundleId],
+    references: [bundles.id],
+  }),
   items: many(trackingBundleItems),
   history: many(trackingBundleHistory),
 }));
@@ -102,6 +113,14 @@ export const trackingBundleItemsRelations = relations(trackingBundleItems, ({ on
   bundle: one(trackingBundles, {
     fields: [trackingBundleItems.bundleId],
     references: [trackingBundles.id],
+  }),
+  order: one(orders, {
+    fields: [trackingBundleItems.orderId],
+    references: [orders.id],
+  }),
+  orderItem: one(orderItems, {
+    fields: [trackingBundleItems.orderItemId],
+    references: [orderItems.id],
   }),
 }));
 

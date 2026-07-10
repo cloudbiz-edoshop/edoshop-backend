@@ -5,20 +5,25 @@ import type {
   UpdateTrackingBundleRequest,
 } from "./tracking-bundles.schema";
 
-import { and, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import db from "@/db";
 import {
+  bundles as sourceBundles,
+  customers,
+  entries,
+  items as inventoryItems,
+  orderItems,
   orders,
+  series,
+  suppliers,
   trackingBundleHistory,
   trackingBundleItems,
   trackingBundles,
   trackingSteps,
   users,
+  variants,
 } from "@/db/models";
 import {
-  createFilterConditions,
-  createSearchCondition,
-  createSortCondition,
   getPaginationValues,
 } from "@/lib/searching-sorting";
 
@@ -30,11 +35,19 @@ export class TrackingBundlesRepository {
   }
 
   async findById(id: number) {
-    return db.query.trackingBundles.findFirst({
-      where: eq(trackingBundles.id, id),
+    const bySourceBundle = await db.query.trackingBundles.findFirst({
+      where: eq(trackingBundles.sourceBundleId, id),
       with: {
         currentStep: true,
-        items: true,
+        sourceBundle: {
+          with: {
+            entry: {
+              with: {
+                supplier: true,
+              },
+            },
+          },
+        },
         history: {
           with: {
             step: true,
@@ -44,6 +57,35 @@ export class TrackingBundlesRepository {
         },
       },
     });
+
+    if (bySourceBundle) return bySourceBundle;
+
+    const byTrackingBundle = await db.query.trackingBundles.findFirst({
+      where: eq(trackingBundles.id, id),
+      with: {
+        currentStep: true,
+        sourceBundle: {
+          with: {
+            entry: {
+              with: {
+                supplier: true,
+              },
+            },
+          },
+        },
+        history: {
+          with: {
+            step: true,
+            createdByUser: true,
+          },
+          orderBy: [desc(trackingBundleHistory.createdAt)],
+        },
+      },
+    });
+
+    if (byTrackingBundle) return byTrackingBundle;
+
+    return this.ensureTrackingForSourceBundle(id);
   }
 
   async findByBundleCode(bundleCode: string) {
@@ -53,25 +95,17 @@ export class TrackingBundlesRepository {
   }
 
   async findBundleByOrderId(orderId: number) {
-    const item = await db.query.trackingBundleItems.findFirst({
-      where: eq(trackingBundleItems.orderId, orderId),
-      with: {
-        bundle: {
-          with: {
-            currentStep: true,
-            history: {
-              with: {
-                step: true,
-                createdByUser: true,
-              },
-              orderBy: [desc(trackingBundleHistory.createdAt)],
-            },
-          },
-        },
-      },
-    });
+    const [row] = await db
+      .select({ sourceBundleId: series.bundleId })
+      .from(orderItems)
+      .innerJoin(variants, eq(orderItems.variantId, variants.id))
+      .innerJoin(inventoryItems, eq(variants.itemId, inventoryItems.id))
+      .innerJoin(series, eq(inventoryItems.seriesId, series.id))
+      .where(eq(orderItems.orderId, orderId))
+      .limit(1);
 
-    return item?.bundle ?? null;
+    if (!row?.sourceBundleId) return null;
+    return this.findById(row.sourceBundleId);
   }
 
   async list(params: {
@@ -83,59 +117,107 @@ export class TrackingBundlesRepository {
     filters?: Record<string, unknown>;
   }) {
     const { search, page, limit, sortBy, sortOrder, filters } = params;
-    const searchableFields = ["bundleCode", "name", "description", "storeType", "status"];
-    const filterCondition = createFilterConditions(trackingBundles, filters);
-    const searchCondition = createSearchCondition(
-      searchableFields,
-      trackingBundles,
-      search,
-    );
+    const searchableFields = ["bundleCode", "supplierName", "storeType", "status"];
+    const parsedFilters = filters ?? {};
+    const storeTypeFilter = String(parsedFilters.storeType || "");
+
+    const searchCondition = search
+      ? or(
+          ilike(sourceBundles.bundleCode, `%${search}%`),
+          ilike(suppliers.storeName, `%${search}%`),
+          ilike(suppliers.supplierCode, `%${search}%`),
+        )
+      : undefined;
 
     const whereConditions = [];
-    if (filterCondition) whereConditions.push(filterCondition);
     if (searchCondition) whereConditions.push(searchCondition);
+    if (storeTypeFilter) {
+      whereConditions.push(
+        sql`COALESCE(${trackingBundles.storeType}, 'dropshipping') = ${storeTypeFilter}`,
+      );
+    }
 
-    const whereClause =
-      whereConditions.length > 0 ? and(...whereConditions) : undefined;
+    const whereClause = whereConditions.length > 0 ? and(...whereConditions) : undefined;
 
     const { offset, limit: pageLimit } = getPaginationValues(page, limit);
-    const orderBy = createSortCondition(
-      trackingBundles,
-      sortBy || "createdAt",
-      sortOrder || "desc",
-    );
+    const orderBy =
+      sortBy === "bundleCode"
+        ? sortOrder === "asc" ? asc(sourceBundles.bundleCode) : desc(sourceBundles.bundleCode)
+        : sortOrder === "asc" ? asc(sourceBundles.createdAt) : desc(sourceBundles.createdAt);
 
     const [data, totalResult] = await Promise.all([
-      db.query.trackingBundles.findMany({
-        where: whereClause,
-        with: { currentStep: true },
-        orderBy: orderBy ? [orderBy] : [desc(trackingBundles.createdAt)],
-        limit: pageLimit,
-        offset,
-      }),
-      db.select({ total: count() }).from(trackingBundles).where(whereClause),
+      db
+        .select({
+          sourceBundleId: sourceBundles.id,
+          bundleCode: sourceBundles.bundleCode,
+          createdAt: sourceBundles.createdAt,
+          trackingBundleId: trackingBundles.id,
+          name: trackingBundles.name,
+          description: trackingBundles.description,
+          storeType: trackingBundles.storeType,
+          status: trackingBundles.status,
+          currentStepId: trackingBundles.currentStepId,
+          currentStepLabel: trackingSteps.label,
+          updatedAt: trackingBundles.updatedAt,
+          supplierId: suppliers.id,
+          supplierName: suppliers.storeName,
+          supplierCode: suppliers.supplierCode,
+        })
+        .from(sourceBundles)
+        .innerJoin(entries, eq(sourceBundles.entryId, entries.id))
+        .leftJoin(suppliers, eq(entries.supplierId, suppliers.id))
+        .leftJoin(trackingBundles, eq(trackingBundles.sourceBundleId, sourceBundles.id))
+        .leftJoin(trackingSteps, eq(trackingBundles.currentStepId, trackingSteps.id))
+        .where(whereClause)
+        .limit(pageLimit)
+        .offset(offset)
+        .orderBy(orderBy),
+      db
+        .select({ total: count() })
+        .from(sourceBundles)
+        .innerJoin(entries, eq(sourceBundles.entryId, entries.id))
+        .leftJoin(suppliers, eq(entries.supplierId, suppliers.id))
+        .leftJoin(trackingBundles, eq(trackingBundles.sourceBundleId, sourceBundles.id))
+        .where(whereClause),
     ]);
 
-    const bundleIds = data.map((bundle) => bundle.id);
-    const orderCounts = bundleIds.length
+    const sourceBundleIds = data.map((bundle) => bundle.sourceBundleId);
+    const orderCounts = sourceBundleIds.length
       ? await db
           .select({
-            bundleId: trackingBundleItems.bundleId,
-            total: count(),
+            sourceBundleId: series.bundleId,
+            total: sql<number>`count(distinct ${orderItems.id})::int`,
           })
-          .from(trackingBundleItems)
-          .where(inArray(trackingBundleItems.bundleId, bundleIds))
-          .groupBy(trackingBundleItems.bundleId)
+          .from(orderItems)
+          .innerJoin(variants, eq(orderItems.variantId, variants.id))
+          .innerJoin(inventoryItems, eq(variants.itemId, inventoryItems.id))
+          .innerJoin(series, eq(inventoryItems.seriesId, series.id))
+          .where(inArray(series.bundleId, sourceBundleIds))
+          .groupBy(series.bundleId)
       : [];
 
     const countByBundleId = new Map(
-      orderCounts.map((row) => [row.bundleId, Number(row.total)]),
+      orderCounts.map((row) => [row.sourceBundleId, Number(row.total)]),
     );
 
     return {
       data: data.map((bundle) => ({
-        ...bundle,
-        orderCount: countByBundleId.get(bundle.id) ?? 0,
+        id: bundle.sourceBundleId,
+        trackingBundleId: bundle.trackingBundleId,
+        sourceBundleId: bundle.sourceBundleId,
+        bundleCode: bundle.bundleCode,
+        name: bundle.name ?? bundle.bundleCode,
+        description: bundle.description,
+        supplierId: bundle.supplierId,
+        supplierName: bundle.supplierName,
+        supplierCode: bundle.supplierCode,
+        storeType: bundle.storeType ?? "dropshipping",
+        status: bundle.status ?? "active",
+        currentStepId: bundle.currentStepId ?? 3,
+        currentStepLabel: bundle.currentStepLabel ?? "Order Received By Manufacturer",
+        orderCount: countByBundleId.get(bundle.sourceBundleId) ?? 0,
+        createdAt: bundle.createdAt,
+        updatedAt: bundle.updatedAt,
       })),
       total: Number(totalResult[0]?.total ?? 0),
       searchableFields,
@@ -143,11 +225,11 @@ export class TrackingBundlesRepository {
   }
 
   async create(payload: CreateTrackingBundleRequest, userId: number) {
-    const firstStep = await db.query.trackingSteps.findFirst({
-      orderBy: [trackingSteps.stepOrder],
+    const defaultStep = await db.query.trackingSteps.findFirst({
+      where: eq(trackingSteps.stepOrder, 3),
     });
 
-    if (!firstStep) {
+    if (!defaultStep) {
       throw new Error("Tracking steps are not configured");
     }
 
@@ -160,7 +242,7 @@ export class TrackingBundlesRepository {
         description: payload.description?.trim() || null,
         storeType: payload.storeType,
         status: payload.status || "active",
-        currentStepId: firstStep.id,
+        currentStepId: defaultStep.id,
         createdAt: now,
         updatedAt: now,
         createdBy: userId,
@@ -170,7 +252,7 @@ export class TrackingBundlesRepository {
 
     await db.insert(trackingBundleHistory).values({
       bundleId: created.id,
-      stepId: firstStep.id,
+      stepId: defaultStep.id,
       notes: "Bundle created",
       createdAt: now,
       createdBy: userId,
@@ -305,6 +387,14 @@ export class TrackingBundlesRepository {
     if (!step) {
       throw new Error("Tracking step not found");
     }
+    if (step.stepOrder < 3) {
+      throw new Error("Tracking updates start at Order Received By Manufacturer");
+    }
+
+    const bundle = await this.findById(bundleId);
+    if (!bundle) {
+      throw new Error("Tracking bundle not found");
+    }
 
     const now = new Date().toISOString();
 
@@ -315,10 +405,10 @@ export class TrackingBundlesRepository {
         updatedAt: now,
         updatedBy: userId,
       })
-      .where(eq(trackingBundles.id, bundleId));
+      .where(eq(trackingBundles.id, bundle.id));
 
     await db.insert(trackingBundleHistory).values({
-      bundleId,
+      bundleId: bundle.id,
       stepId: payload.stepId,
       notes: payload.notes?.trim() || null,
       attachmentUrl: payload.attachmentUrl?.trim() || null,
@@ -326,31 +416,180 @@ export class TrackingBundlesRepository {
       createdBy: userId,
     });
 
-    return this.findById(bundleId);
+    return this.findById(bundle.id);
   }
 
   async getBundleOrders(bundleId: number) {
-    const items = await db.query.trackingBundleItems.findMany({
-      where: eq(trackingBundleItems.bundleId, bundleId),
-      orderBy: [desc(trackingBundleItems.createdAt)],
-    });
+    const bundle = await this.findById(bundleId);
+    const sourceBundleId = bundle?.sourceBundleId ?? bundle?.sourceBundle?.id ?? null;
+    if (!sourceBundleId) return [];
 
-    if (!items.length) return [];
+    const bundleOrderItems = await db
+      .select({
+        id: orderItems.id,
+        orderItemId: orderItems.id,
+        orderId: orders.id,
+        orderCode: orders.orderCode,
+        customerId: orders.customerId,
+        customerName: users.fullName,
+        productName: orderItems.productName,
+        variantCode: orderItems.variantCode,
+        quantity: orderItems.quantity,
+        totalAmount: orders.totalAmount,
+        status: orders.statusId,
+        createdAt: orders.createdAt,
+      })
+      .from(orderItems)
+      .innerJoin(orders, eq(orderItems.orderId, orders.id))
+      .innerJoin(customers, eq(orders.customerId, customers.id))
+      .innerJoin(users, eq(customers.userId, users.id))
+      .innerJoin(variants, eq(orderItems.variantId, variants.id))
+      .innerJoin(inventoryItems, eq(variants.itemId, inventoryItems.id))
+      .innerJoin(series, eq(inventoryItems.seriesId, series.id))
+      .where(eq(series.bundleId, sourceBundleId))
+      .orderBy(desc(orders.createdAt));
 
-    const orderIds = items.map((item) => item.orderId);
-    const bundleOrders = await db.query.orders.findMany({
-      where: inArray(orders.id, orderIds),
-      with: { orderStatus: true },
-    });
-
-    return bundleOrders.map((order) => ({
-      id: order.id,
-      orderId: order.id,
-      orderCode: order.orderCode,
-      customerId: order.customerId,
-      totalAmount: String(order.totalAmount),
-      status: order.orderStatus?.name ?? "pending",
-      createdAt: order.createdAt,
+    return bundleOrderItems.map((item) => ({
+      ...item,
+      totalAmount: String(item.totalAmount),
+      status: String(item.status ?? "pending"),
     }));
+  }
+
+  async getCustomerUsersForBundle(bundleId: number) {
+    const bundle = await this.findById(bundleId);
+    const sourceBundleId = bundle?.sourceBundleId ?? bundle?.sourceBundle?.id ?? null;
+    if (!sourceBundleId) return [];
+
+    const rows = await db
+      .select({
+        userId: customers.userId,
+        orderCode: orders.orderCode,
+      })
+      .from(orderItems)
+      .innerJoin(orders, eq(orderItems.orderId, orders.id))
+      .innerJoin(customers, eq(orders.customerId, customers.id))
+      .innerJoin(variants, eq(orderItems.variantId, variants.id))
+      .innerJoin(inventoryItems, eq(variants.itemId, inventoryItems.id))
+      .innerJoin(series, eq(inventoryItems.seriesId, series.id))
+      .where(eq(series.bundleId, sourceBundleId));
+
+    const byUserId = new Map<number, { userId: number; orderCodes: string[] }>();
+    for (const row of rows) {
+      if (!row.userId) continue;
+      const existing = byUserId.get(row.userId) ?? { userId: row.userId, orderCodes: [] };
+      if (!existing.orderCodes.includes(row.orderCode)) {
+        existing.orderCodes.push(row.orderCode);
+      }
+      byUserId.set(row.userId, existing);
+    }
+
+    return [...byUserId.values()];
+  }
+
+  private async ensureTrackingForSourceBundle(sourceBundleId: number) {
+    const sourceBundle = await db.query.bundles.findFirst({
+      where: eq(sourceBundles.id, sourceBundleId),
+      with: {
+        entry: {
+          with: {
+            supplier: true,
+          },
+        },
+      },
+    });
+
+    if (!sourceBundle) return null;
+
+    const existing = await db.query.trackingBundles.findFirst({
+      where: eq(trackingBundles.sourceBundleId, sourceBundle.id),
+      with: {
+        currentStep: true,
+        sourceBundle: {
+          with: {
+            entry: {
+              with: {
+                supplier: true,
+              },
+            },
+          },
+        },
+        history: {
+          with: {
+            step: true,
+            createdByUser: true,
+          },
+          orderBy: [desc(trackingBundleHistory.createdAt)],
+        },
+      },
+    });
+
+    if (existing) return existing;
+
+    const existingByCode = await db.query.trackingBundles.findFirst({
+      where: eq(trackingBundles.bundleCode, sourceBundle.bundleCode),
+    });
+
+    if (existingByCode && !existingByCode.sourceBundleId) {
+      await db
+        .update(trackingBundles)
+        .set({
+          sourceBundleId: sourceBundle.id,
+          updatedAt: new Date().toISOString(),
+        })
+        .where(eq(trackingBundles.id, existingByCode.id));
+      return this.findById(sourceBundle.id);
+    }
+
+    const steps = await db.query.trackingSteps.findMany({
+      where: inArray(trackingSteps.stepOrder, [1, 2, 3]),
+      orderBy: [trackingSteps.stepOrder],
+    });
+    const currentStep = steps.find((step) => step.stepOrder === 3);
+
+    if (!currentStep) {
+      throw new Error("Tracking steps are not configured");
+    }
+
+    const now = new Date().toISOString();
+    const [created] = await db
+      .insert(trackingBundles)
+      .values({
+        sourceBundleId: sourceBundle.id,
+        bundleCode: sourceBundle.bundleCode,
+        name: sourceBundle.bundleCode,
+        description: `Tracking for supplier bundle ${sourceBundle.bundleCode}`,
+        storeType: "dropshipping",
+        status: "active",
+        currentStepId: currentStep.id,
+        createdAt: now,
+        updatedAt: now,
+        createdBy: null,
+        updatedBy: null,
+      })
+      .onConflictDoUpdate({
+        target: trackingBundles.sourceBundleId,
+        set: {
+          updatedAt: now,
+        },
+      })
+      .returning();
+
+    const historyRows = steps.map((step) => ({
+      bundleId: created.id,
+      stepId: step.id,
+      notes:
+        step.stepOrder < 3
+          ? "Completed by default before supplier tracking starts"
+          : "Supplier bundle tracking started",
+      createdAt: now,
+      createdBy: null,
+    }));
+
+    if (historyRows.length) {
+      await db.insert(trackingBundleHistory).values(historyRows);
+    }
+
+    return this.findById(created.id);
   }
 }

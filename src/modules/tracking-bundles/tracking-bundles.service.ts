@@ -5,6 +5,8 @@ import type {
   UpdateTrackingBundleRequest,
 } from "./tracking-bundles.schema";
 
+import { NotificationTypeIds } from "@/constants/notification-types.constants";
+import { notificationDeliveryService } from "../notifications/notification-delivery.service";
 import { TrackingBundlesRepository } from "./tracking-bundles.repository";
 
 export class TrackingBundlesService {
@@ -104,8 +106,11 @@ export class TrackingBundlesService {
   }
 
   async updateStep(bundleId: number, payload: UpdateBundleStepRequest, userId: number) {
-    await this.repository.updateStep(bundleId, payload, userId);
-    return this.getOne(bundleId);
+    const bundle = await this.repository.updateStep(bundleId, payload, userId);
+    if (bundle?.currentStep?.code === "payment_of_kilo") {
+      await this.notifyPaymentOfKilo(bundle.id, bundle.bundleCode);
+    }
+    return this.getOne(bundle.id);
   }
 
   findBundleByOrderId(orderId: number) {
@@ -114,29 +119,65 @@ export class TrackingBundlesService {
 
   private mapBundle(bundle: {
     id: number;
+    trackingBundleId?: number | null;
+    sourceBundleId?: number | null;
     bundleCode: string;
     name: string;
     description?: string | null;
+    supplierId?: number | null;
+    supplierName?: string | null;
+    supplierCode?: string | null;
     storeType: string;
     status: string;
     currentStepId: number;
+    currentStepLabel?: string | null;
     createdAt: string;
     updatedAt?: string | null;
     currentStep?: { label: string } | null;
+    sourceBundle?: {
+      id: number;
+      entry?: {
+        supplier?: {
+          id: number;
+          storeName: string;
+          supplierCode: string;
+        } | null;
+      } | null;
+    } | null;
     orderCount?: number;
   }) {
+    const supplier = bundle.sourceBundle?.entry?.supplier;
     return {
       id: bundle.id,
+      trackingBundleId: bundle.trackingBundleId ?? bundle.id,
+      sourceBundleId: bundle.sourceBundleId ?? bundle.sourceBundle?.id ?? null,
       bundleCode: bundle.bundleCode,
       name: bundle.name,
       description: bundle.description,
+      supplierId: bundle.supplierId ?? supplier?.id ?? null,
+      supplierName: bundle.supplierName ?? supplier?.storeName ?? null,
+      supplierCode: bundle.supplierCode ?? supplier?.supplierCode ?? null,
       storeType: bundle.storeType,
       status: bundle.status,
       currentStepId: bundle.currentStepId,
-      currentStepLabel: bundle.currentStep?.label,
+      currentStepLabel: bundle.currentStepLabel ?? bundle.currentStep?.label,
       orderCount: bundle.orderCount ?? 0,
       createdAt: bundle.createdAt,
       updatedAt: bundle.updatedAt,
     };
+  }
+
+  private async notifyPaymentOfKilo(bundleId: number, bundleCode: string) {
+    const recipients = await this.repository.getCustomerUsersForBundle(bundleId);
+    await Promise.all(
+      recipients.map((recipient) =>
+        notificationDeliveryService.deliverToUser({
+          userId: recipient.userId,
+          title: "Payment of kilo required",
+          message: `Your bundle ${bundleCode} is ready for kilo/shipping payment for order(s) ${recipient.orderCodes.join(", ")}.`,
+          notificationTypeId: NotificationTypeIds.PAY_YOUR_CUSTOM_AND_SHIPPING_FEES,
+        }),
+      ),
+    );
   }
 }
