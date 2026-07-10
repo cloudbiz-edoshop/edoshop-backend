@@ -3,6 +3,7 @@ import type {
   CreateTrackingBundleRequest,
   UpdateBundleStepRequest,
   UpdateTrackingBundleRequest,
+  CreateKiloBillRequest,
 } from "./tracking-bundles.schema";
 
 import { and, asc, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
@@ -390,6 +391,9 @@ export class TrackingBundlesRepository {
     if (step.stepOrder < 3) {
       throw new Error("Tracking updates start at Order Received By Manufacturer");
     }
+    if (step.stepOrder > 6) {
+      throw new Error("Bundle tracking stops at Order At The Store");
+    }
 
     const bundle = await this.findById(bundleId);
     if (!bundle) {
@@ -485,6 +489,114 @@ export class TrackingBundlesRepository {
     }
 
     return [...byUserId.values()];
+  }
+
+  async getCustomerUsersForOrder(orderId: number) {
+    const rows = await db
+      .select({
+        userId: customers.userId,
+        orderCode: orders.orderCode,
+      })
+      .from(orders)
+      .innerJoin(customers, eq(orders.customerId, customers.id))
+      .where(eq(orders.id, orderId));
+
+    return rows.filter((row) => Boolean(row.userId));
+  }
+
+  async createKiloBill(
+    bundleId: number,
+    payload: CreateKiloBillRequest,
+    userId: number,
+  ) {
+    const bundle = await this.findById(bundleId);
+    if (!bundle) {
+      throw new Error("Tracking bundle not found");
+    }
+    if ((bundle.currentStep?.stepOrder ?? 0) < 6) {
+      throw new Error("Kilo bills can only be created after the bundle is at the store");
+    }
+
+    const sourceBundleId = bundle.sourceBundleId ?? bundle.sourceBundle?.id ?? null;
+    if (!sourceBundleId) {
+      throw new Error("Tracking bundle is not linked to a supplier order bundle");
+    }
+
+    const linkedOrder = await db
+      .select({ orderId: orders.id })
+      .from(orderItems)
+      .innerJoin(variants, eq(orderItems.variantId, variants.id))
+      .innerJoin(inventoryItems, eq(variants.itemId, inventoryItems.id))
+      .innerJoin(series, eq(inventoryItems.seriesId, series.id))
+      .innerJoin(orders, eq(orderItems.orderId, orders.id))
+      .where(and(eq(series.bundleId, sourceBundleId), eq(orders.id, payload.orderId)))
+      .limit(1);
+
+    if (!linkedOrder.length) {
+      throw new Error("Order is not linked to this supplier order bundle");
+    }
+
+    const amount = (payload.totalKg * payload.pricePerKg).toFixed(2);
+    const now = new Date().toISOString();
+
+    const rows = await db.execute(sql`
+      INSERT INTO kilo_bills (
+        tracking_bundle_id,
+        order_id,
+        total_kg,
+        price_per_kg,
+        amount,
+        notes,
+        status,
+        created_at,
+        updated_at,
+        created_by,
+        updated_by
+      )
+      VALUES (
+        ${bundle.id},
+        ${payload.orderId},
+        ${payload.totalKg.toFixed(2)},
+        ${payload.pricePerKg.toFixed(2)},
+        ${amount},
+        ${payload.notes?.trim() || null},
+        'pending',
+        ${now},
+        ${now},
+        ${userId},
+        ${userId}
+      )
+      ON CONFLICT (tracking_bundle_id, order_id)
+      DO UPDATE SET
+        total_kg = EXCLUDED.total_kg,
+        price_per_kg = EXCLUDED.price_per_kg,
+        amount = EXCLUDED.amount,
+        notes = EXCLUDED.notes,
+        updated_at = EXCLUDED.updated_at,
+        updated_by = EXCLUDED.updated_by
+      RETURNING
+        id,
+        tracking_bundle_id as "trackingBundleId",
+        order_id as "orderId",
+        total_kg as "totalKg",
+        price_per_kg as "pricePerKg",
+        amount,
+        notes,
+        status,
+        created_at as "createdAt"
+    `);
+
+    return rows[0] as {
+      id: number;
+      trackingBundleId: number;
+      orderId: number;
+      totalKg: string;
+      pricePerKg: string;
+      amount: string;
+      notes: string | null;
+      status: string;
+      createdAt: string;
+    };
   }
 
   private async ensureTrackingForSourceBundle(sourceBundleId: number) {

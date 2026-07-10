@@ -18,7 +18,9 @@ import { jwtHeaderSchema } from "@/lib/zod-schemas";
 
 import {
   assignOrdersToBundleRequestSchema,
+  createKiloBillRequestSchema,
   createTrackingBundleRequestSchema,
+  kiloBillSchema,
   searchOrderForBundleSchema,
   trackingBundleDetailSchema,
   trackingBundleSchema,
@@ -278,6 +280,34 @@ export const updateStep = createRoute({
   },
 });
 
+export const createKiloBill = createRoute({
+  path: "/tracking-bundles/{id}/kilo-bills",
+  method: "post",
+  tags,
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.ORDERS, operation: OperationType.UPDATE },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    params: idParams,
+    body: jsonContentRequired(createKiloBillRequestSchema, "Create kilo bill"),
+  },
+  summary: "Create kilo bill for an order in a tracked bundle",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(kiloBillSchema),
+      "Kilo bill created",
+    ),
+    ...commonErrorResponses(
+      [HttpStatusCodes.UNAUTHORIZED, HttpStatusCodes.FORBIDDEN, HttpStatusCodes.BAD_REQUEST],
+      idParams,
+    ),
+  },
+});
+
 export type ListStepsRoute = typeof listSteps;
 export type ListRoute = typeof list;
 export type CreateRoute = typeof create;
@@ -287,3 +317,4 @@ export type SearchOrderRoute = typeof searchOrder;
 export type AssignOrdersRoute = typeof assignOrders;
 export type RemoveOrderRoute = typeof removeOrder;
 export type UpdateStepRoute = typeof updateStep;
+export type CreateKiloBillRoute = typeof createKiloBill;

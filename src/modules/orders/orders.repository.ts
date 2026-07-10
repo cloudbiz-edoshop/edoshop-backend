@@ -1093,6 +1093,7 @@ export class OrdersRepository {
     const allSteps = await db.query.trackingSteps.findMany({
       orderBy: [trackingSteps.stepOrder],
     });
+    const bundlePhaseSteps = allSteps.filter((step) => step.stepOrder <= 6);
 
     const bundleRows = await db
       .select({
@@ -1167,7 +1168,7 @@ export class OrdersRepository {
         : [];
       const details = buildBundleBasedTracking({
         currentStepOrder: bundle.currentStepOrder,
-        steps: allSteps.map((step) => ({
+        steps: bundlePhaseSteps.map((step) => ({
           id: step.id,
           stepOrder: step.stepOrder,
           label: step.label,
@@ -1205,7 +1206,7 @@ export class OrdersRepository {
     const trackingDetails = primaryTracking
       ? buildBundleBasedTracking({
           currentStepOrder: bundleGroupsBase[0]?.currentStepOrder ?? 3,
-          steps: allSteps.map((step) => ({
+          steps: bundlePhaseSteps.map((step) => ({
             id: step.id,
             stepOrder: step.stepOrder,
             label: step.label,

@@ -3,6 +3,7 @@ import type {
   CreateTrackingBundleRequest,
   UpdateBundleStepRequest,
   UpdateTrackingBundleRequest,
+  CreateKiloBillRequest,
 } from "./tracking-bundles.schema";
 
 import { NotificationTypeIds } from "@/constants/notification-types.constants";
@@ -107,14 +108,20 @@ export class TrackingBundlesService {
 
   async updateStep(bundleId: number, payload: UpdateBundleStepRequest, userId: number) {
     const bundle = await this.repository.updateStep(bundleId, payload, userId);
-    if (bundle?.currentStep?.code === "payment_of_kilo") {
-      await this.notifyPaymentOfKilo(bundle.id, bundle.bundleCode);
+    if (bundle?.currentStep?.code === "order_at_the_store") {
+      await this.notifyOrderAtStore(bundle.id, bundle.bundleCode);
     }
     return this.getOne(bundle.id);
   }
 
   findBundleByOrderId(orderId: number) {
     return this.repository.findBundleByOrderId(orderId);
+  }
+
+  async createKiloBill(bundleId: number, payload: CreateKiloBillRequest, userId: number) {
+    const bill = await this.repository.createKiloBill(bundleId, payload, userId);
+    await this.notifyKiloBillReady(payload.orderId, bill.amount);
+    return bill;
   }
 
   private mapBundle(bundle: {
@@ -167,14 +174,28 @@ export class TrackingBundlesService {
     };
   }
 
-  private async notifyPaymentOfKilo(bundleId: number, bundleCode: string) {
+  private async notifyOrderAtStore(bundleId: number, bundleCode: string) {
     const recipients = await this.repository.getCustomerUsersForBundle(bundleId);
     await Promise.all(
       recipients.map((recipient) =>
         notificationDeliveryService.deliverToUser({
           userId: recipient.userId,
+          title: "Your order items are at the store",
+          message: `Your item(s) in bundle ${bundleCode} for order(s) ${recipient.orderCodes.join(", ")} have arrived at the Edoshop store. Our team is preparing your kilo/shipping bill.`,
+          notificationTypeId: NotificationTypeIds.ORDERS_ARRIVED_AT_EDOSHOP_STORE,
+        }),
+      ),
+    );
+  }
+
+  private async notifyKiloBillReady(orderId: number, amount: string) {
+    const recipients = await this.repository.getCustomerUsersForOrder(orderId);
+    await Promise.all(
+      recipients.map((recipient) =>
+        notificationDeliveryService.deliverToUser({
+          userId: recipient.userId,
           title: "Payment of kilo required",
-          message: `Your bundle ${bundleCode} is ready for kilo/shipping payment for order(s) ${recipient.orderCodes.join(", ")}.`,
+          message: `Your kilo/shipping bill for order ${recipient.orderCode} is ready. Amount due: ${amount}.`,
           notificationTypeId: NotificationTypeIds.PAY_YOUR_CUSTOM_AND_SHIPPING_FEES,
         }),
       ),

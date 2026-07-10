@@ -1,5 +1,6 @@
 import type {
   AssignOrdersRoute,
+  CreateKiloBillRoute,
   CreateRoute,
   GetOneRoute,
   ListRoute,
@@ -152,6 +153,23 @@ export const updateStep: AppRouteHandler<UpdateStepRoute> = async (c) => {
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to update step";
+    return c.json({ success: false, message }, HttpStatusCodes.BAD_REQUEST);
+  }
+};
+
+export const createKiloBill: AppRouteHandler<CreateKiloBillRoute> = async (c) => {
+  const { id } = c.req.valid("param");
+  const payload = c.req.valid("json");
+  const { userId } = c.get("accessTokenPayload");
+
+  try {
+    const bill = await trackingBundlesService.createKiloBill(id, payload, userId);
+    return c.json(
+      successResponse(bill, "Kilo bill created and customer notified"),
+      HttpStatusCodes.OK,
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to create kilo bill";
     return c.json({ success: false, message }, HttpStatusCodes.BAD_REQUEST);
   }
 };

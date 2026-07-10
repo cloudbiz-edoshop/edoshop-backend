@@ -278,4 +278,24 @@ export async function ensureRuntimeMigrations() {
       DROP CONSTRAINT IF EXISTS "tracking_bundle_items_order_id_key"
     `),
   );
+
+  await db.execute(
+    sql.raw(`
+      CREATE TABLE IF NOT EXISTS "kilo_bills" (
+        "id" serial PRIMARY KEY,
+        "tracking_bundle_id" integer NOT NULL REFERENCES "tracking_bundles"("id") ON DELETE CASCADE,
+        "order_id" integer NOT NULL REFERENCES "orders"("id"),
+        "total_kg" decimal(10, 2) NOT NULL,
+        "price_per_kg" decimal(10, 2) NOT NULL,
+        "amount" decimal(10, 2) NOT NULL,
+        "notes" text,
+        "status" varchar(50) NOT NULL DEFAULT 'pending',
+        "created_at" timestamp NOT NULL,
+        "updated_at" timestamp,
+        "created_by" integer REFERENCES "users"("id"),
+        "updated_by" integer REFERENCES "users"("id"),
+        UNIQUE ("tracking_bundle_id", "order_id")
+      )
+    `),
+  );
 }

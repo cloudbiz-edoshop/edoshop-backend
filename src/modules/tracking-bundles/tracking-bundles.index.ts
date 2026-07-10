@@ -13,5 +13,6 @@ router.openapi(routes.searchOrder, handlers.searchOrder);
 router.openapi(routes.assignOrders, handlers.assignOrders);
 router.openapi(routes.removeOrder, handlers.removeOrder);
 router.openapi(routes.updateStep, handlers.updateStep);
+router.openapi(routes.createKiloBill, handlers.createKiloBill);
 
 export default router;

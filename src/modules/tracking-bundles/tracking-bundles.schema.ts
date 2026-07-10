@@ -99,6 +99,25 @@ export const updateBundleStepRequestSchema = z.object({
   attachmentUrl: z.string().url().optional().or(z.literal("")),
 });
 
+export const createKiloBillRequestSchema = z.object({
+  orderId: z.number().min(1),
+  totalKg: z.number().positive(),
+  pricePerKg: z.number().positive(),
+  notes: z.string().max(2000).optional(),
+});
+
+export const kiloBillSchema = z.object({
+  id: z.number(),
+  trackingBundleId: z.number(),
+  orderId: z.number(),
+  totalKg: z.string(),
+  pricePerKg: z.string(),
+  amount: z.string(),
+  notes: z.string().nullable().optional(),
+  status: z.string(),
+  createdAt: z.string(),
+});
+
 export const searchOrderForBundleSchema = z.object({
   orderCode: z.string(),
   orderId: z.number(),
@@ -114,3 +133,4 @@ export type CreateTrackingBundleRequest = z.infer<typeof createTrackingBundleReq
 export type UpdateTrackingBundleRequest = z.infer<typeof updateTrackingBundleRequestSchema>;
 export type AssignOrdersToBundleRequest = z.infer<typeof assignOrdersToBundleRequestSchema>;
 export type UpdateBundleStepRequest = z.infer<typeof updateBundleStepRequestSchema>;
+export type CreateKiloBillRequest = z.infer<typeof createKiloBillRequestSchema>;
