@@ -48,6 +48,7 @@ const checkoutFulfillmentFieldsSchema = z.object({
     .enum([FulfillmentMethod.PICKUP, FulfillmentMethod.DELIVERY])
     .default(FulfillmentMethod.DELIVERY),
   pickupWarehouseId: z.number().min(1).optional(),
+  shippingPriorityCodeId: z.number().min(1).optional(),
   billing: checkoutBillingSchema,
   items: z.array(checkoutCartItemSchema).min(1),
 });

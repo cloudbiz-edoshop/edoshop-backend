@@ -205,6 +205,14 @@ export const getFulfillmentOptions = createRoute({
           deliveryFee: z.number(),
           pickupFee: z.number(),
           currency: z.string(),
+          deliveryOptions: z.array(
+            z.object({
+              id: z.number(),
+              code: z.string(),
+              label: z.string(),
+              fee: z.number(),
+            }),
+          ),
           pickupLocations: z.array(
             z.object({
               id: z.number(),

@@ -583,6 +583,7 @@ export class OrdersRepository {
     paymentPending?: boolean;
     fulfillmentMethod?: string;
     pickupWarehouseId?: number;
+    shippingPriorityCodeId?: number;
     billing: {
       firstName: string;
       lastName: string;
@@ -730,7 +731,14 @@ export class OrdersRepository {
     const subtotal = resolvedItems
       .reduce((sum, item) => sum + Number(item.lineSubtotal), 0)
       .toFixed(2);
-    const shippingAmount = computeDirectOrderShippingFee(fulfillmentMethod).toFixed(2);
+    const shippingPriorityCodeId =
+      fulfillmentMethod === FulfillmentMethod.DELIVERY
+        ? params.shippingPriorityCodeId ?? 1
+        : null;
+    const shippingAmount = computeDirectOrderShippingFee(
+      fulfillmentMethod,
+      shippingPriorityCodeId,
+    ).toFixed(2);
     const totalAmount = (
       Number(subtotal) + Number(shippingAmount)
     ).toFixed(2);
@@ -785,6 +793,7 @@ export class OrdersRepository {
           fulfillmentStatusId: 1,
           orderTypeId: OrderTypeIds.DIRECT_ORDER,
           shippingAddressId: shippingAddress.id,
+          shippingPriorityCodeId,
           billingAddressId: billingAddress.id,
           paymentMethodId: params.paymentMethodId,
           fulfillmentMethod,

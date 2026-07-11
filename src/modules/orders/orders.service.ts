@@ -9,6 +9,7 @@ import {
 import {
   computeDirectOrderShippingFee,
   DIRECT_ORDER_DELIVERY_FEE_XAF,
+  DIRECT_ORDER_DELIVERY_OPTIONS,
   DIRECT_ORDER_PICKUP_FEE_XAF,
 } from "@/constants/fulfillment.constants";
 import { NotFoundError, ValidationError } from "@/core/errors";
@@ -140,6 +141,7 @@ export class OrdersService {
       paymentPending: isMobileTransfer && !payOnDelivery && campayConfig.enabled,
       fulfillmentMethod: payload.fulfillmentMethod,
       pickupWarehouseId: payload.pickupWarehouseId,
+      shippingPriorityCodeId: payload.shippingPriorityCodeId,
       billing: payload.billing,
       items: payload.items,
     });
@@ -185,6 +187,7 @@ export class OrdersService {
       deliveryFee: DIRECT_ORDER_DELIVERY_FEE_XAF,
       pickupFee: DIRECT_ORDER_PICKUP_FEE_XAF,
       currency: "XAF",
+      deliveryOptions: DIRECT_ORDER_DELIVERY_OPTIONS.map((option) => ({ ...option })),
       pickupLocations: locations,
     };
   }
