@@ -210,6 +210,8 @@ export const getFulfillmentOptions = createRoute({
               id: z.number(),
               code: z.string(),
               label: z.string(),
+              leadTime: z.string(),
+              description: z.string(),
               fee: z.number(),
             }),
           ),

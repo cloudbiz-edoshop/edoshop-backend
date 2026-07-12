@@ -71,11 +71,11 @@ const applyCheckoutFulfillmentRefine = (
   ctx: z.RefinementCtx,
 ) => {
   if (data.fulfillmentMethod === FulfillmentMethod.DELIVERY) {
-    if (!data.billing.streetAddress?.trim()) {
+    if (!hasCheckoutCoordinates(data.billing)) {
       ctx.addIssue({
         code: "custom",
-        message: "Street address is required for delivery",
-        path: ["billing", "streetAddress"],
+        message: "Select a delivery location on the map",
+        path: ["billing", "latitude"],
       });
     }
   }

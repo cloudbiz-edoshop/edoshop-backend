@@ -623,13 +623,13 @@ export class OrdersRepository {
       ReturnType<typeof db.query.warehouses.findFirst>
     > = null;
 
-    const pickupLatitude = Number(params.billing.latitude);
-    const pickupLongitude = Number(params.billing.longitude);
-    const pickupMapCoordinates =
-      Number.isFinite(pickupLatitude)
-      && Number.isFinite(pickupLongitude)
-      && (pickupLatitude !== 0 || pickupLongitude !== 0)
-        ? `${pickupLatitude}, ${pickupLongitude}`
+    const mapLatitude = Number(params.billing.latitude);
+    const mapLongitude = Number(params.billing.longitude);
+    const mapCoordinates =
+      Number.isFinite(mapLatitude)
+      && Number.isFinite(mapLongitude)
+      && (mapLatitude !== 0 || mapLongitude !== 0)
+        ? `${mapLatitude}, ${mapLongitude}`
         : null;
 
     if (fulfillmentMethod === FulfillmentMethod.PICKUP) {
@@ -679,8 +679,8 @@ export class OrdersRepository {
       .filter(Boolean)
       .join(", ");
 
-    const pickupStreetAddress = pickupMapCoordinates
-      ? `Pickup map location (${pickupMapCoordinates})`
+    const pickupStreetAddress = mapCoordinates
+      ? `Pickup map location (${mapCoordinates})`
       : pickupWarehouse?.address?.streetAddress
         ? [
             pickupWarehouse.name,
@@ -694,11 +694,11 @@ export class OrdersRepository {
     const streetAddress =
       fulfillmentMethod === FulfillmentMethod.PICKUP
         ? pickupStreetAddress
-        : deliveryStreetAddress;
+        : deliveryStreetAddress || (mapCoordinates ? `Delivery map location (${mapCoordinates})` : "");
 
     const city =
       fulfillmentMethod === FulfillmentMethod.PICKUP
-        ? pickupMapCoordinates
+        ? mapCoordinates
           || pickupWarehouse?.address?.landmark
           || params.billing.city
         : params.billing.city;
@@ -746,10 +746,12 @@ export class OrdersRepository {
     const orderNotes = [
       params.billing.orderNotes,
       fulfillmentMethod === FulfillmentMethod.PICKUP
-        ? pickupMapCoordinates
-          ? `Pickup map location: ${pickupMapCoordinates}`
+        ? mapCoordinates
+          ? `Pickup map location: ${mapCoordinates}`
           : `Pickup at ${pickupWarehouse?.name ?? "Edoshop store"}`
-        : null,
+        : mapCoordinates
+          ? `Delivery map location: ${mapCoordinates}`
+          : null,
     ]
       .filter(Boolean)
       .join(" | ");
@@ -775,7 +777,7 @@ export class OrdersRepository {
           addressTypeId: AddressTypeIds.BILLING,
           streetAddress:
             fulfillmentMethod === FulfillmentMethod.DELIVERY
-              ? deliveryStreetAddress
+              ? deliveryStreetAddress || streetAddress
               : streetAddress,
           countryId: country.id,
           landmark: params.billing.city,

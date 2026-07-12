@@ -274,9 +274,8 @@ export class OngoingGroupRequestsService {
     const variant = request.variant;
     const colorMeta = getVariantColorMeta(variant?.color);
     const customer =
-      request.requestedBy?.username ||
       request.requestedBy?.customer?.customerCode ||
-      (request.requestedBy?.id ? `Customer ${request.requestedBy.id}` : "Customer");
+      (request.requestedBy?.id ? String(request.requestedBy.id) : "Customer");
 
     return {
       id: request.id,
