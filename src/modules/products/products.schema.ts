@@ -31,6 +31,7 @@ export const baseProductSchema = z.object({
 
   // Fields for dropshipping store
   dropshippingCode: z.string().max(255).optional(),
+  supplierCode: z.string().max(255).optional(),
   totalItems: z.number().optional(),
   groupCriteriaId: z.number().optional(),
   completionCriteria: z.string().optional(),
@@ -68,6 +69,18 @@ export const createProductRequestSchema = baseProductSchema
     {
       message: "Direct Order Product ID is required",
       path: ["directOrderCode"],
+    },
+  )
+  .refine(
+    (data) => {
+      if (data.storeId === StoreIds.dropshipping) {
+        return Boolean(data.supplierCode?.trim());
+      }
+      return true;
+    },
+    {
+      message: "Supplier ID is required for Dropshipping Store products",
+      path: ["supplierCode"],
     },
   )
   .refine(

@@ -15,6 +15,7 @@ import {
   items as inventoryItems,
   orderItems,
   orders,
+  orderStatuses,
   series,
   suppliers,
   trackingBundleHistory,
@@ -27,6 +28,7 @@ import {
 import {
   getPaginationValues,
 } from "@/lib/searching-sorting";
+import { OrderStatusTypeIds } from "@/constants/order-statuses.constants";
 
 export class TrackingBundlesRepository {
   async listSteps() {
@@ -150,6 +152,7 @@ export class TrackingBundlesRepository {
       db
         .select({
           sourceBundleId: sourceBundles.id,
+          sourceEntryId: entries.id,
           bundleCode: sourceBundles.bundleCode,
           createdAt: sourceBundles.createdAt,
           trackingBundleId: trackingBundles.id,
@@ -204,6 +207,7 @@ export class TrackingBundlesRepository {
     return {
       data: data.map((bundle) => ({
         id: bundle.sourceBundleId,
+        sourceEntryId: bundle.sourceEntryId,
         trackingBundleId: bundle.trackingBundleId,
         sourceBundleId: bundle.sourceBundleId,
         bundleCode: bundle.bundleCode,
@@ -421,6 +425,179 @@ export class TrackingBundlesRepository {
     });
 
     return this.findById(bundle.id);
+  }
+
+  async undoLastStep(bundleId: number, userId: number) {
+    const bundle = await this.findById(bundleId);
+    if (!bundle) {
+      throw new Error("Tracking bundle not found");
+    }
+
+    const history = await db.query.trackingBundleHistory.findMany({
+      where: eq(trackingBundleHistory.bundleId, bundle.id),
+      with: {
+        step: true,
+      },
+    });
+
+    const manualEntries = history.filter(
+      (entry) => (entry.step?.stepOrder ?? 0) > 3,
+    );
+
+    if (!manualEntries.length) {
+      throw new Error("No manual tracking step to undo");
+    }
+
+    const lastEntry = manualEntries.reduce((latest, entry) => (
+      (entry.step?.stepOrder ?? 0) > (latest.step?.stepOrder ?? 0) ? entry : latest
+    ));
+
+    const remainingHistory = history.filter((entry) => entry.id !== lastEntry.id);
+    const previousEntry = remainingHistory.reduce((latest, entry) => (
+      (entry.step?.stepOrder ?? 0) > (latest.step?.stepOrder ?? 0) ? entry : latest
+    ), remainingHistory[0]);
+
+    if (!previousEntry?.stepId) {
+      throw new Error("Unable to determine previous tracking step");
+    }
+
+    const now = new Date().toISOString();
+
+    await db
+      .delete(trackingBundleHistory)
+      .where(eq(trackingBundleHistory.id, lastEntry.id));
+
+    await db
+      .update(trackingBundles)
+      .set({
+        currentStepId: previousEntry.stepId,
+        updatedAt: now,
+        updatedBy: userId,
+      })
+      .where(eq(trackingBundles.id, bundle.id));
+
+    return this.findById(bundle.id);
+  }
+
+  async listTrackedOrders(params: {
+    search?: string;
+    page: number;
+    limit: number;
+    sortBy?: string;
+    sortOrder?: "asc" | "desc";
+    filters?: Record<string, unknown>;
+  }) {
+    const { search, page, limit, sortBy, sortOrder, filters } = params;
+    const storeTypeFilter = String(filters?.storeType || "dropshipping");
+    const searchableFields = ["orderCode", "bundleCode", "customerCode", "customerName"];
+    const { limit: pageLimit, offset } = getPaginationValues(page, limit);
+
+    const searchCondition = search
+      ? or(
+          ilike(orders.orderCode, `%${search}%`),
+          ilike(sourceBundles.bundleCode, `%${search}%`),
+          ilike(customers.customerCode, `%${search}%`),
+          ilike(users.fullName, `%${search}%`),
+        )
+      : undefined;
+
+    const whereConditions = [
+      sql`COALESCE(${trackingBundles.storeType}, 'dropshipping') = ${storeTypeFilter}`,
+    ];
+    if (searchCondition) {
+      whereConditions.push(searchCondition);
+    }
+
+    const whereClause = and(...whereConditions);
+    const orderBy =
+      sortBy === "orderCode"
+        ? sortOrder === "asc" ? asc(orders.orderCode) : desc(orders.orderCode)
+        : sortOrder === "asc" ? asc(orders.createdAt) : desc(orders.createdAt);
+
+    const rows = await db
+      .select({
+        orderId: orders.id,
+        orderCode: orders.orderCode,
+        customerId: orders.customerId,
+        customerCode: customers.customerCode,
+        customerName: users.fullName,
+        bundleCode: sourceBundles.bundleCode,
+        sourceBundleId: sourceBundles.id,
+        trackingBundleId: trackingBundles.id,
+        bundleStepLabel: trackingSteps.label,
+        orderStatusId: orders.statusId,
+        orderStatusLabel: orderStatuses.name,
+        itemCount: sql<number>`count(distinct ${orderItems.id})::int`,
+        createdAt: orders.createdAt,
+      })
+      .from(orderItems)
+      .innerJoin(orders, eq(orderItems.orderId, orders.id))
+      .innerJoin(customers, eq(orders.customerId, customers.id))
+      .innerJoin(users, eq(customers.userId, users.id))
+      .innerJoin(orderStatuses, eq(orders.statusId, orderStatuses.id))
+      .innerJoin(variants, eq(orderItems.variantId, variants.id))
+      .innerJoin(inventoryItems, eq(variants.itemId, inventoryItems.id))
+      .innerJoin(series, eq(inventoryItems.seriesId, series.id))
+      .innerJoin(sourceBundles, eq(series.bundleId, sourceBundles.id))
+      .leftJoin(trackingBundles, eq(trackingBundles.sourceBundleId, sourceBundles.id))
+      .leftJoin(trackingSteps, eq(trackingBundles.currentStepId, trackingSteps.id))
+      .where(whereClause)
+      .groupBy(
+        orders.id,
+        orders.orderCode,
+        orders.customerId,
+        customers.customerCode,
+        users.fullName,
+        sourceBundles.bundleCode,
+        sourceBundles.id,
+        trackingBundles.id,
+        trackingSteps.label,
+        orders.statusId,
+        orderStatuses.name,
+        orders.createdAt,
+      )
+      .orderBy(orderBy)
+      .limit(pageLimit)
+      .offset(offset);
+
+    const [{ total }] = await db
+      .select({ total: sql<number>`count(distinct ${orders.id})::int` })
+      .from(orderItems)
+      .innerJoin(orders, eq(orderItems.orderId, orders.id))
+      .innerJoin(customers, eq(orders.customerId, customers.id))
+      .innerJoin(users, eq(customers.userId, users.id))
+      .innerJoin(variants, eq(orderItems.variantId, variants.id))
+      .innerJoin(inventoryItems, eq(variants.itemId, inventoryItems.id))
+      .innerJoin(series, eq(inventoryItems.seriesId, series.id))
+      .innerJoin(sourceBundles, eq(series.bundleId, sourceBundles.id))
+      .leftJoin(trackingBundles, eq(trackingBundles.sourceBundleId, sourceBundles.id))
+      .where(whereClause);
+
+    return {
+      data: rows.map((row) => ({
+        ...row,
+        orderStepLabel: this.resolveOrderTrackingStepLabel(row.orderStatusId, row.orderStatusLabel),
+        bundleStepLabel: row.bundleStepLabel ?? "Order Received By Manufacturer",
+        itemCount: Number(row.itemCount) || 0,
+        createdAt: row.createdAt ?? new Date().toISOString(),
+      })),
+      total: Number(total) || 0,
+      searchableFields,
+    };
+  }
+
+  private resolveOrderTrackingStepLabel(statusId: number, statusLabel: string) {
+    const ORDER_STEP_LABELS: Record<number, string> = {
+      [OrderStatusTypeIds.PAYMENT_OF_KILO]: "7. Payment Of Kilo",
+      [OrderStatusTypeIds.PACKAGING]: "8. Packaging",
+      [OrderStatusTypeIds.READY_FOR_FULFILLMENT]: "8. Packaging",
+      [OrderStatusTypeIds.PROCESSING]: "8. Packaging",
+      [OrderStatusTypeIds.PAYMENT_FOR_DELIVERIES]: "9. Payment For Deliveries",
+      [OrderStatusTypeIds.SHIPPED]: "10. Deliveries",
+      [OrderStatusTypeIds.DELIVERED]: "10. Deliveries",
+    };
+
+    return ORDER_STEP_LABELS[statusId] ?? `Awaiting order leg · ${statusLabel}`;
   }
 
   async getBundleOrders(bundleId: number) {

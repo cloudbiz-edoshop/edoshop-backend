@@ -424,6 +424,161 @@ const formatTrackingDateFromIso = (value?: string | null) => {
   return formatTrackingDate(value);
 };
 
+const DIRECT_ORDER_RECEIVED_STATUS_IDS = [
+  OrderStatusTypeIds.ORDER_PLACED,
+  OrderStatusTypeIds.PAYMENT,
+  OrderStatusTypeIds.PENDING,
+  OrderStatusTypeIds.APPROVAL,
+  OrderStatusTypeIds.READY_FOR_FULFILLMENT,
+] as const;
+
+const DIRECT_ORDER_DELIVERY_TRACKING_STEPS = [
+  {
+    stepOrder: 1,
+    label: "Order Received",
+    description: "Order has been received at the Edoshop store.",
+    statusIds: DIRECT_ORDER_RECEIVED_STATUS_IDS,
+    targetStatusId: OrderStatusTypeIds.READY_FOR_FULFILLMENT,
+  },
+  {
+    stepOrder: 2,
+    label: "Store Packaging",
+    description: "Store team is packaging the order.",
+    statusIds: [
+      OrderStatusTypeIds.PACKAGING,
+      OrderStatusTypeIds.PROCESSING,
+    ],
+    targetStatusId: OrderStatusTypeIds.PACKAGING,
+  },
+  {
+    stepOrder: 3,
+    label: "Payment For Deliveries",
+    description: "Delivery payment is being processed.",
+    statusIds: [OrderStatusTypeIds.PAYMENT_FOR_DELIVERIES],
+    targetStatusId: OrderStatusTypeIds.PAYMENT_FOR_DELIVERIES,
+  },
+  {
+    stepOrder: 4,
+    label: "Deliveries",
+    description: "Order is out for delivery or has been delivered.",
+    statusIds: [OrderStatusTypeIds.SHIPPED, OrderStatusTypeIds.DELIVERED],
+    targetStatusId: OrderStatusTypeIds.SHIPPED,
+  },
+] as const;
+
+const DIRECT_ORDER_PICKUP_TRACKING_STEPS = [
+  {
+    stepOrder: 1,
+    label: "Order Received",
+    description: "Order has been received at the Edoshop store.",
+    statusIds: DIRECT_ORDER_RECEIVED_STATUS_IDS,
+    targetStatusId: OrderStatusTypeIds.READY_FOR_FULFILLMENT,
+  },
+  {
+    stepOrder: 2,
+    label: "Store Packaging",
+    description: "Store team is packaging the order.",
+    statusIds: [
+      OrderStatusTypeIds.PACKAGING,
+      OrderStatusTypeIds.PROCESSING,
+    ],
+    targetStatusId: OrderStatusTypeIds.PACKAGING,
+  },
+  {
+    stepOrder: 3,
+    label: "Ready For Pickup",
+    description: "Order is ready for customer collection.",
+    statusIds: [OrderStatusTypeIds.ORDER_AT_STORE],
+    targetStatusId: OrderStatusTypeIds.ORDER_AT_STORE,
+  },
+  {
+    stepOrder: 4,
+    label: "Collected",
+    description: "Customer has collected the order.",
+    statusIds: [OrderStatusTypeIds.DELIVERED],
+    targetStatusId: OrderStatusTypeIds.DELIVERED,
+  },
+] as const;
+
+export const getDirectOrderTrackingStepDefinitions = (
+  fulfillmentMethod: string,
+) => (
+  fulfillmentMethod === FulfillmentMethod.PICKUP
+    ? DIRECT_ORDER_PICKUP_TRACKING_STEPS
+    : DIRECT_ORDER_DELIVERY_TRACKING_STEPS
+);
+
+export const resolveDirectOrderTrackingStage = (
+  statusId: number,
+  fulfillmentMethod: string,
+) => {
+  if (isTerminalStatus(statusId)) return 0;
+
+  const definitions = getDirectOrderTrackingStepDefinitions(fulfillmentMethod);
+
+  if (statusId === OrderStatusTypeIds.DELIVERED) {
+    return definitions.length;
+  }
+
+  for (const step of definitions) {
+    if ((step.statusIds as readonly number[]).includes(statusId)) {
+      return step.stepOrder;
+    }
+  }
+
+  return 1;
+};
+
+export const resolveDirectOrderTrackingStepLabel = (
+  statusId: number,
+  fulfillmentMethod: string,
+  statusLabel?: string,
+) => {
+  const definitions = getDirectOrderTrackingStepDefinitions(fulfillmentMethod);
+  const stage = resolveDirectOrderTrackingStage(statusId, fulfillmentMethod);
+
+  if (stage > 0) {
+    const step = definitions.find((entry) => entry.stepOrder === stage);
+    if (step) return step.label;
+  }
+
+  return statusLabel ?? "Order Received";
+};
+
+export const getDirectOrderTrackingTargetStatusId = (
+  stepOrder: number,
+  fulfillmentMethod: string,
+) => {
+  const step = getDirectOrderTrackingStepDefinitions(fulfillmentMethod)
+    .find((entry) => entry.stepOrder === stepOrder);
+
+  return step?.targetStatusId ?? null;
+};
+
+export const buildDirectOrderAdminTrackingSteps = (params: {
+  statusId: number;
+  fulfillmentMethod: string;
+  createdAt: string;
+  updatedAt?: string | null;
+}): CustomerTrackingStep[] => {
+  const definitions = getDirectOrderTrackingStepDefinitions(params.fulfillmentMethod);
+  const currentStage = resolveDirectOrderTrackingStage(
+    params.statusId,
+    params.fulfillmentMethod,
+  );
+  const placedDate = formatTrackingDate(params.createdAt);
+  const eventDate = formatTrackingDate(params.updatedAt || params.createdAt);
+
+  return definitions.map((step) => ({
+    id: step.stepOrder,
+    label: step.label,
+    details: step.description,
+    date: currentStage >= step.stepOrder ? eventDate ?? placedDate : null,
+    completed: currentStage > step.stepOrder,
+    active: currentStage === step.stepOrder,
+  }));
+};
+
 export const buildBundleBasedTracking = (params: BundleTrackingInput) => {
   const historyByStepId = new Map(
     (params.history ?? []).map((entry) => [entry.stepId, entry.createdAt]),

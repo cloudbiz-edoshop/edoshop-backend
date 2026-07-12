@@ -20,9 +20,13 @@ import { jwtHeaderSchema } from "@/lib/zod-schemas/common-schemas";
 
 import {
   createEntriesRequestSchema,
+  createSupplierOrderRequestSchema,
+  createSupplierOrderResponseSchema,
   entriesQueryParamsSchema,
   entryResponseSchema,
   getAllEntryTypesResponseSchema,
+  previewBundleCodesQuerySchema,
+  previewBundleCodesResponseSchema,
   updateEntriesRequestSchema,
 } from "./entries.schema";
 
@@ -383,6 +387,77 @@ export const getAllPackageIds = createRoute({
   },
 });
 
+export const previewBundleCodesRoute = createRoute({
+  path: "/entries/bundles/preview",
+  method: "get",
+  tags,
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.ENTRIES, operation: OperationType.READ },
+    ]),
+  ] as const,
+  summary: "Preview next bundle codes for a supplier",
+  description: "Returns the next incremental bundle codes for a supplier without creating them.",
+  request: {
+    headers: jwtHeaderSchema,
+    query: previewBundleCodesQuerySchema,
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(previewBundleCodesResponseSchema),
+      "Preview bundle codes",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNPROCESSABLE_ENTITY,
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.FORBIDDEN,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      previewBundleCodesQuerySchema,
+    ),
+  },
+});
+
+export const createSupplierOrderRoute = createRoute({
+  path: "/entries/supplier-orders",
+  method: "post",
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.ENTRIES, operation: OperationType.CREATE },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    body: jsonContentRequired(
+      createSupplierOrderRequestSchema,
+      "The supplier order to create",
+    ),
+  },
+  tags,
+  summary: "Create a supplier order",
+  description: "Creates one bundle entry per requested quantity with auto-generated bundle IDs.",
+  responses: {
+    [HttpStatusCodes.CREATED]: jsonContent(
+      createSuccessResponseSchema(createSupplierOrderResponseSchema),
+      "The created supplier order",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNPROCESSABLE_ENTITY,
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.FORBIDDEN,
+        HttpStatusCodes.BAD_REQUEST,
+        HttpStatusCodes.CONFLICT,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      createSupplierOrderRequestSchema,
+    ),
+  },
+});
+
 export type GetAllEntryTypesRoute = typeof getAllEntryTypes;
 export type CreateEntryRoute = typeof createEntryRoute;
 export type UpdateEntryRoute = typeof updateEntryRoute;
@@ -394,3 +469,5 @@ export type GetAllBundleIdsRoute = typeof getAllBundleIds;
 export type GetAllSeriesIdsRoute = typeof getAllSeriesIds;
 export type GetAllItemIdsRoute = typeof getAllItemIds;
 export type GetAllPackageIdsRoute = typeof getAllPackageIds;
+export type PreviewBundleCodesRoute = typeof previewBundleCodesRoute;
+export type CreateSupplierOrderRoute = typeof createSupplierOrderRoute;

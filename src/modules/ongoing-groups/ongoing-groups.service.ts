@@ -270,6 +270,17 @@ export class OngoingGroupRequestsService {
     return GroupApprovalStatusIds.PENDING;
   }
 
+  private extractSupplierCodeFromDropshippingCode(code?: string | null) {
+    if (!code) return null;
+    const match = String(code).match(/^DS_(.+)_([A-Z]{3})_P\d+/i);
+    return match?.[1] ?? null;
+  }
+
+  private resolveProductImageUrl(imageUrls?: string[] | null) {
+    const first = imageUrls?.[0];
+    return first || null;
+  }
+
   private mapAdminGroupRequest(request: any) {
     const variant = request.variant;
     const colorMeta = getVariantColorMeta(variant?.color);
@@ -343,14 +354,18 @@ export class OngoingGroupRequestsService {
       ),
     ];
 
+    const productCode =
+      dropshippingProduct?.dropshippingCode ||
+      (anchorRequest?.productId ? `PRD-${anchorRequest.productId}` : null);
+
     return {
       ongoingGroupId,
       groupId: `GRP-${ongoingGroupId}`,
       productId: anchorRequest?.productId ?? 0,
       productName: product?.name || "Groupage product",
-      productCode:
-        dropshippingProduct?.dropshippingCode ||
-        (anchorRequest?.productId ? `PRD-${anchorRequest.productId}` : null),
+      productCode,
+      imageUrl: this.resolveProductImageUrl(product?.imageUrls),
+      supplierId: this.extractSupplierCodeFromDropshippingCode(productCode),
       moq: moqValue || null,
       threshold,
       groupCompletion:
@@ -379,6 +394,7 @@ export class OngoingGroupRequestsService {
   async listAdminOngoingGroups(params: {
     search?: string;
     status?: "pending" | "approved" | "rejected";
+    supplierCode?: string;
     page?: number;
     limit?: number;
   }) {
@@ -435,6 +451,15 @@ export class OngoingGroupRequestsService {
 
     if (params.status) {
       rows = rows.filter((row) => row.statusId === statusFilterMap[params.status!]);
+    }
+
+    const normalizedSupplierCode = params.supplierCode?.trim().toUpperCase() || "";
+    if (normalizedSupplierCode) {
+      rows = rows.filter((row) => {
+        const productCode = String(row.productCode || "").toUpperCase();
+        return productCode.includes(`_${normalizedSupplierCode}_`)
+          || productCode.startsWith(`DS_${normalizedSupplierCode}_`);
+      });
     }
 
     if (normalizedSearch) {

@@ -1,5 +1,6 @@
 import type {
   CreateEntryRoute,
+  CreateSupplierOrderRoute,
   DeleteEntryRoute,
   GetAllBundleIdsRoute,
   GetAllEntryStatesRoute,
@@ -9,11 +10,13 @@ import type {
   GetAllSeriesIdsRoute,
   GetEntriesByTypeRoute,
   ListRoute,
+  PreviewBundleCodesRoute,
   UpdateEntryRoute,
 } from "./entries.route";
 
 import type {
   CreateEntriesRequest,
+  CreateSupplierOrderRequest,
   GetAllEntryTypesResponse,
 } from "./entries.schema";
 import type { AppRouteHandler } from "@/lib/types";
@@ -181,4 +184,28 @@ export const getAllPackageIds: AppRouteHandler<GetAllPackageIdsRoute> = async (
 ) => {
   const ids = await entriesService.getAllPackageIds();
   return c.json({ ids });
+};
+
+export const previewBundleCodes: AppRouteHandler<PreviewBundleCodesRoute> = async (c) => {
+  const { supplierCode, count } = c.req.valid("query");
+  const bundleCodes = await entriesService.previewBundleCodes(supplierCode, count);
+
+  return c.json(
+    successResponse({ bundleCodes }, STANDARD_MESSAGES.SUCCESS.FETCHED),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const createSupplierOrder: AppRouteHandler<CreateSupplierOrderRoute> = async (c) => {
+  const body: CreateSupplierOrderRequest = c.req.valid("json");
+  const user = c.get("user");
+  const createdOrder = await entriesService.createSupplierOrder({
+    ...body,
+    createdBy: user.id,
+  });
+
+  return c.json(
+    successResponse(createdOrder, STANDARD_MESSAGES.SUCCESS.CREATED),
+    HttpStatusCodes.CREATED,
+  );
 };

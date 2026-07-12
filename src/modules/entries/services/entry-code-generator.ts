@@ -21,6 +21,21 @@ export interface GeneratedCodes {
  */
 export class EntryCodeGenerator {
   /**
+   * Preview the next N bundle codes for a supplier without reserving them.
+   * Pattern: {supplierCode}_B{serialNumber}
+   */
+  async previewBundleCodes(supplierCode: string, count: number): Promise<string[]> {
+    const result = await db.execute(sql`
+      SELECT COALESCE(MAX((regexp_match(bundle_code, '_B([0-9]+)$'))[1]::INT), 0) AS last_number
+      FROM bundles
+      WHERE bundle_code LIKE ${`${supplierCode}_B%`}
+    `);
+    const lastNumber = Number((result[0] as { last_number?: number })?.last_number) || 0;
+
+    return Array.from({ length: count }, (_, index) => `${supplierCode}_B${lastNumber + index + 1}`);
+  }
+
+  /**
    * Generate bundle code based on supplier code using database function
    * Pattern: {supplierCode}_B{serialNumber}
    * Example: PK_A01_B1

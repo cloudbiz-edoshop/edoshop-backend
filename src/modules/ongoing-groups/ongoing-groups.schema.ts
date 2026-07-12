@@ -382,6 +382,8 @@ export const adminOngoingGroupRowSchema = z.object({
   productId: z.number(),
   productName: z.string(),
   productCode: z.string().nullable(),
+  imageUrl: z.string().nullable().optional(),
+  supplierId: z.string().nullable().optional(),
   moq: z.number().nullable(),
   threshold: z.number(),
   groupCompletion: z.string(),
@@ -401,6 +403,7 @@ export const adminOngoingGroupRowSchema = z.object({
 export const adminOngoingGroupsQuerySchema = z.object({
   search: z.string().optional(),
   status: z.enum(["pending", "approved", "rejected"]).optional(),
+  supplierCode: z.string().optional(),
   page: z.coerce.number().min(1).default(1),
   limit: z.coerce.number().min(1).max(100).default(100),
 });

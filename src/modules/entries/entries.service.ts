@@ -1,6 +1,8 @@
 import type {
   CreateEntriesRequest,
   CreateEntriesResponse,
+  CreateSupplierOrderRequest,
+  CreateSupplierOrderResponse,
   UpdateEntriesRequest,
 } from "./entries.schema";
 import { toSentenceCase } from "@/common";
@@ -9,6 +11,10 @@ import { NotFoundError } from "@/core/errors";
 import { AppError } from "@/core/errors/app-error";
 
 import db from "@/db";
+import { EntryStateIds, EntryTypeIds } from "@/constants";
+import { WarehouseIds } from "@/constants/warehouses.constants";
+import { ongoingGroupRequests, products } from "@/db/models";
+import { eq, inArray } from "drizzle-orm";
 import { EntriesRepository } from "./entries.repository";
 import { EntryCodeGenerator } from "./services/entry-code-generator";
 import { EntryCreationService } from "./services/entry-creation.service";
@@ -195,5 +201,103 @@ export class EntriesService {
 
   async getAllEntryStates() {
     return db.query.entryStates.findMany();
+  }
+
+  async previewBundleCodes(supplierCode: string, count: number): Promise<string[]> {
+    return this.codeGenerator.previewBundleCodes(supplierCode, count);
+  }
+
+  async createSupplierOrder(
+    orderData: CreateSupplierOrderRequest & { createdBy: number },
+  ): Promise<CreateSupplierOrderResponse> {
+    const { supplierCode, quantity, date, description, weight, dsLinkGroupIds, createdBy } = orderData;
+    const resolvedWeight = weight ?? 0;
+    const productIds = await this.resolveDsLinkProductIds(dsLinkGroupIds);
+    const createdEntries: CreateEntriesResponse[] = [];
+    const bundleCodes: string[] = [];
+
+    for (let index = 0; index < quantity; index += 1) {
+      const entryPayload: CreateEntriesRequest & { createdBy: number } = {
+        entryStateId: EntryStateIds.NEW,
+        entryTypeId: EntryTypeIds.BUNDLE,
+        quantity: 1,
+        weight: resolvedWeight,
+        date,
+        warehouseId: WarehouseIds.WAREHOUSE_2,
+        description,
+        supplierCode,
+        isOpen: false,
+        createdBy,
+      };
+
+      if (productIds.length > 0) {
+        entryPayload.productCode = await this.resolveProductCode(productIds[index % productIds.length]);
+      }
+
+      const createdEntry = await this.createEntry(entryPayload);
+      const bundleCode = createdEntry.bundles?.[0]?.bundleCode;
+
+      if (bundleCode) {
+        bundleCodes.push(bundleCode);
+      }
+
+      createdEntries.push(createdEntry);
+    }
+
+    return {
+      bundleCodes,
+      entries: createdEntries,
+    };
+  }
+
+  private async resolveDsLinkProductIds(dsLinkGroupIds?: number[]): Promise<number[]> {
+    if (!dsLinkGroupIds?.length) {
+      return [];
+    }
+
+    const requests = await db.query.ongoingGroupRequests.findMany({
+      where: inArray(ongoingGroupRequests.ongoingGroupId, dsLinkGroupIds),
+      columns: {
+        productId: true,
+        ongoingGroupId: true,
+      },
+    });
+
+    const productIdsByGroup = new Map<number, number>();
+    for (const request of requests) {
+      if (request.ongoingGroupId && request.productId && !productIdsByGroup.has(request.ongoingGroupId)) {
+        productIdsByGroup.set(request.ongoingGroupId, request.productId);
+      }
+    }
+
+    return dsLinkGroupIds
+      .map((groupId) => productIdsByGroup.get(groupId))
+      .filter((productId): productId is number => Boolean(productId));
+  }
+
+  private async resolveProductCode(productId: number): Promise<string> {
+    const product = await db.query.products.findFirst({
+      where: eq(products.id, productId),
+      with: {
+        dropshippingProduct: true,
+        directOrderProduct: true,
+      },
+    });
+
+    if (!product) {
+      throw new AppError(`Product with ID ${productId} not found`);
+    }
+
+    const dropshippingCode = product.dropshippingProduct?.dropshippingCode;
+    if (dropshippingCode) {
+      return dropshippingCode;
+    }
+
+    const directOrderCode = product.directOrderProduct?.directOrderCode;
+    if (directOrderCode) {
+      return directOrderCode;
+    }
+
+    throw new AppError(`Product with ID ${productId} does not have a product code`);
   }
 }

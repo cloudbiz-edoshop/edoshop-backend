@@ -4,11 +4,13 @@ import type {
   CreateRoute,
   GetOneRoute,
   ListRoute,
+  ListTrackedOrdersRoute,
   ListStepsRoute,
   PatchRoute,
   RemoveOrderRoute,
   SearchOrderRoute,
   UpdateStepRoute,
+  UndoLastStepRoute,
 } from "./tracking-bundles.route";
 
 import type { AppRouteHandler } from "@/lib/types";
@@ -47,6 +49,30 @@ export const list: AppRouteHandler<ListRoute> = async (c) => {
       pagination,
       result.searchableFields,
       "Tracking bundles retrieved successfully",
+    ),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const listTrackedOrders: AppRouteHandler<ListTrackedOrdersRoute> = async (c) => {
+  const queryParams = c.req.valid("query");
+  const { search, page, limit, sortBy, sortOrder, filters } = queryParams;
+  const result = await trackingBundlesService.listTrackedOrders({
+    search,
+    page,
+    limit,
+    sortBy,
+    sortOrder,
+    filters,
+  });
+
+  const pagination = createPagination(result.total, page, limit);
+  return c.json(
+    successResponseWithPagination(
+      result.data,
+      pagination,
+      result.searchableFields,
+      "Tracked orders retrieved successfully",
     ),
     HttpStatusCodes.OK,
   );
@@ -153,6 +179,22 @@ export const updateStep: AppRouteHandler<UpdateStepRoute> = async (c) => {
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to update step";
+    return c.json({ success: false, message }, HttpStatusCodes.BAD_REQUEST);
+  }
+};
+
+export const undoLastStep: AppRouteHandler<UndoLastStepRoute> = async (c) => {
+  const { id } = c.req.valid("param");
+  const { userId } = c.get("accessTokenPayload");
+
+  try {
+    const bundle = await trackingBundlesService.undoLastStep(id, userId);
+    return c.json(
+      successResponse(bundle, "Last tracking step undone successfully"),
+      HttpStatusCodes.OK,
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to undo last step";
     return c.json({ success: false, message }, HttpStatusCodes.BAD_REQUEST);
   }
 };

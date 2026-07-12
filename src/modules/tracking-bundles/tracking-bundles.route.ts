@@ -24,6 +24,7 @@ import {
   searchOrderForBundleSchema,
   trackingBundleDetailSchema,
   trackingBundleSchema,
+  trackedOrderRowSchema,
   trackingStepSchema,
   updateBundleStepRequestSchema,
   updateTrackingBundleRequestSchema,
@@ -74,6 +75,34 @@ export const list = createRoute({
     [HttpStatusCodes.OK]: jsonContent(
       createSuccessResponseSchemaWithPagination(z.array(trackingBundleSchema)),
       "Tracking bundles",
+    ),
+    ...commonErrorResponses(
+      [HttpStatusCodes.UNAUTHORIZED, HttpStatusCodes.FORBIDDEN],
+      commonQueryParamsSchema,
+    ),
+  },
+});
+
+export const listTrackedOrders = createRoute({
+  path: "/tracking-bundles/tracked-orders",
+  method: "get",
+  tags,
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.ORDERS, operation: OperationType.READ },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    query: commonQueryParamsSchema,
+  },
+  summary: "List tracked customer orders",
+  description: "Returns customer orders linked to supplier bundles with bundle and order-leg tracking steps.",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchemaWithPagination(z.array(trackedOrderRowSchema)),
+      "Tracked orders",
     ),
     ...commonErrorResponses(
       [HttpStatusCodes.UNAUTHORIZED, HttpStatusCodes.FORBIDDEN],
@@ -280,6 +309,34 @@ export const updateStep = createRoute({
   },
 });
 
+export const undoLastStep = createRoute({
+  path: "/tracking-bundles/{id}/step",
+  method: "delete",
+  tags,
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.ORDERS, operation: OperationType.UPDATE },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    params: idParams,
+  },
+  summary: "Undo the last manual bundle tracking step",
+  description: "Removes the most recent manual tracking step (steps 4-6) and reverts the bundle to the previous step.",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(trackingBundleDetailSchema),
+      "Last step undone",
+    ),
+    ...commonErrorResponses(
+      [HttpStatusCodes.UNAUTHORIZED, HttpStatusCodes.FORBIDDEN, HttpStatusCodes.BAD_REQUEST],
+      idParams,
+    ),
+  },
+});
+
 export const createKiloBill = createRoute({
   path: "/tracking-bundles/{id}/kilo-bills",
   method: "post",
@@ -310,6 +367,7 @@ export const createKiloBill = createRoute({
 
 export type ListStepsRoute = typeof listSteps;
 export type ListRoute = typeof list;
+export type ListTrackedOrdersRoute = typeof listTrackedOrders;
 export type CreateRoute = typeof create;
 export type GetOneRoute = typeof getOne;
 export type PatchRoute = typeof patch;
@@ -317,4 +375,5 @@ export type SearchOrderRoute = typeof searchOrder;
 export type AssignOrdersRoute = typeof assignOrders;
 export type RemoveOrderRoute = typeof removeOrder;
 export type UpdateStepRoute = typeof updateStep;
+export type UndoLastStepRoute = typeof undoLastStep;
 export type CreateKiloBillRoute = typeof createKiloBill;

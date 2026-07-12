@@ -5,6 +5,9 @@ import * as routes from "@/modules/orders/orders.route";
 const router = createRouter();
 
 router.openapi(routes.getOrdersToFulfill, handlers.getOrdersToFulfill);
+router.openapi(routes.listDirectOrderTracking, handlers.listDirectOrderTracking);
+router.openapi(routes.getDirectOrderTracking, handlers.getDirectOrderTracking);
+router.openapi(routes.updateDirectOrderTrackingStep, handlers.updateDirectOrderTrackingStep);
 router.openapi(routes.getOrderDetailsForACustomer, handlers.getOrderDetailsForACustomer);
 router.openapi(routes.updateAvailableQuantityForFulfillment, handlers.updateAvailableQuantity);
 router.openapi(routes.checkoutDirectOrder, handlers.checkoutDirectOrder);

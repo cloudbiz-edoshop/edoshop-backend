@@ -3,7 +3,7 @@ import type { OrderDetailsForCustomerToFulfill, OrdersToFulfill } from "./orders
 import type { UpdateOrderItems } from "@/db/models/order-items";
 import type { TX } from "@/lib/types";
 
-import { and, count, desc, eq, inArray, like, ne, not, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, like, ne, not, or, sql } from "drizzle-orm";
 import { OrderStatusTypeIds } from "@/constants";
 import { AddressTypeIds } from "@/constants/address-types.constants";
 import { OrderItemFulfillmentStatusIds } from "@/constants/order-item-fulfillment-statuses.constants";
@@ -20,6 +20,7 @@ import {
   orderFulfillmentStatuses,
   orderItemFulfillmentStatuses,
   orderItems,
+  orderStatuses,
   orderTypes,
   orders,
   paymentMethods,
@@ -34,7 +35,14 @@ import {
   variants,
   warehouses,
 } from "@/db/models";
-import { buildBundleBasedTracking, buildDetailedOrderTracking } from "./order-tracking.util";
+import {
+  buildBundleBasedTracking,
+  buildDetailedOrderTracking,
+  buildDirectOrderAdminTrackingSteps,
+  getDirectOrderTrackingStepDefinitions,
+  getDirectOrderTrackingTargetStatusId,
+  resolveDirectOrderTrackingStepLabel,
+} from "./order-tracking.util";
 import {
   computeDirectOrderShippingFee,
   FulfillmentMethod,
@@ -1445,5 +1453,205 @@ export class OrdersRepository {
       .where(eq(paymentTransactions.transactionReference, transactionReference))
       .returning();
     return result;
+  }
+
+  async listDirectOrderTracking(params: {
+    search?: string;
+    page: number;
+    limit: number;
+    sortBy?: string;
+    sortOrder?: "asc" | "desc";
+  }) {
+    const { search, page, limit, sortBy, sortOrder } = params;
+    const searchableFields = ["orderCode", "customerCode", "customerName"];
+    const { limit: pageLimit, offset } = getPaginationValues(page, limit);
+
+    const searchCondition = search
+      ? or(
+          like(orders.orderCode, `%${search}%`),
+          like(customers.customerCode, `%${search}%`),
+          like(users.fullName, `%${search}%`),
+        )
+      : undefined;
+
+    const whereConditions = [
+      eq(orders.orderTypeId, OrderTypeIds.DIRECT_ORDER),
+      not(inArray(orders.statusId, [
+        OrderStatusTypeIds.CANCELLED,
+        OrderStatusTypeIds.REFUNDED,
+        OrderStatusTypeIds.RETURNED,
+      ])),
+    ];
+
+    if (searchCondition) {
+      whereConditions.push(searchCondition);
+    }
+
+    const whereClause = and(...whereConditions);
+    const orderBy =
+      sortBy === "orderCode"
+        ? sortOrder === "asc" ? asc(orders.orderCode) : desc(orders.orderCode)
+        : sortOrder === "asc" ? asc(orders.createdAt) : desc(orders.createdAt);
+
+    const rows = await db
+      .select({
+        orderId: orders.id,
+        orderCode: orders.orderCode,
+        customerId: orders.customerId,
+        customerCode: customers.customerCode,
+        customerName: users.fullName,
+        fulfillmentMethod: orders.fulfillmentMethod,
+        orderStatusId: orders.statusId,
+        orderStatusLabel: orderStatuses.name,
+        itemCount: sql<number>`count(${orderItems.id})::int`,
+        createdAt: orders.createdAt,
+        updatedAt: orders.updatedAt,
+      })
+      .from(orders)
+      .innerJoin(customers, eq(orders.customerId, customers.id))
+      .innerJoin(users, eq(customers.userId, users.id))
+      .innerJoin(orderStatuses, eq(orders.statusId, orderStatuses.id))
+      .leftJoin(orderItems, eq(orderItems.orderId, orders.id))
+      .where(whereClause)
+      .groupBy(
+        orders.id,
+        orders.orderCode,
+        orders.customerId,
+        customers.customerCode,
+        users.fullName,
+        orders.fulfillmentMethod,
+        orders.statusId,
+        orderStatuses.name,
+        orders.createdAt,
+        orders.updatedAt,
+      )
+      .orderBy(orderBy)
+      .limit(pageLimit)
+      .offset(offset);
+
+    const [{ total }] = await db
+      .select({ total: count() })
+      .from(orders)
+      .innerJoin(customers, eq(orders.customerId, customers.id))
+      .innerJoin(users, eq(customers.userId, users.id))
+      .where(whereClause);
+
+    return {
+      data: rows.map((row) => ({
+        ...row,
+        fulfillmentMethod: row.fulfillmentMethod ?? FulfillmentMethod.DELIVERY,
+        currentStepLabel: resolveDirectOrderTrackingStepLabel(
+          row.orderStatusId,
+          row.fulfillmentMethod ?? FulfillmentMethod.DELIVERY,
+          row.orderStatusLabel,
+        ),
+        itemCount: Number(row.itemCount) || 0,
+        createdAt: row.createdAt ?? new Date().toISOString(),
+      })),
+      total: Number(total) || 0,
+      searchableFields,
+    };
+  }
+
+  async getDirectOrderTrackingDetail(orderId: number) {
+    const order = await db.query.orders.findFirst({
+      where: and(
+        eq(orders.id, orderId),
+        eq(orders.orderTypeId, OrderTypeIds.DIRECT_ORDER),
+      ),
+      with: {
+        orderStatus: true,
+        customer: {
+          with: {
+            user: true,
+          },
+        },
+        orderItems: true,
+      },
+    });
+
+    if (!order) {
+      return null;
+    }
+
+    const fulfillmentMethod = order.fulfillmentMethod ?? FulfillmentMethod.DELIVERY;
+    const steps = buildDirectOrderAdminTrackingSteps({
+      statusId: order.statusId,
+      fulfillmentMethod,
+      createdAt: order.createdAt,
+      updatedAt: order.updatedAt,
+    });
+
+    return {
+      orderId: order.id,
+      orderCode: order.orderCode,
+      customerId: order.customerId,
+      customerCode: order.customer?.customerCode ?? null,
+      customerName: order.customer?.user?.fullName ?? null,
+      fulfillmentMethod,
+      orderStatusId: order.statusId,
+      orderStatusLabel: order.orderStatus?.name ?? "pending",
+      currentStepLabel: resolveDirectOrderTrackingStepLabel(
+        order.statusId,
+        fulfillmentMethod,
+        order.orderStatus?.name,
+      ),
+      itemCount: order.orderItems?.length ?? 0,
+      createdAt: order.createdAt,
+      updatedAt: order.updatedAt,
+      steps,
+      stepDefinitions: getDirectOrderTrackingStepDefinitions(fulfillmentMethod).map((step) => ({
+        stepOrder: step.stepOrder,
+        label: step.label,
+        description: step.description,
+      })),
+    };
+  }
+
+  async updateDirectOrderTrackingStep(
+    orderId: number,
+    stepOrder: number,
+    userId: number,
+    notes?: string,
+  ) {
+    const order = await db.query.orders.findFirst({
+      where: and(
+        eq(orders.id, orderId),
+        eq(orders.orderTypeId, OrderTypeIds.DIRECT_ORDER),
+      ),
+    });
+
+    if (!order) {
+      throw new Error("Direct order not found");
+    }
+
+    const fulfillmentMethod = order.fulfillmentMethod ?? FulfillmentMethod.DELIVERY;
+    const targetStatusId = getDirectOrderTrackingTargetStatusId(
+      stepOrder,
+      fulfillmentMethod,
+    );
+
+    if (!targetStatusId) {
+      throw new Error("Invalid direct order tracking step");
+    }
+
+    const now = new Date().toISOString();
+    const noteEntry = notes?.trim()
+      ? `Tracking step ${stepOrder}: ${notes.trim()}`
+      : null;
+
+    await db
+      .update(orders)
+      .set({
+        statusId: targetStatusId,
+        notes: noteEntry
+          ? [order.notes, noteEntry].filter(Boolean).join(" | ")
+          : order.notes,
+        updatedAt: now,
+        updatedBy: userId,
+      })
+      .where(eq(orders.id, order.id));
+
+    return this.getDirectOrderTrackingDetail(order.id);
   }
 }

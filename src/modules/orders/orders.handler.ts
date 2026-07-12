@@ -1,12 +1,15 @@
 import type {
   CheckoutDirectOrderRoute,
+  GetDirectOrderTrackingRoute,
   GetFulfillmentOptionsRoute,
   GetMyOrderTrackingRoute,
   GetMyOrdersRoute,
   GetOrderDetailsForACustomerRoute,
   GetOrdersToFulfillRoute,
+  ListDirectOrderTrackingRoute,
   RequestPostCheckoutDeliveryRoute,
   UpdateAvailableQuantityForFulfillmentRoute,
+  UpdateDirectOrderTrackingStepRoute,
 } from "./orders.route";
 
 import type { OrdersToFulfill } from "./orders.schema";
@@ -44,6 +47,84 @@ export const getOrdersToFulfill: AppRouteHandler<
     "Orders to fulfill retrieved successfully",
   );
   return c.json(response, HttpStatusCodes.OK);
+};
+
+export const listDirectOrderTracking: AppRouteHandler<
+  ListDirectOrderTrackingRoute
+> = async (c) => {
+  const queryParams = c.req.valid("query");
+  const { search, page, limit, sortBy, sortOrder } = queryParams;
+  const result = await ordersService.listDirectOrderTracking({
+    search,
+    page,
+    limit,
+    sortBy,
+    sortOrder,
+  });
+  const pagination = createPagination(result.total, page, limit);
+
+  return c.json(
+    successResponseWithPagination(
+      result.data,
+      pagination,
+      result.searchableFields,
+      "Direct order tracking retrieved successfully",
+    ),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const getDirectOrderTracking: AppRouteHandler<
+  GetDirectOrderTrackingRoute
+> = async (c) => {
+  const { id } = c.req.valid("param");
+  const result = await ordersService.getDirectOrderTracking(id);
+
+  if (!result) {
+    return c.json(
+      { success: false, message: "Direct order not found" },
+      HttpStatusCodes.NOT_FOUND,
+    );
+  }
+
+  return c.json(
+    successResponse(result, "Direct order tracking retrieved successfully"),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const updateDirectOrderTrackingStep: AppRouteHandler<
+  UpdateDirectOrderTrackingStepRoute
+> = async (c) => {
+  const { id } = c.req.valid("param");
+  const payload = c.req.valid("json");
+  const accessTokenPayload = c.get("accessTokenPayload");
+
+  try {
+    const result = await ordersService.updateDirectOrderTrackingStep(
+      id,
+      payload.stepOrder,
+      accessTokenPayload.userId,
+      payload.notes,
+    );
+
+    if (!result) {
+      return c.json(
+        { success: false, message: "Direct order not found" },
+        HttpStatusCodes.NOT_FOUND,
+      );
+    }
+
+    return c.json(
+      successResponse(result, "Direct order tracking step updated successfully"),
+      HttpStatusCodes.OK,
+    );
+  } catch (error) {
+    const message = error instanceof Error
+      ? error.message
+      : "Failed to update direct order tracking step";
+    return c.json({ success: false, message }, HttpStatusCodes.BAD_REQUEST);
+  }
 };
 
 export const getOrderDetailsForACustomer: AppRouteHandler<

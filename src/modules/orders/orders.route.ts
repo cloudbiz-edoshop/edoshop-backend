@@ -122,6 +122,113 @@ export type GetOrdersToFulfillRoute = typeof getOrdersToFulfill;
 export type GetOrderDetailsForACustomerRoute = typeof getOrderDetailsForACustomer;
 export type UpdateAvailableQuantityForFulfillmentRoute = typeof updateAvailableQuantityForFulfillment;
 
+export const listDirectOrderTracking = createRoute({
+  path: "/orders/direct-tracking",
+  method: "get",
+  tags,
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.ORDERS, operation: OperationType.READ },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    query: commonQueryParamsSchema,
+  },
+  summary: "List direct order tracking",
+  description: "Returns direct orders with store-leg tracking steps (no bundles).",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchemaWithPagination(
+        z.array(schemas.directOrderTrackingRowSchema),
+      ),
+      "Direct order tracking list",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.FORBIDDEN,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      commonQueryParamsSchema,
+    ),
+  },
+});
+
+export const getDirectOrderTracking = createRoute({
+  path: "/orders/direct-tracking/{id}",
+  method: "get",
+  tags,
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.ORDERS, operation: OperationType.READ },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    params: idParams,
+  },
+  summary: "Get direct order tracking detail",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(schemas.directOrderTrackingDetailSchema),
+      "Direct order tracking detail",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.FORBIDDEN,
+        HttpStatusCodes.NOT_FOUND,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      idParams,
+    ),
+  },
+});
+
+export const updateDirectOrderTrackingStep = createRoute({
+  path: "/orders/direct-tracking/{id}/step",
+  method: "post",
+  tags,
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.ORDERS, operation: OperationType.UPDATE },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    params: idParams,
+    body: jsonContentRequired(
+      schemas.updateDirectOrderTrackingStepRequestSchema,
+      "Direct order tracking step update",
+    ),
+  },
+  summary: "Update direct order tracking step",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(schemas.directOrderTrackingDetailSchema),
+      "Direct order tracking updated",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.FORBIDDEN,
+        HttpStatusCodes.NOT_FOUND,
+        HttpStatusCodes.BAD_REQUEST,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      idParams,
+    ),
+  },
+});
+
+export type ListDirectOrderTrackingRoute = typeof listDirectOrderTracking;
+export type GetDirectOrderTrackingRoute = typeof getDirectOrderTracking;
+export type UpdateDirectOrderTrackingStepRoute = typeof updateDirectOrderTrackingStep;
+
 export const checkoutDirectOrder = createRoute({
   path: "/orders/checkout/direct",
   method: "post",

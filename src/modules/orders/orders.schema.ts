@@ -290,3 +290,53 @@ export const updateAvailableQuantityForFulfillmentResponseSchema = orderItemsSch
 export type UpdateAvailableQuantityResponse = z.infer<
   typeof updateAvailableQuantityForFulfillmentResponseSchema
 >;
+
+export const directOrderTrackingRowSchema = z.object({
+  orderId: z.number(),
+  orderCode: z.string(),
+  customerId: z.number(),
+  customerCode: z.string().nullable().optional(),
+  customerName: z.string().nullable().optional(),
+  fulfillmentMethod: z.string(),
+  orderStatusId: z.number(),
+  orderStatusLabel: z.string(),
+  currentStepLabel: z.string(),
+  itemCount: z.number().optional(),
+  createdAt: z.string(),
+  updatedAt: z.string().nullable().optional(),
+});
+
+export const directOrderTrackingStepSchema = z.object({
+  id: z.number(),
+  label: z.string(),
+  details: z.string(),
+  date: z.string().nullable(),
+  completed: z.boolean(),
+  active: z.boolean(),
+});
+
+export const directOrderTrackingDetailSchema = z.object({
+  orderId: z.number(),
+  orderCode: z.string(),
+  customerId: z.number(),
+  customerCode: z.string().nullable().optional(),
+  customerName: z.string().nullable().optional(),
+  fulfillmentMethod: z.string(),
+  orderStatusId: z.number(),
+  orderStatusLabel: z.string(),
+  currentStepLabel: z.string(),
+  itemCount: z.number().optional(),
+  createdAt: z.string(),
+  updatedAt: z.string().nullable().optional(),
+  steps: z.array(directOrderTrackingStepSchema),
+  stepDefinitions: z.array(z.object({
+    stepOrder: z.number(),
+    label: z.string(),
+    description: z.string(),
+  })),
+});
+
+export const updateDirectOrderTrackingStepRequestSchema = z.object({
+  stepOrder: z.number().min(1).max(4),
+  notes: z.string().max(2000).optional(),
+});

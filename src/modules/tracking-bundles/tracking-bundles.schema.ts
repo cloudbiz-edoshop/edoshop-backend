@@ -33,6 +33,7 @@ export const trackingBundleOrderSchema = z.object({
 export const trackingBundleHistorySchema = z.object({
   id: z.number(),
   stepId: z.number(),
+  stepOrder: z.number().optional(),
   stepLabel: z.string(),
   notes: z.string().nullable().optional(),
   attachmentUrl: z.string().nullable().optional(),
@@ -44,6 +45,7 @@ export const trackingBundleSchema = z.object({
   id: z.number(),
   trackingBundleId: z.number().nullable().optional(),
   sourceBundleId: z.number().nullable().optional(),
+  sourceEntryId: z.number().nullable().optional(),
   bundleCode: z.string(),
   name: z.string(),
   description: z.string().nullable().optional(),
@@ -63,6 +65,23 @@ export const trackingBundleDetailSchema = trackingBundleSchema.extend({
   currentStep: trackingStepSchema.optional(),
   orders: z.array(trackingBundleOrderSchema).optional(),
   history: z.array(trackingBundleHistorySchema).optional(),
+});
+
+export const trackedOrderRowSchema = z.object({
+  orderId: z.number(),
+  orderCode: z.string(),
+  customerId: z.number().optional(),
+  customerCode: z.string().nullable().optional(),
+  customerName: z.string().nullable().optional(),
+  bundleCode: z.string(),
+  sourceBundleId: z.number(),
+  trackingBundleId: z.number().nullable().optional(),
+  bundleStepLabel: z.string().nullable().optional(),
+  orderStatusId: z.number(),
+  orderStatusLabel: z.string(),
+  orderStepLabel: z.string(),
+  itemCount: z.number().optional(),
+  createdAt: z.string().optional(),
 });
 
 export const createTrackingBundleRequestSchema = z.object({

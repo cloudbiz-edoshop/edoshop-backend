@@ -49,6 +49,34 @@ export class OrdersService {
     return await this.ordersRepository.getOrdersToFulfill(params);
   }
 
+  async listDirectOrderTracking(params: {
+    search?: string;
+    page: number;
+    limit: number;
+    sortBy?: string;
+    sortOrder?: "asc" | "desc";
+  }) {
+    return this.ordersRepository.listDirectOrderTracking(params);
+  }
+
+  async getDirectOrderTracking(orderId: number) {
+    return this.ordersRepository.getDirectOrderTrackingDetail(orderId);
+  }
+
+  async updateDirectOrderTrackingStep(
+    orderId: number,
+    stepOrder: number,
+    userId: number,
+    notes?: string,
+  ) {
+    return this.ordersRepository.updateDirectOrderTrackingStep(
+      orderId,
+      stepOrder,
+      userId,
+      notes,
+    );
+  }
+
   async getOrderDetailsForACustomer(
     customerId: number,
     params: {

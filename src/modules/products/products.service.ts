@@ -41,19 +41,20 @@ export class ProductsService {
 
   /**
    * Generate dropshipping product code
-   * Format: YYX where YY is current year and X is the next yearly sequence.
+   * Format: DS_{supplierCode}_{categoryCode}_P{n}
    */
-  private async generateDropshippingProductCode(): Promise<string> {
-    const yearPrefix = new Date().getFullYear().toString().slice(-2);
+  private async generateDropshippingProductCode(
+    supplierCode: string,
+    categoryName: string,
+  ): Promise<string> {
     const result = await db.execute(
-      sql`
-        SELECT COALESCE(MAX(CAST(SUBSTRING(dropshipping_code FROM 3) AS INTEGER)), 0) + 1 AS next_increment
-        FROM dropshipping_products
-        WHERE dropshipping_code LIKE ${`${yearPrefix}%`}
-      `,
+      sql`SELECT next_dropshipping_product_code(${supplierCode}, ${categoryName}) AS code`,
     );
-    const nextIncrement = Number(result[0]?.next_increment) || 1;
-    return `${yearPrefix}${nextIncrement}`;
+    const code = result[0]?.code;
+    if (!code || typeof code !== "string") {
+      throw new AppError("Failed to generate dropshipping product code");
+    }
+    return code;
   }
 
   async createProduct(
@@ -109,7 +110,22 @@ export class ProductsService {
       if (!productData.categoryIds?.length) {
         throw new AppError("Category is required for dropshipping products");
       }
-      dropshippingCode = await this.generateDropshippingProductCode();
+      const supplierCode = productData.supplierCode?.trim().toUpperCase();
+      if (!supplierCode) {
+        throw new AppError("Supplier ID is required for dropshipping products");
+      }
+
+      const rootCategory = await db.query.categories.findFirst({
+        where: eq(categories.id, productData.categoryIds[0]),
+      });
+      if (!rootCategory?.name) {
+        throw new AppError("Category is required for dropshipping products");
+      }
+
+      dropshippingCode = await this.generateDropshippingProductCode(
+        supplierCode,
+        rootCategory.name,
+      );
     }
 
     const product = await db.transaction(async (tx) => {

@@ -49,7 +49,7 @@ export const baseEntriesSchema = z.object({
     .int()
     .min(1, "Entry type ID must be a positive integer"),
   quantity: z.number().int().min(1, "Quantity must be at least 1"),
-  weight: z.number().positive("Weight must be positive").min(0.0001, "Weight must be greater than 0.0001"),
+  weight: z.number().min(0, "Weight cannot be negative"),
   date: z.iso.date("Date must be a valid ISO 8601 date string"),
   warehouseId: z
     .number()
@@ -215,3 +215,32 @@ export const entriesQueryParamsSchema = z.object({
 });
 
 export type EntriesQueryParams = z.infer<typeof entriesQueryParamsSchema>;
+
+export const previewBundleCodesQuerySchema = z.object({
+  supplierCode: z.string().min(3, "Supplier code is required"),
+  count: z.coerce.number().int().min(1).max(10000).default(1),
+});
+
+export type PreviewBundleCodesQuery = z.infer<typeof previewBundleCodesQuerySchema>;
+
+export const previewBundleCodesResponseSchema = z.object({
+  bundleCodes: z.array(z.string()),
+});
+
+export const createSupplierOrderRequestSchema = z.object({
+  supplierCode: z.string().min(3, "Supplier code is required"),
+  quantity: z.number().int().min(1, "Quantity must be at least 1").max(10000),
+  date: z.iso.date("Date must be a valid ISO 8601 date string"),
+  description: z.string().min(1, "Description is required"),
+  weight: z.number().min(0, "Weight cannot be negative").optional(),
+  dsLinkGroupIds: z.array(z.number().int().min(1)).optional(),
+});
+
+export type CreateSupplierOrderRequest = z.infer<typeof createSupplierOrderRequestSchema>;
+
+export const createSupplierOrderResponseSchema = z.object({
+  bundleCodes: z.array(z.string()),
+  entries: z.array(entryResponseSchema),
+});
+
+export type CreateSupplierOrderResponse = z.infer<typeof createSupplierOrderResponseSchema>;

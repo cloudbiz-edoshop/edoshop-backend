@@ -34,6 +34,17 @@ export class TrackingBundlesService {
     };
   }
 
+  async listTrackedOrders(params: {
+    search?: string;
+    page: number;
+    limit: number;
+    sortBy?: string;
+    sortOrder?: "asc" | "desc";
+    filters?: Record<string, unknown>;
+  }) {
+    return this.repository.listTrackedOrders(params);
+  }
+
   async getOne(id: number) {
     const bundle = await this.repository.findById(id);
     if (!bundle) return null;
@@ -56,12 +67,13 @@ export class TrackingBundlesService {
       history: (bundle.history ?? []).map((entry) => ({
         id: entry.id,
         stepId: entry.stepId,
+        stepOrder: entry.step?.stepOrder ?? 0,
         stepLabel: entry.step?.label ?? "",
         notes: entry.notes,
         attachmentUrl: entry.attachmentUrl,
         createdAt: entry.createdAt,
         updatedByName: entry.createdByUser?.fullName ?? null,
-      })),
+      })).sort((left, right) => left.stepOrder - right.stepOrder),
     };
   }
 
@@ -114,6 +126,11 @@ export class TrackingBundlesService {
     return this.getOne(bundle.id);
   }
 
+  async undoLastStep(bundleId: number, userId: number) {
+    const bundle = await this.repository.undoLastStep(bundleId, userId);
+    return this.getOne(bundle.id);
+  }
+
   findBundleByOrderId(orderId: number) {
     return this.repository.findBundleByOrderId(orderId);
   }
@@ -128,6 +145,7 @@ export class TrackingBundlesService {
     id: number;
     trackingBundleId?: number | null;
     sourceBundleId?: number | null;
+    sourceEntryId?: number | null;
     bundleCode: string;
     name: string;
     description?: string | null;
@@ -143,7 +161,9 @@ export class TrackingBundlesService {
     currentStep?: { label: string } | null;
     sourceBundle?: {
       id: number;
+      entryId?: number;
       entry?: {
+        id?: number;
         supplier?: {
           id: number;
           storeName: string;
@@ -154,10 +174,17 @@ export class TrackingBundlesService {
     orderCount?: number;
   }) {
     const supplier = bundle.sourceBundle?.entry?.supplier;
+    const sourceEntryId =
+      bundle.sourceEntryId
+      ?? bundle.sourceBundle?.entry?.id
+      ?? bundle.sourceBundle?.entryId
+      ?? null;
+
     return {
       id: bundle.id,
       trackingBundleId: bundle.trackingBundleId ?? bundle.id,
       sourceBundleId: bundle.sourceBundleId ?? bundle.sourceBundle?.id ?? null,
+      sourceEntryId,
       bundleCode: bundle.bundleCode,
       name: bundle.name,
       description: bundle.description,
