@@ -51,7 +51,8 @@ const app = createApp();
 
 configureOpenAPI(app);
 
-// Apply rate limiting in all environments for security, but with different settings
+// Apply rate limiting in production only. Local admin workflows can issue many
+// parallel requests while forms load dropdown data.
 if (appConfig.isProduction) {
   app.use(
     "*",
@@ -68,16 +69,6 @@ if (appConfig.isProduction) {
   app.use("/verify-otp", authRateLimiter);
   app.use("/reset-password", authRateLimiter);
   app.use("/refresh-token", authRateLimiter);
-} else {
-  // Less strict for development environment
-  app.use(
-    "*",
-    rateLimiter({
-      windowMs: 60 * 1000,
-      max: 500,
-      standardHeaders: true,
-    }),
-  );
 }
 
 // Do not apply CSRF protection for all environments - Not needed for now
