@@ -23,7 +23,8 @@
     "db:studio": "drizzle-kit studio",
     "users:upsert-team": "tsx src/scripts/upsert-team-admin-users.ts",
     "rayons:repair-bins": "tsx src/scripts/repair-rayon-bin-layouts.ts",
-    "rayons:normalize-rows": "tsx src/scripts/normalize-rayon-bin-rows.ts"
+    "rayons:normalize-rows": "tsx src/scripts/normalize-rayon-bin-rows.ts",
+    "products:backfill-xs-sizes": "tsx src/scripts/backfill-missing-product-sizes.ts"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^8.5.0",
