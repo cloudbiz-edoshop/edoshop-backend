@@ -3,6 +3,7 @@ import type {
   CreateKiloBillRoute,
   CreateRoute,
   GetOneRoute,
+  GetTrackedOrderRoute,
   ListRoute,
   ListTrackedOrdersRoute,
   ListStepsRoute,
@@ -10,6 +11,7 @@ import type {
   RemoveOrderRoute,
   SearchOrderRoute,
   UpdateStepRoute,
+  UpdateTrackedOrderStepRoute,
   UndoLastStepRoute,
 } from "./tracking-bundles.route";
 
@@ -76,6 +78,42 @@ export const listTrackedOrders: AppRouteHandler<ListTrackedOrdersRoute> = async 
     ),
     HttpStatusCodes.OK,
   );
+};
+
+export const getTrackedOrder: AppRouteHandler<GetTrackedOrderRoute> = async (c) => {
+  const { orderId } = c.req.valid("param");
+  const order = await trackingBundlesService.getTrackedOrder(orderId);
+
+  if (!order) {
+    return c.json({ success: false, message: "Tracked order not found" }, HttpStatusCodes.NOT_FOUND);
+  }
+
+  return c.json(
+    successResponse(order, "Tracked order retrieved successfully"),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const updateTrackedOrderStep: AppRouteHandler<UpdateTrackedOrderStepRoute> = async (c) => {
+  const { orderId } = c.req.valid("param");
+  const payload = c.req.valid("json");
+  const { userId } = c.get("accessTokenPayload");
+
+  try {
+    const order = await trackingBundlesService.updateTrackedOrderStep(
+      orderId,
+      payload.stepOrder,
+      userId,
+      payload.notes,
+    );
+    return c.json(
+      successResponse(order, "Order tracking step updated successfully"),
+      HttpStatusCodes.OK,
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to update order tracking step";
+    return c.json({ success: false, message }, HttpStatusCodes.BAD_REQUEST);
+  }
 };
 
 export const create: AppRouteHandler<CreateRoute> = async (c) => {

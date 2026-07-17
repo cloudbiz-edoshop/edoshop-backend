@@ -84,6 +84,31 @@ export const trackedOrderRowSchema = z.object({
   createdAt: z.string().optional(),
 });
 
+export const trackedOrderTrackingStepSchema = z.object({
+  id: z.number(),
+  label: z.string(),
+  details: z.string(),
+  date: z.string().nullable(),
+  completed: z.boolean(),
+  active: z.boolean(),
+});
+
+export const trackedOrderDetailSchema = trackedOrderRowSchema.extend({
+  currentStepLabel: z.string(),
+  updatedAt: z.string().nullable().optional(),
+  steps: z.array(trackedOrderTrackingStepSchema),
+  stepDefinitions: z.array(z.object({
+    stepOrder: z.number(),
+    label: z.string(),
+    description: z.string(),
+  })),
+});
+
+export const updateTrackedOrderStepRequestSchema = z.object({
+  stepOrder: z.number().min(7).max(10),
+  notes: z.string().max(2000).optional(),
+});
+
 export const createTrackingBundleRequestSchema = z.object({
   bundleCode: commonStringSchema.min(2).max(100),
   name: commonStringSchema.min(2).max(255),
@@ -153,3 +178,4 @@ export type UpdateTrackingBundleRequest = z.infer<typeof updateTrackingBundleReq
 export type AssignOrdersToBundleRequest = z.infer<typeof assignOrdersToBundleRequestSchema>;
 export type UpdateBundleStepRequest = z.infer<typeof updateBundleStepRequestSchema>;
 export type CreateKiloBillRequest = z.infer<typeof createKiloBillRequestSchema>;
+export type UpdateTrackedOrderStepRequest = z.infer<typeof updateTrackedOrderStepRequestSchema>;

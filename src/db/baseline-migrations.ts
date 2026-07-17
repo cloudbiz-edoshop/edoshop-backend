@@ -65,6 +65,27 @@ const MIGRATION_CHECKS: Record<string, string> = {
       WHERE table_schema = 'public' AND table_name = 'newsletter_subscribers'
     ) AS ok
   `,
+  "0009_user_home_location": `
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'home_latitude'
+    ) AS ok
+  `,
+  "0010_remove_duplicate_products": `
+    SELECT NOT EXISTS (
+      SELECT 1
+      FROM "direct_order_products" dop
+      JOIN "products" p ON dop."product_id" = p."id"
+      WHERE dop."direct_order_code" = 'DO_PK_A01_B1_P3'
+        AND COALESCE(p."is_deleted", false) = false
+    ) AS ok
+  `,
+  "0011_bundle_to_order_step": `
+    SELECT EXISTS (
+      SELECT 1 FROM "tracking_steps"
+      WHERE "code" = 'bundle_to_order'
+    ) AS ok
+  `,
 };
 
 type ExistsRow = { ok: boolean };

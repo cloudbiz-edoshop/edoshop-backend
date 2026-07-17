@@ -25,6 +25,8 @@ import {
   trackingBundleDetailSchema,
   trackingBundleSchema,
   trackedOrderRowSchema,
+  trackedOrderDetailSchema,
+  updateTrackedOrderStepRequestSchema,
   trackingStepSchema,
   updateBundleStepRequestSchema,
   updateTrackingBundleRequestSchema,
@@ -107,6 +109,69 @@ export const listTrackedOrders = createRoute({
     ...commonErrorResponses(
       [HttpStatusCodes.UNAUTHORIZED, HttpStatusCodes.FORBIDDEN],
       commonQueryParamsSchema,
+    ),
+  },
+});
+
+export const getTrackedOrder = createRoute({
+  path: "/tracking-bundles/tracked-orders/{orderId}",
+  method: "get",
+  tags,
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.ORDERS, operation: OperationType.READ },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    params: z.object({
+      orderId: z.coerce.number().openapi({
+        param: { name: "orderId", in: "path", required: true },
+      }),
+    }),
+  },
+  summary: "Get tracked dropshipping order detail",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(trackedOrderDetailSchema),
+      "Tracked order detail",
+    ),
+    ...commonErrorResponses(
+      [HttpStatusCodes.UNAUTHORIZED, HttpStatusCodes.FORBIDDEN, HttpStatusCodes.NOT_FOUND],
+      z.object({ orderId: z.coerce.number() }),
+    ),
+  },
+});
+
+export const updateTrackedOrderStep = createRoute({
+  path: "/tracking-bundles/tracked-orders/{orderId}/step",
+  method: "post",
+  tags,
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.ORDERS, operation: OperationType.UPDATE },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    params: z.object({
+      orderId: z.coerce.number().openapi({
+        param: { name: "orderId", in: "path", required: true },
+      }),
+    }),
+    body: jsonContentRequired(updateTrackedOrderStepRequestSchema, "Update tracked order step"),
+  },
+  summary: "Update dropshipping order-leg tracking step",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(trackedOrderDetailSchema),
+      "Tracked order updated",
+    ),
+    ...commonErrorResponses(
+      [HttpStatusCodes.UNAUTHORIZED, HttpStatusCodes.FORBIDDEN, HttpStatusCodes.NOT_FOUND, HttpStatusCodes.BAD_REQUEST],
+      z.object({ orderId: z.coerce.number() }),
     ),
   },
 });
@@ -368,6 +433,8 @@ export const createKiloBill = createRoute({
 export type ListStepsRoute = typeof listSteps;
 export type ListRoute = typeof list;
 export type ListTrackedOrdersRoute = typeof listTrackedOrders;
+export type GetTrackedOrderRoute = typeof getTrackedOrder;
+export type UpdateTrackedOrderStepRoute = typeof updateTrackedOrderStep;
 export type CreateRoute = typeof create;
 export type GetOneRoute = typeof getOne;
 export type PatchRoute = typeof patch;

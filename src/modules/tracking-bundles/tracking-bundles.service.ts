@@ -7,6 +7,7 @@ import type {
 } from "./tracking-bundles.schema";
 
 import { NotificationTypeIds } from "@/constants/notification-types.constants";
+import { BUNDLE_TO_ORDER_STEP_CODE } from "@/constants/bundle-tracking.constants";
 import { notificationDeliveryService } from "../notifications/notification-delivery.service";
 import { TrackingBundlesRepository } from "./tracking-bundles.repository";
 
@@ -45,6 +46,19 @@ export class TrackingBundlesService {
     return this.repository.listTrackedOrders(params);
   }
 
+  getTrackedOrder(orderId: number) {
+    return this.repository.getTrackedOrderDetail(orderId);
+  }
+
+  updateTrackedOrderStep(
+    orderId: number,
+    stepOrder: number,
+    userId: number,
+    notes?: string,
+  ) {
+    return this.repository.updateTrackedOrderStep(orderId, stepOrder, userId, notes);
+  }
+
   async getOne(id: number) {
     const bundle = await this.repository.findById(id);
     if (!bundle) return null;
@@ -68,6 +82,7 @@ export class TrackingBundlesService {
         id: entry.id,
         stepId: entry.stepId,
         stepOrder: entry.step?.stepOrder ?? 0,
+        stepCode: entry.step?.code ?? "",
         stepLabel: entry.step?.label ?? "",
         notes: entry.notes,
         attachmentUrl: entry.attachmentUrl,
@@ -120,7 +135,7 @@ export class TrackingBundlesService {
 
   async updateStep(bundleId: number, payload: UpdateBundleStepRequest, userId: number) {
     const bundle = await this.repository.updateStep(bundleId, payload, userId);
-    if (bundle?.currentStep?.code === "order_at_the_store") {
+    if (bundle?.currentStep?.code === BUNDLE_TO_ORDER_STEP_CODE) {
       await this.notifyOrderAtStore(bundle.id, bundle.bundleCode);
     }
     return this.getOne(bundle.id);
@@ -195,6 +210,8 @@ export class TrackingBundlesService {
       status: bundle.status,
       currentStepId: bundle.currentStepId,
       currentStepLabel: bundle.currentStepLabel ?? bundle.currentStep?.label,
+      currentStepOrder: bundle.currentStepOrder ?? bundle.currentStep?.stepOrder ?? null,
+      currentStepCode: bundle.currentStepCode ?? bundle.currentStep?.code ?? null,
       orderCount: bundle.orderCount ?? 0,
       createdAt: bundle.createdAt,
       updatedAt: bundle.updatedAt,

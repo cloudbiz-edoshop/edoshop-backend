@@ -278,10 +278,22 @@ export class UsersService {
       }
     }
 
+    const normalizeCoordinateField = (value?: string | number | null) => {
+      if (value === null || value === undefined || value === "") return null;
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? String(parsed) : null;
+    };
+
     const updatedUser = await db.transaction(async (tx) => {
       return await this.userRepository.updateUser(tx, userId, {
         ...userData,
         email: userData.email || undefined,
+        ...(userData.homeLatitude !== undefined
+          ? { homeLatitude: normalizeCoordinateField(userData.homeLatitude) }
+          : {}),
+        ...(userData.homeLongitude !== undefined
+          ? { homeLongitude: normalizeCoordinateField(userData.homeLongitude) }
+          : {}),
         updatedBy: userId,
       } as any);
     });

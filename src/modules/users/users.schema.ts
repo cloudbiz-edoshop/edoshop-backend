@@ -167,6 +167,8 @@ export const updateCurrentUserRequestSchema = z
     email: emailSchema.optional().or(z.literal("")),
     phoneNumber: phoneSchema.optional(),
     profilePhotoUrl: z.string().trim().optional().or(z.literal("")),
+    homeLatitude: z.union([z.number(), z.string()]).optional().nullable(),
+    homeLongitude: z.union([z.number(), z.string()]).optional().nullable(),
   })
   .partial();
 

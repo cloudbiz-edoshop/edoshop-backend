@@ -64,6 +64,20 @@
       "when": 1778454700206,
       "tag": "0008_newsletter_subscribers",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1778454700207,
+      "tag": "0009_user_home_location",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1778454700209,
+      "tag": "0011_bundle_to_order_step",
+      "breakpoints": true
     }
   ]
 }

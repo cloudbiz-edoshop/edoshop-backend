@@ -36,6 +36,8 @@ export const users = pgTable("users", {
   profilePhotoUrl: varchar({
     length: constraintAndMessages.PROFILE_PHOTO_URL.MAX_LENGTH,
   }),
+  homeLatitude: varchar({ length: 32 }),
+  homeLongitude: varchar({ length: 32 }),
   isActive: boolean().notNull().default(true),
   isEmailVerified: boolean().notNull().default(false),
   isPhoneNumberVerified: boolean().notNull().default(false),

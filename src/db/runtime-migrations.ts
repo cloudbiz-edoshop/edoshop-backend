@@ -217,10 +217,11 @@ export async function ensureRuntimeMigrations() {
         (4, 'order_shipped_by_agent', 'Order Shipped By Agent', 'manufacturer', 'Agent has shipped the bundle order.'),
         (5, 'orders_arrived_at_local_customs', 'Orders Arrived At Local Custom', 'manufacturer', 'Bundle has arrived at local customs.'),
         (6, 'order_at_the_store', 'Order At The Store', 'manufacturer', 'Bundle goods are now at the Edoshop store.'),
-        (7, 'payment_of_kilo', 'Payment Of Kilo', 'manufacturer', 'Kilo/shipping payment for the bundle has been received.'),
-        (8, 'packaging', 'Packaging', 'store', 'Bundle orders are being packaged for delivery.'),
-        (9, 'payment_for_deliveries', 'Payment For Deliveries', 'store', 'Delivery payment has been received.'),
-        (10, 'deliveries', 'Deliveries', 'store', 'Bundle orders are out for delivery or collected.')
+        (7, 'bundle_to_order', 'Bundle to Order', 'manufacturer', 'Bundle is unpacked and customer orders are sent to order tracking.'),
+        (8, 'payment_of_kilo', 'Payment Of Kilo', 'manufacturer', 'Kilo/shipping payment for the bundle has been received.'),
+        (9, 'packaging', 'Packaging', 'store', 'Bundle orders are being packaged for delivery.'),
+        (10, 'payment_for_deliveries', 'Payment For Deliveries', 'store', 'Delivery payment has been received.'),
+        (11, 'deliveries', 'Deliveries', 'store', 'Bundle orders are out for delivery or collected.')
       ON CONFLICT ("code") DO NOTHING
     `),
   );

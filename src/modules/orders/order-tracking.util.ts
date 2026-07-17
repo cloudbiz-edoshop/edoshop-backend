@@ -679,3 +679,96 @@ export const buildBundleBasedTracking = (params: BundleTrackingInput) => {
     storeToCustomerSteps: storeSteps,
   };
 };
+
+export const DROPSHIPPING_ORDER_LEG_ADMIN_STEPS = [
+  {
+    stepOrder: 7,
+    label: "Payment Of Kilo",
+    description: "Customer pays kilo/shipping fees after items arrive at the store.",
+    statusIds: [OrderStatusTypeIds.PAYMENT_OF_KILO],
+    targetStatusId: OrderStatusTypeIds.PAYMENT_OF_KILO,
+  },
+  {
+    stepOrder: 8,
+    label: "Packaging",
+    description: "Store team is packaging the order for delivery or pickup.",
+    statusIds: [
+      OrderStatusTypeIds.PACKAGING,
+      OrderStatusTypeIds.READY_FOR_FULFILLMENT,
+      OrderStatusTypeIds.PROCESSING,
+    ],
+    targetStatusId: OrderStatusTypeIds.PACKAGING,
+  },
+  {
+    stepOrder: 9,
+    label: "Payment For Deliveries",
+    description: "Delivery payment is being processed.",
+    statusIds: [OrderStatusTypeIds.PAYMENT_FOR_DELIVERIES],
+    targetStatusId: OrderStatusTypeIds.PAYMENT_FOR_DELIVERIES,
+  },
+  {
+    stepOrder: 10,
+    label: "Deliveries",
+    description: "Order is out for delivery or has been delivered.",
+    statusIds: [OrderStatusTypeIds.SHIPPED, OrderStatusTypeIds.DELIVERED],
+    targetStatusId: OrderStatusTypeIds.SHIPPED,
+  },
+] as const;
+
+export const getDropshippingOrderLegStepDefinitions = () =>
+  DROPSHIPPING_ORDER_LEG_ADMIN_STEPS;
+
+export const resolveDropshippingOrderLegTrackingStage = (statusId: number) => {
+  if (isTerminalStatus(statusId)) return 0;
+  if (statusId === OrderStatusTypeIds.DELIVERED) return 10;
+
+  for (const step of DROPSHIPPING_ORDER_LEG_ADMIN_STEPS) {
+    if ((step.statusIds as readonly number[]).includes(statusId)) {
+      return step.stepOrder;
+    }
+  }
+
+  return 0;
+};
+
+export const resolveDropshippingOrderLegStepLabel = (
+  statusId: number,
+  statusLabel?: string,
+) => {
+  const stage = resolveDropshippingOrderLegTrackingStage(statusId);
+  if (stage >= 7) {
+    const step = DROPSHIPPING_ORDER_LEG_ADMIN_STEPS.find(
+      (entry) => entry.stepOrder === stage,
+    );
+    if (step) return `${step.stepOrder}. ${step.label}`;
+  }
+
+  return `Awaiting order leg · ${statusLabel ?? "pending"}`;
+};
+
+export const getDropshippingOrderLegTargetStatusId = (stepOrder: number) => {
+  const step = DROPSHIPPING_ORDER_LEG_ADMIN_STEPS.find(
+    (entry) => entry.stepOrder === stepOrder,
+  );
+
+  return step?.targetStatusId ?? null;
+};
+
+export const buildDropshippingOrderLegAdminTrackingSteps = (params: {
+  statusId: number;
+  createdAt: string;
+  updatedAt?: string | null;
+}): CustomerTrackingStep[] => {
+  const currentStage = resolveDropshippingOrderLegTrackingStage(params.statusId);
+  const placedDate = formatTrackingDate(params.createdAt);
+  const eventDate = formatTrackingDate(params.updatedAt || params.createdAt);
+
+  return DROPSHIPPING_ORDER_LEG_ADMIN_STEPS.map((step) => ({
+    id: step.stepOrder,
+    label: `${step.stepOrder}. ${step.label}`,
+    details: step.description,
+    date: currentStage >= step.stepOrder ? eventDate ?? placedDate : null,
+    completed: currentStage > step.stepOrder,
+    active: currentStage === step.stepOrder,
+  }));
+};

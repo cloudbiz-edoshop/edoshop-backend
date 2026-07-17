@@ -39,7 +39,7 @@ export const ORDER_ITEMS = [
   },
   {
     orderId: 7,
-    productId: 7,
+    productId: 6,
     variantId: 6,
     quantity: 1,
     quantityPacked: 1, // Fully packed in package 3
@@ -59,7 +59,7 @@ export const ORDER_ITEMS = [
   },
   {
     orderId: 8,
-    productId: 8,
+    productId: 5,
     variantId: 7,
     quantity: 1,
     quantityPacked: 1, // Fully packed in package 4
@@ -118,7 +118,7 @@ export const ORDER_ITEMS = [
   },
   {
     orderId: 10,
-    productId: 7,
+    productId: 6,
     variantId: 6,
     quantity: 1,
     quantityPacked: 0, // Not packed yet
