@@ -7,14 +7,12 @@ import {
   MOBILE_TRANSFER_PAYMENT_METHODS,
 } from "@/constants/payment-methods.constants";
 import {
-  computeDirectOrderShippingFee,
-  DIRECT_ORDER_DELIVERY_FEE_XAF,
-  DIRECT_ORDER_DELIVERY_OPTIONS,
   DIRECT_ORDER_PICKUP_FEE_XAF,
 } from "@/constants/fulfillment.constants";
 import { NotFoundError, ValidationError } from "@/core/errors";
 import campayConfig from "@/config/campay.config";
 import { campayService, normalizeCameroonPhone } from "@/modules/campay/campay.service";
+import { deliveryPlansService } from "@/modules/delivery-plans/delivery-plans.service";
 
 import { db } from "@/db";
 import { OrdersRepository } from "./orders.repository";
@@ -210,12 +208,17 @@ export class OrdersService {
   }
 
   async getFulfillmentOptions() {
-    const locations = await this.ordersRepository.getPickupLocations();
+    const [locations, deliveryOptions, deliveryFee] = await Promise.all([
+      this.ordersRepository.getPickupLocations(),
+      deliveryPlansService.getActiveDeliveryOptions(),
+      deliveryPlansService.getDefaultDeliveryFee(),
+    ]);
+
     return {
-      deliveryFee: DIRECT_ORDER_DELIVERY_FEE_XAF,
+      deliveryFee,
       pickupFee: DIRECT_ORDER_PICKUP_FEE_XAF,
       currency: "XAF",
-      deliveryOptions: DIRECT_ORDER_DELIVERY_OPTIONS.map((option) => ({ ...option })),
+      deliveryOptions,
       pickupLocations: locations,
     };
   }

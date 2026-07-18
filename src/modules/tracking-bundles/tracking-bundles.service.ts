@@ -93,7 +93,11 @@ export class TrackingBundlesService {
         attachmentUrl: entry.attachmentUrl,
         createdAt: entry.createdAt,
         updatedByName: entry.createdByUser?.fullName ?? null,
-      })).sort((left, right) => left.stepOrder - right.stepOrder),
+      })).sort((left, right) => {
+        const stepDiff = left.stepOrder - right.stepOrder;
+        if (stepDiff !== 0) return stepDiff;
+        return new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime();
+      }),
     };
   }
 

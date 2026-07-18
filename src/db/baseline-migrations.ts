@@ -86,6 +86,12 @@ const MIGRATION_CHECKS: Record<string, string> = {
       WHERE "code" = 'bundle_to_order'
     ) AS ok
   `,
+  "0013_delivery_plans": `
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_name = 'delivery_plans'
+    ) AS ok
+  `,
 };
 
 type ExistsRow = { ok: boolean };

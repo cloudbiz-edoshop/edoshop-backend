@@ -67,7 +67,7 @@ export class TrackingBundlesRepository {
             step: true,
             createdByUser: true,
           },
-          orderBy: [desc(trackingBundleHistory.createdAt)],
+          orderBy: [asc(trackingBundleHistory.createdAt)],
         },
       },
     });
@@ -92,7 +92,7 @@ export class TrackingBundlesRepository {
             step: true,
             createdByUser: true,
           },
-          orderBy: [desc(trackingBundleHistory.createdAt)],
+          orderBy: [asc(trackingBundleHistory.createdAt)],
         },
       },
     });
@@ -1221,7 +1221,7 @@ export class TrackingBundlesRepository {
             step: true,
             createdByUser: true,
           },
-          orderBy: [desc(trackingBundleHistory.createdAt)],
+          orderBy: [asc(trackingBundleHistory.createdAt)],
         },
       },
     });

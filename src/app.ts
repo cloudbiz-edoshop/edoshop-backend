@@ -9,6 +9,7 @@ import banners from "@/modules/banners/banners.index";
 import categories from "@/modules/categories/categories.index";
 import colors from "@/modules/colors/colors.index";
 import customers from "@/modules/customers/customers.index";
+import deliveryPlans from "@/modules/delivery-plans/delivery-plans.index";
 import discounts from "@/modules/discounts/discounts.index";
 import employees from "@/modules/employees/employees.index";
 import entities from "@/modules/entities/entities.index";
@@ -108,6 +109,7 @@ const routes = [
   products,
   variants,
   reviews,
+  deliveryPlans,
   discounts,
   newArrivals,
   ongoingGroups,

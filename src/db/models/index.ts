@@ -31,6 +31,10 @@ export {
   discountTypesRelations,
 } from "./discount-types";
 export { default as discounts, discountsRelations } from "./discounts";
+export {
+  default as deliveryPlans,
+  deliveryPlansRelations,
+} from "./delivery-plans";
 export { default as drivers, driversRelations } from "./drivers";
 export {
   default as dropshippingProducts,

@@ -66,6 +66,7 @@ export const allTables: Table[] = [
   schema.reviewStatuses,
   schema.discounts,
   schema.discountTypes,
+  schema.deliveryPlans,
   schema.groupApprovalStatuses,
   schema.groupCriteriaTypes,
   schema.ongoingGroups,

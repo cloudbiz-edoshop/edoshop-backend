@@ -37,6 +37,7 @@ export enum EntityType {
   REVIEWS = "reviews",
   PROMOTIONS = "promotions",
   SHIPPING_LABELS = "shipping_labels",
+  DELIVERY_PLANS = "delivery_plans",
   TAGS = "tags",
   ORDERS = "orders",
 }
@@ -79,6 +80,7 @@ export const ENTITY_DESCRIPTIONS: Record<EntityType, string> = {
   [EntityType.REVIEWS]: "Reviews",
   [EntityType.PROMOTIONS]: "Promotions",
   [EntityType.SHIPPING_LABELS]: "Shipping Labels",
+  [EntityType.DELIVERY_PLANS]: "Delivery Plans",
   [EntityType.TAGS]: "Tags",
   [EntityType.ORDERS]: "Orders",
 };

@@ -44,9 +44,9 @@ import {
   resolveDirectOrderTrackingStepLabel,
 } from "./order-tracking.util";
 import {
-  computeDirectOrderShippingFee,
   FulfillmentMethod,
 } from "@/constants/fulfillment.constants";
+import { deliveryPlansService } from "@/modules/delivery-plans/delivery-plans.service";
 import {
   createFilterConditions,
   createSortCondition,
@@ -743,9 +743,11 @@ export class OrdersRepository {
       fulfillmentMethod === FulfillmentMethod.DELIVERY
         ? params.shippingPriorityCodeId ?? 1
         : null;
-    const shippingAmount = computeDirectOrderShippingFee(
-      fulfillmentMethod,
-      shippingPriorityCodeId,
+    const shippingAmount = (
+      await deliveryPlansService.getShippingFee(
+        fulfillmentMethod,
+        shippingPriorityCodeId,
+      )
     ).toFixed(2);
     const totalAmount = (
       Number(subtotal) + Number(shippingAmount)
@@ -1321,7 +1323,9 @@ export class OrdersRepository {
       throw new Error("Order has no payment method for delivery fee payment");
     }
 
-    const deliveryFee = computeDirectOrderShippingFee(FulfillmentMethod.DELIVERY);
+    const deliveryFee = await deliveryPlansService.getShippingFee(
+      FulfillmentMethod.DELIVERY,
+    );
     const currentShipping = Number(order.shippingAmount ?? 0);
     const additionalDeliveryFee = Math.max(deliveryFee - currentShipping, 0);
     if (additionalDeliveryFee <= 0) {
