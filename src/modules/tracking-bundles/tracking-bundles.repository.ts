@@ -131,7 +131,7 @@ export class TrackingBundlesRepository {
     filters?: Record<string, unknown>;
   }) {
     const { search, page, limit, sortBy, sortOrder, filters } = params;
-    const searchableFields = ["bundleCode", "supplierName", "storeType", "status"];
+    const searchableFields = ["bundleCode", "orderCode", "supplierName", "storeType", "status"];
     const parsedFilters = filters ?? {};
     const storeTypeFilter = String(parsedFilters.storeType || "");
 
@@ -140,6 +140,16 @@ export class TrackingBundlesRepository {
           ilike(sourceBundles.bundleCode, `%${search}%`),
           ilike(suppliers.storeName, `%${search}%`),
           ilike(suppliers.supplierCode, `%${search}%`),
+          sql`exists (
+            select 1
+            from ${orderItems}
+            inner join ${orders} on ${orders.id} = ${orderItems.orderId}
+            inner join ${variants} on ${variants.id} = ${orderItems.variantId}
+            inner join ${inventoryItems} on ${inventoryItems.id} = ${variants.itemId}
+            inner join ${series} on ${series.id} = ${inventoryItems.seriesId}
+            where ${series.bundleId} = ${sourceBundles.id}
+              and ${orders.orderCode} ilike ${`%${search}%`}
+          )`,
         )
       : undefined;
 
@@ -223,6 +233,54 @@ export class TrackingBundlesRepository {
       orderCounts.map((row) => [row.sourceBundleId, Number(row.total)]),
     );
 
+    const linkedOrderRows = sourceBundleIds.length
+      ? await db
+          .select({
+            sourceBundleId: series.bundleId,
+            orderCode: orders.orderCode,
+          })
+          .from(orderItems)
+          .innerJoin(orders, eq(orderItems.orderId, orders.id))
+          .innerJoin(variants, eq(orderItems.variantId, variants.id))
+          .innerJoin(inventoryItems, eq(variants.itemId, inventoryItems.id))
+          .innerJoin(series, eq(inventoryItems.seriesId, series.id))
+          .where(inArray(series.bundleId, sourceBundleIds))
+      : [];
+
+    const trackingBundleIds = data
+      .map((bundle) => bundle.trackingBundleId)
+      .filter((id): id is number => Boolean(id));
+
+    const assignedOrderRows = trackingBundleIds.length
+      ? await db
+          .select({
+            trackingBundleId: trackingBundleItems.bundleId,
+            sourceBundleId: trackingBundles.sourceBundleId,
+            orderCode: orders.orderCode,
+          })
+          .from(trackingBundleItems)
+          .innerJoin(trackingBundles, eq(trackingBundleItems.bundleId, trackingBundles.id))
+          .innerJoin(orders, eq(trackingBundleItems.orderId, orders.id))
+          .where(inArray(trackingBundleItems.bundleId, trackingBundleIds))
+      : [];
+
+    const orderCodesByBundleId = new Map<number, string[]>();
+    for (const row of linkedOrderRows) {
+      const existing = orderCodesByBundleId.get(row.sourceBundleId) ?? [];
+      if (!existing.includes(row.orderCode)) {
+        existing.push(row.orderCode);
+      }
+      orderCodesByBundleId.set(row.sourceBundleId, existing);
+    }
+    for (const row of assignedOrderRows) {
+      if (!row.sourceBundleId) continue;
+      const existing = orderCodesByBundleId.get(row.sourceBundleId) ?? [];
+      if (!existing.includes(row.orderCode)) {
+        existing.push(row.orderCode);
+      }
+      orderCodesByBundleId.set(row.sourceBundleId, existing);
+    }
+
     return {
       data: data.map((bundle) => ({
         id: bundle.sourceBundleId,
@@ -230,6 +288,7 @@ export class TrackingBundlesRepository {
         trackingBundleId: bundle.trackingBundleId,
         sourceBundleId: bundle.sourceBundleId,
         bundleCode: bundle.bundleCode,
+        orderCodes: orderCodesByBundleId.get(bundle.sourceBundleId) ?? [],
         name: bundle.name ?? bundle.bundleCode,
         description: bundle.description,
         supplierId: bundle.supplierId,
@@ -459,7 +518,27 @@ export class TrackingBundlesRepository {
     return this.findById(bundle.id);
   }
 
-  async syncBundleOrdersToTrackingItems(bundleId: number, userId: number) {
+  async backfillTrackingBundleItems() {
+    await db.execute(sql`
+      INSERT INTO tracking_bundle_items (bundle_id, order_id, created_at)
+      SELECT DISTINCT
+        tb.id,
+        o.id,
+        NOW()
+      FROM tracking_bundles tb
+      INNER JOIN tracking_steps ts ON ts.id = tb.current_step_id
+      INNER JOIN bundles sb ON sb.id = tb.source_bundle_id
+      INNER JOIN series s ON s.bundle_id = sb.id
+      INNER JOIN items i ON i.series_id = s.id
+      INNER JOIN variants v ON v.item_id = i.id
+      INNER JOIN order_items oi ON oi.variant_id = v.id
+      INNER JOIN orders o ON o.id = oi.order_id
+      WHERE ts.step_order >= ${BUNDLE_ORDERS_VISIBLE_FROM_STEP_ORDER}
+      ON CONFLICT DO NOTHING
+    `);
+  }
+
+  async syncBundleOrdersToTrackingItems(bundleId: number, userId: number | null) {
     const bundle = await this.findById(bundleId);
     const sourceBundleId = bundle?.sourceBundleId ?? bundle?.sourceBundle?.id ?? null;
     if (!sourceBundleId) return;
@@ -553,24 +632,50 @@ export class TrackingBundlesRepository {
     sortOrder?: "asc" | "desc";
     filters?: Record<string, unknown>;
   }) {
+    await this.backfillTrackingBundleItems();
+
     const { search, page, limit, sortBy, sortOrder, filters } = params;
     const storeTypeFilter = String(filters?.storeType || "dropshipping");
+    const minStepRaw = filters?.minBundleStepOrder;
+    const minStep = minStepRaw !== undefined && minStepRaw !== null && minStepRaw !== ""
+      ? Number(minStepRaw)
+      : BUNDLE_ORDERS_VISIBLE_FROM_STEP_ORDER;
     const searchableFields = ["orderCode", "bundleCode", "customerCode", "customerName"];
     const { limit: pageLimit, offset } = getPaginationValues(page, limit);
 
     const searchCondition = search
       ? or(
           ilike(orders.orderCode, `%${search}%`),
-          ilike(sourceBundles.bundleCode, `%${search}%`),
           ilike(customers.customerCode, `%${search}%`),
           ilike(users.fullName, `%${search}%`),
+          sql`exists (
+            select 1
+            from ${trackingBundleItems} tbi
+            inner join ${trackingBundles} tb on tb.id = tbi.bundle_id
+            inner join ${sourceBundles} sb on sb.id = tb.source_bundle_id
+            inner join ${trackingSteps} ts on ts.id = tb.current_step_id
+            where tbi.order_id = ${orders.id}
+              and sb.bundle_code ilike ${`%${search}%`}
+              and ts.step_order >= ${minStep}
+          )`,
         )
       : undefined;
 
-    const whereConditions = [
-      sql`COALESCE(${trackingBundles.storeType}, 'dropshipping') = ${storeTypeFilter}`,
-      gte(trackingSteps.stepOrder, BUNDLE_ORDERS_VISIBLE_FROM_STEP_ORDER),
-    ];
+    const stepFilterSql = !Number.isNaN(minStep)
+      ? sql`and ts.step_order >= ${minStep}`
+      : sql``;
+
+    const sentToOrderTracking = sql`exists (
+      select 1
+      from ${trackingBundleItems} tbi
+      inner join ${trackingBundles} tb on tb.id = tbi.bundle_id
+      inner join ${trackingSteps} ts on ts.id = tb.current_step_id
+      where tbi.order_id = ${orders.id}
+        and COALESCE(tb.store_type, 'dropshipping') = ${storeTypeFilter}
+        ${stepFilterSql}
+    )`;
+
+    const whereConditions = [sentToOrderTracking];
     if (searchCondition) {
       whereConditions.push(searchCondition);
     }
@@ -581,6 +686,47 @@ export class TrackingBundlesRepository {
         ? sortOrder === "asc" ? asc(orders.orderCode) : desc(orders.orderCode)
         : sortOrder === "asc" ? asc(orders.createdAt) : desc(orders.createdAt);
 
+    const bundleCodeSql = sql<string>`(
+      select sb.bundle_code
+      from ${trackingBundleItems} tbi
+      inner join ${trackingBundles} tb on tb.id = tbi.bundle_id
+      inner join ${sourceBundles} sb on sb.id = tb.source_bundle_id
+      inner join ${trackingSteps} ts on ts.id = tb.current_step_id
+      where tbi.order_id = ${orders.id}
+        and ts.step_order >= ${minStep}
+      limit 1
+    )`;
+
+    const sourceBundleIdSql = sql<number>`(
+      select tb.source_bundle_id
+      from ${trackingBundleItems} tbi
+      inner join ${trackingBundles} tb on tb.id = tbi.bundle_id
+      inner join ${trackingSteps} ts on ts.id = tb.current_step_id
+      where tbi.order_id = ${orders.id}
+        and ts.step_order >= ${minStep}
+      limit 1
+    )`;
+
+    const trackingBundleIdSql = sql<number>`(
+      select tb.id
+      from ${trackingBundleItems} tbi
+      inner join ${trackingBundles} tb on tb.id = tbi.bundle_id
+      inner join ${trackingSteps} ts on ts.id = tb.current_step_id
+      where tbi.order_id = ${orders.id}
+        and ts.step_order >= ${minStep}
+      limit 1
+    )`;
+
+    const bundleStepLabelSql = sql<string>`COALESCE((
+      select ts.label
+      from ${trackingBundleItems} tbi
+      inner join ${trackingBundles} tb on tb.id = tbi.bundle_id
+      inner join ${trackingSteps} ts on ts.id = tb.current_step_id
+      where tbi.order_id = ${orders.id}
+        and ts.step_order >= ${minStep}
+      limit 1
+    ), 'Bundle to Order')`;
+
     const rows = await db
       .select({
         orderId: orders.id,
@@ -588,26 +734,20 @@ export class TrackingBundlesRepository {
         customerId: orders.customerId,
         customerCode: customers.customerCode,
         customerName: users.fullName,
-        bundleCode: sourceBundles.bundleCode,
-        sourceBundleId: sourceBundles.id,
-        trackingBundleId: trackingBundles.id,
-        bundleStepLabel: trackingSteps.label,
+        bundleCode: bundleCodeSql,
+        sourceBundleId: sourceBundleIdSql,
+        trackingBundleId: trackingBundleIdSql,
+        bundleStepLabel: bundleStepLabelSql,
         orderStatusId: orders.statusId,
         orderStatusLabel: orderStatuses.name,
         itemCount: sql<number>`count(distinct ${orderItems.id})::int`,
         createdAt: orders.createdAt,
       })
-      .from(orderItems)
-      .innerJoin(orders, eq(orderItems.orderId, orders.id))
+      .from(orders)
       .innerJoin(customers, eq(orders.customerId, customers.id))
       .innerJoin(users, eq(customers.userId, users.id))
       .innerJoin(orderStatuses, eq(orders.statusId, orderStatuses.id))
-      .innerJoin(variants, eq(orderItems.variantId, variants.id))
-      .innerJoin(inventoryItems, eq(variants.itemId, inventoryItems.id))
-      .innerJoin(series, eq(inventoryItems.seriesId, series.id))
-      .innerJoin(sourceBundles, eq(series.bundleId, sourceBundles.id))
-      .innerJoin(trackingBundles, eq(trackingBundles.sourceBundleId, sourceBundles.id))
-      .innerJoin(trackingSteps, eq(trackingBundles.currentStepId, trackingSteps.id))
+      .leftJoin(orderItems, eq(orderItems.orderId, orders.id))
       .where(whereClause)
       .groupBy(
         orders.id,
@@ -615,10 +755,6 @@ export class TrackingBundlesRepository {
         orders.customerId,
         customers.customerCode,
         users.fullName,
-        sourceBundles.bundleCode,
-        sourceBundles.id,
-        trackingBundles.id,
-        trackingSteps.label,
         orders.statusId,
         orderStatuses.name,
         orders.createdAt,
@@ -629,16 +765,9 @@ export class TrackingBundlesRepository {
 
     const [{ total }] = await db
       .select({ total: sql<number>`count(distinct ${orders.id})::int` })
-      .from(orderItems)
-      .innerJoin(orders, eq(orderItems.orderId, orders.id))
+      .from(orders)
       .innerJoin(customers, eq(orders.customerId, customers.id))
       .innerJoin(users, eq(customers.userId, users.id))
-      .innerJoin(variants, eq(orderItems.variantId, variants.id))
-      .innerJoin(inventoryItems, eq(variants.itemId, inventoryItems.id))
-      .innerJoin(series, eq(inventoryItems.seriesId, series.id))
-      .innerJoin(sourceBundles, eq(series.bundleId, sourceBundles.id))
-      .innerJoin(trackingBundles, eq(trackingBundles.sourceBundleId, sourceBundles.id))
-      .innerJoin(trackingSteps, eq(trackingBundles.currentStepId, trackingSteps.id))
       .where(whereClause);
 
     return {
@@ -659,7 +788,7 @@ export class TrackingBundlesRepository {
   }
 
   async getTrackedOrderDetail(orderId: number) {
-    const [row] = await db
+    const [assignedRow] = await db
       .select({
         orderId: orders.id,
         orderCode: orders.orderCode,
@@ -677,17 +806,15 @@ export class TrackingBundlesRepository {
         updatedAt: orders.updatedAt,
         orderTypeId: orders.orderTypeId,
       })
-      .from(orderItems)
-      .innerJoin(orders, eq(orderItems.orderId, orders.id))
+      .from(trackingBundleItems)
+      .innerJoin(trackingBundles, eq(trackingBundleItems.bundleId, trackingBundles.id))
+      .innerJoin(trackingSteps, eq(trackingBundles.currentStepId, trackingSteps.id))
+      .innerJoin(orders, eq(trackingBundleItems.orderId, orders.id))
       .innerJoin(customers, eq(orders.customerId, customers.id))
       .innerJoin(users, eq(customers.userId, users.id))
       .innerJoin(orderStatuses, eq(orders.statusId, orderStatuses.id))
-      .innerJoin(variants, eq(orderItems.variantId, variants.id))
-      .innerJoin(inventoryItems, eq(variants.itemId, inventoryItems.id))
-      .innerJoin(series, eq(inventoryItems.seriesId, series.id))
-      .innerJoin(sourceBundles, eq(series.bundleId, sourceBundles.id))
-      .leftJoin(trackingBundles, eq(trackingBundles.sourceBundleId, sourceBundles.id))
-      .leftJoin(trackingSteps, eq(trackingBundles.currentStepId, trackingSteps.id))
+      .leftJoin(sourceBundles, eq(trackingBundles.sourceBundleId, sourceBundles.id))
+      .leftJoin(orderItems, eq(orderItems.orderId, orders.id))
       .where(eq(orders.id, orderId))
       .groupBy(
         orders.id,
@@ -706,6 +833,59 @@ export class TrackingBundlesRepository {
         orders.orderTypeId,
       )
       .limit(1);
+
+    let inventoryRow: typeof assignedRow | undefined;
+    if (!assignedRow) {
+      [inventoryRow] = await db
+          .select({
+            orderId: orders.id,
+            orderCode: orders.orderCode,
+            customerId: orders.customerId,
+            customerCode: customers.customerCode,
+            customerName: users.fullName,
+            bundleCode: sourceBundles.bundleCode,
+            sourceBundleId: sourceBundles.id,
+            trackingBundleId: trackingBundles.id,
+            bundleStepLabel: trackingSteps.label,
+            orderStatusId: orders.statusId,
+            orderStatusLabel: orderStatuses.name,
+            itemCount: sql<number>`count(distinct ${orderItems.id})::int`,
+            createdAt: orders.createdAt,
+            updatedAt: orders.updatedAt,
+            orderTypeId: orders.orderTypeId,
+          })
+          .from(orderItems)
+          .innerJoin(orders, eq(orderItems.orderId, orders.id))
+          .innerJoin(customers, eq(orders.customerId, customers.id))
+          .innerJoin(users, eq(customers.userId, users.id))
+          .innerJoin(orderStatuses, eq(orders.statusId, orderStatuses.id))
+          .innerJoin(variants, eq(orderItems.variantId, variants.id))
+          .innerJoin(inventoryItems, eq(variants.itemId, inventoryItems.id))
+          .innerJoin(series, eq(inventoryItems.seriesId, series.id))
+          .innerJoin(sourceBundles, eq(series.bundleId, sourceBundles.id))
+          .leftJoin(trackingBundles, eq(trackingBundles.sourceBundleId, sourceBundles.id))
+          .leftJoin(trackingSteps, eq(trackingBundles.currentStepId, trackingSteps.id))
+          .where(eq(orders.id, orderId))
+          .groupBy(
+            orders.id,
+            orders.orderCode,
+            orders.customerId,
+            customers.customerCode,
+            users.fullName,
+            sourceBundles.bundleCode,
+            sourceBundles.id,
+            trackingBundles.id,
+            trackingSteps.label,
+            orders.statusId,
+            orderStatuses.name,
+            orders.createdAt,
+            orders.updatedAt,
+            orders.orderTypeId,
+          )
+          .limit(1);
+    }
+
+    const row = assignedRow ?? inventoryRow;
 
     if (!row) {
       return null;
@@ -807,7 +987,30 @@ export class TrackingBundlesRepository {
       return [];
     }
 
-    const bundleOrderItems = await db
+    const assignedOrders = await db
+      .select({
+        id: orderItems.id,
+        orderItemId: orderItems.id,
+        orderId: orders.id,
+        orderCode: orders.orderCode,
+        customerId: orders.customerId,
+        customerName: users.fullName,
+        productName: orderItems.productName,
+        variantCode: orderItems.variantCode,
+        quantity: orderItems.quantity,
+        totalAmount: orders.totalAmount,
+        status: orders.statusId,
+        createdAt: orders.createdAt,
+      })
+      .from(trackingBundleItems)
+      .innerJoin(orders, eq(trackingBundleItems.orderId, orders.id))
+      .innerJoin(customers, eq(orders.customerId, customers.id))
+      .innerJoin(users, eq(customers.userId, users.id))
+      .leftJoin(orderItems, eq(orderItems.orderId, orders.id))
+      .where(eq(trackingBundleItems.bundleId, bundle.id))
+      .orderBy(desc(orders.createdAt));
+
+    const inventoryOrders = await db
       .select({
         id: orderItems.id,
         orderItemId: orderItems.id,
@@ -832,7 +1035,15 @@ export class TrackingBundlesRepository {
       .where(eq(series.bundleId, sourceBundleId))
       .orderBy(desc(orders.createdAt));
 
-    return bundleOrderItems.map((item) => ({
+    const merged = new Map<string, typeof assignedOrders[number]>();
+    for (const item of [...assignedOrders, ...inventoryOrders]) {
+      const key = `${item.orderId}-${item.orderItemId ?? "none"}`;
+      if (!merged.has(key)) {
+        merged.set(key, item);
+      }
+    }
+
+    return [...merged.values()].map((item) => ({
       ...item,
       totalAmount: String(item.totalAmount),
       status: String(item.status ?? "pending"),

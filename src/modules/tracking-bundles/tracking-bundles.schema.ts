@@ -57,6 +57,7 @@ export const trackingBundleSchema = z.object({
   currentStepId: z.number(),
   currentStepLabel: z.string().optional(),
   orderCount: z.number().optional(),
+  orderCodes: z.array(z.string()).optional(),
   createdAt: z.string(),
   updatedAt: z.string().nullable().optional(),
 });
