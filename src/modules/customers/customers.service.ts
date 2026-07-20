@@ -163,15 +163,6 @@ export class CustomersService {
     if (existingPhoneNumber) {
       throw new ValidationError("Phone number is already taken");
     }
-    // generate customer code with country code and customer sequence
-    const customerSequence =
-      await this.customerRepository.getNextCustomerCode();
-
-    if (!customerSequence) {
-      throw new AppError("Failed to generate customer code");
-    }
-
-    // Get Country Code
     const countryCode = await this.addressService.getCountryCode(
       customerData.countryId,
     );
@@ -181,7 +172,8 @@ export class CustomersService {
       );
     }
 
-    const customerCode = `C${countryCode}-${customerSequence}`;
+    const customerCode =
+      await this.customerRepository.generateUniqueCustomerCode(countryCode);
 
     const customer = await db.transaction(async (tx) => {
       const user = await this.userRepository.createWithPhoneNumber(tx, {
@@ -264,13 +256,8 @@ export class CustomersService {
 
     const country = await this.findOrCreateCountryByIsoCode(customerData.countryCode);
 
-    const customerSequence =
-      await this.customerRepository.getNextCustomerCode();
-    if (!customerSequence) {
-      throw new AppError("Failed to generate customer code");
-    }
-
-    const customerCode = `C${country.isoCode}-${customerSequence}`;
+    const customerCode =
+      await this.customerRepository.generateUniqueCustomerCode(country.isoCode);
     const hashedPassword = await argon2.hash(customerData.password);
 
     const customer = await db.transaction(async (tx) => {

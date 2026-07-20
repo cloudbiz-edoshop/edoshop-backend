@@ -3,6 +3,8 @@ import type { NewCustomer } from "@/db/models/customers";
 import type { TX } from "@/lib/types";
 import { and, count, desc, eq, inArray, or, sql } from "drizzle-orm";
 
+import { constraintAndMessages } from "@/constants";
+
 import db from "@/db";
 import { customers, users } from "@/db/models";
 import {
@@ -17,21 +19,40 @@ import {
  */
 export class CustomersRepository {
   /**
-   * Get Next Customer Code
-   * @returns Next Customer code or null if error
+   * Get the next customer sequence (e.g. A01, C14) from existing rows.
    */
   async getNextCustomerCode() {
-    const result = await db
-      .execute(sql`SELECT next_customer_code()`)
-      .catch(() => {
-        return null;
-      });
+    return this.getNextCustomerCodeFromExistingRows();
+  }
 
-    if (!result || result.length === 0) {
-      return this.getNextCustomerCodeFromExistingRows();
+  /**
+   * Build a unique full customer code for a country (e.g. CCM-C15).
+   */
+  async generateUniqueCustomerCode(countryIsoCode: string) {
+    const normalizedCountryCode = countryIsoCode.trim().toUpperCase();
+    const prefix = `C${normalizedCountryCode}-`;
+    let sequence = await this.getNextCustomerCodeFromExistingRows();
+
+    for (let attempt = 0; attempt < 100; attempt++) {
+      const customerCode = `${prefix}${sequence}`;
+
+      if (
+        customerCode.length > constraintAndMessages.CUSTOMER_CODE.MAX_LENGTH
+      ) {
+        throw new Error(
+          `Customer code exceeds maximum length: ${customerCode}`,
+        );
+      }
+
+      const existing = await this.findByCustomerCode(customerCode);
+      if (!existing) {
+        return customerCode;
+      }
+
+      sequence = this.incrementCustomerSequence(sequence);
     }
 
-    return result[0].next_customer_code as string;
+    throw new Error("Unable to generate unique customer code");
   }
 
   private async getNextCustomerCodeFromExistingRows() {

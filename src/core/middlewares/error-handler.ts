@@ -18,6 +18,58 @@ import { errorResponse } from "@/lib/api-response";
 import * as HttpStatusCodes from "@/lib/http-status-codes";
 
 /**
+ * Extract nested Postgres error details from Drizzle/driver wrappers.
+ */
+function extractPostgresError(error: unknown): {
+  code?: string;
+  detail?: string;
+  constraint?: string;
+} | null {
+  let current: unknown = error;
+
+  for (let depth = 0; depth < 5; depth++) {
+    if (!current || typeof current !== "object") {
+      break;
+    }
+
+    const candidate = current as {
+      code?: string;
+      detail?: string;
+      constraint?: string;
+      cause?: unknown;
+    };
+
+    if (typeof candidate.code === "string") {
+      return {
+        code: candidate.code,
+        detail: candidate.detail,
+        constraint: candidate.constraint,
+      };
+    }
+
+    if ("cause" in candidate) {
+      current = candidate.cause;
+      continue;
+    }
+
+    break;
+  }
+
+  return null;
+}
+
+function sanitizePublicErrorMessage(message: string): string {
+  if (
+    message.startsWith("Failed query:") ||
+    /insert into|update .* set|delete from/i.test(message)
+  ) {
+    return "Something went wrong. Please try again.";
+  }
+
+  return message;
+}
+
+/**
  * Handles database constraint violation errors
  *
  * Detects common database constraint errors (like unique constraint violations)
@@ -29,6 +81,35 @@ import * as HttpStatusCodes from "@/lib/http-status-codes";
 function handleDbConstraintError(
   error: unknown,
 ): { message: string; statusCode: number } | null {
+  const postgresError = extractPostgresError(error);
+
+  if (postgresError?.code === "23505") {
+    const target = `${postgresError.constraint ?? ""} ${postgresError.detail ?? ""}`;
+
+    if (target.includes("customer_code")) {
+      return {
+        message: "Unable to complete registration. Please try again.",
+        statusCode: HttpStatusCodes.CONFLICT,
+      };
+    }
+
+    if (
+      target.includes("phone_number") ||
+      target.includes("email") ||
+      target.includes("username")
+    ) {
+      return {
+        message: "This information is already registered.",
+        statusCode: HttpStatusCodes.CONFLICT,
+      };
+    }
+
+    return {
+      message: "This record already exists.",
+      statusCode: HttpStatusCodes.CONFLICT,
+    };
+  }
+
   if (error && typeof error === "object" && "detail" in error) {
     const detail = error.detail as string;
     if (detail.includes("already exists") && detail.includes("Key")) {
@@ -95,7 +176,10 @@ function mapErrorToResponse(error: unknown): {
         ? (error.status as number)
         : HttpStatusCodes.INTERNAL_SERVER_ERROR;
 
-    return { message: error.message as string, statusCode };
+    return {
+      message: sanitizePublicErrorMessage(error.message as string),
+      statusCode,
+    };
   }
 
   // Get current status or default to internal server error
@@ -186,6 +270,19 @@ export const errorHandler = async (c: AppContext, next: Next) => {
  */
 export const onError: ErrorHandler = (err, c) => {
   const details = err instanceof Error ? err.stack : undefined;
+
+  const dbError = handleDbConstraintError(err);
+  if (dbError) {
+    return c.json(
+      errorResponse(
+        dbError.statusCode,
+        dbError.message,
+        appConfig.isDevelopment ? details : undefined,
+      ),
+      dbError.statusCode as ContentfulStatusCode,
+    );
+  }
+
   const { message, statusCode } = mapErrorToResponse(err);
 
   return c.json(
