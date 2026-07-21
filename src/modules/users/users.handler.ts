@@ -2,6 +2,7 @@ import type { AppRouteHandler } from "@/lib/types";
 
 import type {
   ForgotPasswordRoute,
+  GetCurrentUserAccessRoute,
   GetCurrentUserRoute,
   ListAllEmailsRoute,
   ListAllUserNamesRoute,
@@ -26,20 +27,26 @@ import { getConnInfo } from "@hono/node-server/conninfo";
 import { STANDARD_MESSAGES } from "@/constants";
 import { successResponse } from "@/lib/api-response";
 import * as HttpStatusCodes from "@/lib/http-status-codes";
+import { PermissionsService } from "@/modules/permissions/permissions.service";
 import { UsersService } from "@/modules/users/users.service";
 
 // Create service instances
 const usersService = new UsersService();
+const permissionsService = new PermissionsService();
 
 export const login: AppRouteHandler<LoginRoute> = async (c) => {
   const { email, phoneNumber, password } = c.req.valid("json");
 
   const result = await usersService.login({ email, phoneNumber, password });
+  const accessProfile = await permissionsService.getUserAccessProfile(
+    result.user.id,
+  );
 
   const response: LoginResponse = {
     accessToken: result.accessToken,
     refreshToken: result.refreshToken,
     user: result.user,
+    accessProfile,
   };
 
   return c.json(
@@ -55,6 +62,19 @@ export const getCurrentUser: AppRouteHandler<GetCurrentUserRoute> = async (
   const result = await usersService.getCurrentUser(payload.userId);
 
   return c.json(successResponse(result, STANDARD_MESSAGES.SUCCESS.FETCHED));
+};
+
+export const getCurrentUserAccess: AppRouteHandler<
+  GetCurrentUserAccessRoute
+> = async (c) => {
+  const payload = c.get("accessTokenPayload");
+  const accessProfile = await permissionsService.getUserAccessProfile(
+    payload.userId,
+  );
+
+  return c.json(
+    successResponse(accessProfile, STANDARD_MESSAGES.SUCCESS.FETCHED),
+  );
 };
 
 export const updateCurrentUser: AppRouteHandler<

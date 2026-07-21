@@ -30,10 +30,16 @@ const tags = ["Products"];
 export const getAllGroupCriteriaTypes = createRoute({
   path: "/products/group-criteria-types",
   method: "get",
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.PRODUCTS, operation: OperationType.READ },
+    ]),
+  ] as const,
   summary: "Get all group criteria types",
   description: "List all group criteria types",
   tags,
-  request: {},
+  request: { headers: jwtHeaderSchema },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
       createSuccessResponseSchema(getAllGroupCriteriaTypesResponseSchema),

@@ -1,8 +1,19 @@
 import type { CreateRoleResponse } from "./roles.schema";
-import { ConflictError, NotFoundError, ValidationError } from "@/core/errors";
+import {
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+  ValidationError,
+} from "@/core/errors";
+import {
+  isProtectedRoleName,
+  isSettingsEntity,
+  PROTECTED_ROLE_NAMES,
+} from "@/constants/permissions.constants";
 import db from "@/db";
 import { EntityRepository } from "@/modules/entities/entities.repository";
 import { OperationRepository } from "@/modules/operations/operations.repository";
+import { PermissionsService } from "@/modules/permissions/permissions.service";
 
 import { RoleRepository } from "@/modules/roles/roles.repository";
 
@@ -13,6 +24,7 @@ export class RoleService {
   private readonly roleRepository: RoleRepository;
   private readonly entityRepository: EntityRepository;
   private readonly operationRepository: OperationRepository;
+  private readonly permissionsService: PermissionsService;
 
   /**
    * Create a new RoleService
@@ -21,6 +33,83 @@ export class RoleService {
     this.roleRepository = new RoleRepository();
     this.entityRepository = new EntityRepository();
     this.operationRepository = new OperationRepository();
+    this.permissionsService = new PermissionsService();
+  }
+
+  private async validateRoleMutation(
+    actorUserId: number,
+    data: {
+      name: string;
+      existingRoleName?: string;
+      permissions?: { entityId: number; operationId: number }[];
+    },
+  ) {
+    const actorAccess =
+      await this.permissionsService.getUserAccessProfile(actorUserId);
+    const normalizedRoleName = data.name.trim().toLowerCase();
+
+    if (
+      data.existingRoleName &&
+      isProtectedRoleName(data.existingRoleName) &&
+      !actorAccess.isSuperAdmin
+    ) {
+      throw new ForbiddenError(
+        "Only Super Admin can modify protected system roles",
+      );
+    }
+
+    if (
+      normalizedRoleName === PROTECTED_ROLE_NAMES.SUPER_ADMIN &&
+      !actorAccess.isSuperAdmin
+    ) {
+      throw new ForbiddenError(
+        "Only Super Admin can create or assign the Super Admin role",
+      );
+    }
+
+    if (
+      normalizedRoleName === PROTECTED_ROLE_NAMES.ADMIN &&
+      !actorAccess.isSuperAdmin
+    ) {
+      throw new ForbiddenError(
+        "Only Super Admin can create or rename the Admin role",
+      );
+    }
+
+    if (!data.permissions?.length) {
+      return;
+    }
+
+    for (const permission of data.permissions) {
+      const entity = await this.entityRepository.findById(permission.entityId);
+      const operation = await this.operationRepository.findById(
+        permission.operationId,
+      );
+
+      if (!entity || !operation) {
+        continue;
+      }
+
+      if (!actorAccess.isSuperAdmin && isSettingsEntity(entity.name)) {
+        throw new ForbiddenError(
+          "You cannot grant Settings section permissions",
+        );
+      }
+
+      if (
+        !actorAccess.isSuperAdmin &&
+        !this.permissionsService.hasPermission(
+          actorAccess,
+          entity.name,
+          operation.name,
+        )
+      ) {
+        throw new ForbiddenError(
+          `You cannot grant permission ${entity.name}:${operation.name}`,
+        );
+      }
+    }
+
   }
 
   /**
@@ -93,6 +182,11 @@ export class RoleService {
   }): Promise<CreateRoleResponse> {
     const { permissions, ...roleData } = data;
 
+    await this.validateRoleMutation(data.createdBy, {
+      name: roleData.name,
+      permissions,
+    });
+
     const role = await this.roleRepository.findByName(roleData.name);
     if (role) {
       throw new ConflictError(
@@ -161,6 +255,13 @@ export class RoleService {
     if (!existingRole) {
       throw new NotFoundError(`Role with ID ${id} not found`);
     }
+
+    await this.validateRoleMutation(updatedBy, {
+      name,
+      existingRoleName: existingRole.name,
+      permissions,
+    });
+
     if (existingRole.name !== name) {
       const role = await this.roleRepository.findByName(name);
       if (role) {
@@ -204,6 +305,21 @@ export class RoleService {
    * @throws NotFoundError if roles are not found
    */
   async deleteRoles(ids: number[], deletedBy: number) {
+    const actorAccess =
+      await this.permissionsService.getUserAccessProfile(deletedBy);
+    const rolesToDelete = await Promise.all(
+      ids.map((id) => this.roleRepository.findById(id)),
+    );
+
+    if (
+      !actorAccess.isSuperAdmin &&
+      rolesToDelete.some((role) => role && isProtectedRoleName(role.name))
+    ) {
+      throw new ForbiddenError(
+        "Only Super Admin can delete protected system roles",
+      );
+    }
+
     // Use a transaction to ensure atomicity
     const result = await db.transaction(async (tx) => {
       const deletedRoles = await this.roleRepository.deleteMany(

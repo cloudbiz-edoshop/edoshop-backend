@@ -35,10 +35,16 @@ const tags = ["Entries"];
 export const getAllEntryTypes = createRoute({
   path: "/entries/entry-types",
   method: "get",
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.ENTRIES, operation: OperationType.READ },
+    ]),
+  ] as const,
   summary: "List all entry types",
   description: "List all entry types",
   tags,
-  request: {},
+  request: { headers: jwtHeaderSchema },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
       createSuccessResponseSchema(getAllEntryTypesResponseSchema),
@@ -227,10 +233,16 @@ export const getEntriesByType = createRoute({
 export const getAllEntryStatesRoute = createRoute({
   path: "/entries/entry-states",
   method: "get",
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.ENTRIES, operation: OperationType.READ },
+    ]),
+  ] as const,
   summary: "List all entry states",
   description: "List all entry states",
   tags: ["Entries"],
-  request: {},
+  request: { headers: jwtHeaderSchema },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
       z.array(entryStateSchema),
@@ -398,7 +410,8 @@ export const previewBundleCodesRoute = createRoute({
     ]),
   ] as const,
   summary: "Preview next bundle codes for a supplier",
-  description: "Returns the next incremental bundle codes for a supplier without creating them.",
+  description:
+    "Returns the next incremental bundle codes for a supplier without creating them.",
   request: {
     headers: jwtHeaderSchema,
     query: previewBundleCodesQuerySchema,
@@ -438,7 +451,8 @@ export const createSupplierOrderRoute = createRoute({
   },
   tags,
   summary: "Create a supplier order",
-  description: "Creates one bundle entry per requested quantity with auto-generated bundle IDs.",
+  description:
+    "Creates one bundle entry per requested quantity with auto-generated bundle IDs.",
   responses: {
     [HttpStatusCodes.CREATED]: jsonContent(
       createSuccessResponseSchema(createSupplierOrderResponseSchema),

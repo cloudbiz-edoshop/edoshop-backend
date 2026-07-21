@@ -1,7 +1,17 @@
 import type { CreateUserResponseWithEmail } from "../users/users.schema";
-import { ConflictError, NotFoundError, ValidationError } from "@/core/errors";
+import {
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+  ValidationError,
+} from "@/core/errors";
+import {
+  isProtectedRoleName,
+  isSettingsEntity,
+} from "@/constants/permissions.constants";
 import { db } from "@/db";
 import { EmployeeRepository } from "@/modules/employees/employees.repository";
+import { PermissionsService } from "@/modules/permissions/permissions.service";
 import { RoleRepository } from "@/modules/roles/roles.repository";
 import { UserRepository } from "@/modules/users/users.repository";
 
@@ -18,6 +28,7 @@ export class EmployeeService {
   private readonly usersService: UsersService;
   private readonly roleRepository: RoleRepository;
   private readonly roleService: RoleService;
+  private readonly permissionsService: PermissionsService;
   /**
    * Create a new EmployeeService
    */
@@ -27,6 +38,50 @@ export class EmployeeService {
     this.usersService = new UsersService();
     this.roleRepository = new RoleRepository();
     this.roleService = new RoleService();
+    this.permissionsService = new PermissionsService();
+  }
+
+  private async assertCanAssignRole(actorUserId: number, roleId: number) {
+    const [actorAccess, role] = await Promise.all([
+      this.permissionsService.getUserAccessProfile(actorUserId),
+      this.roleRepository.findById(roleId),
+    ]);
+
+    if (!role) {
+      throw new NotFoundError(`Role with ID ${roleId} not found`);
+    }
+
+    if (actorAccess.isSuperAdmin) {
+      return role;
+    }
+
+    if (isProtectedRoleName(role.name)) {
+      throw new ForbiddenError(
+        "Only Super Admin can assign Admin or Super Admin roles",
+      );
+    }
+
+    for (const permission of role.permissions ?? []) {
+      if (isSettingsEntity(permission.entity.name)) {
+        throw new ForbiddenError(
+          "You cannot assign a role containing Settings permissions",
+        );
+      }
+
+      if (
+        !this.permissionsService.hasPermission(
+          actorAccess,
+          permission.entity.name,
+          permission.operation.name,
+        )
+      ) {
+        throw new ForbiddenError(
+          "You cannot assign a role with permissions you do not have",
+        );
+      }
+    }
+
+    return role;
   }
 
   /**
@@ -135,11 +190,7 @@ export class EmployeeService {
       ).toISOString();
     }
 
-    // Check if role exists
-    const role = await this.roleRepository.findById(roleId);
-    if (!role) {
-      throw new NotFoundError(`Role with ID ${roleId} not found`);
-    }
+    const role = await this.assertCanAssignRole(createdBy, roleId);
 
     // Check if employee already exists with this email
     const existingEmployee = await this.employeeRepository.findByEmail(email);
@@ -241,10 +292,7 @@ export class EmployeeService {
 
     // Check if role exists
     if (roleId) {
-      const role = await this.roleRepository.findById(roleId);
-      if (!role) {
-        throw new ValidationError(`Role with ID ${roleId} not found`);
-      }
+      await this.assertCanAssignRole(updatedBy, roleId);
     }
 
     // Calculate role expiry if it's a temporary role

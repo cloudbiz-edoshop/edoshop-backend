@@ -41,7 +41,7 @@ export const listSteps = createRoute({
   middleware: [
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
-      { entity: EntityType.ORDERS, operation: OperationType.READ },
+      { entity: EntityType.TRACKING, operation: OperationType.READ },
     ]),
   ] as const,
   request: { headers: jwtHeaderSchema },
@@ -65,7 +65,7 @@ export const list = createRoute({
   middleware: [
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
-      { entity: EntityType.ORDERS, operation: OperationType.READ },
+      { entity: EntityType.TRACKING, operation: OperationType.READ },
     ]),
   ] as const,
   request: {
@@ -92,7 +92,7 @@ export const listTrackedOrders = createRoute({
   middleware: [
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
-      { entity: EntityType.ORDERS, operation: OperationType.READ },
+      { entity: EntityType.TRACKING, operation: OperationType.READ },
     ]),
   ] as const,
   request: {
@@ -120,7 +120,7 @@ export const getTrackedOrder = createRoute({
   middleware: [
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
-      { entity: EntityType.ORDERS, operation: OperationType.READ },
+      { entity: EntityType.TRACKING, operation: OperationType.READ },
     ]),
   ] as const,
   request: {
@@ -151,7 +151,7 @@ export const updateTrackedOrderStep = createRoute({
   middleware: [
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
-      { entity: EntityType.ORDERS, operation: OperationType.UPDATE },
+      { entity: EntityType.TRACKING, operation: OperationType.UPDATE },
     ]),
   ] as const,
   request: {
@@ -183,7 +183,7 @@ export const create = createRoute({
   middleware: [
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
-      { entity: EntityType.ORDERS, operation: OperationType.CREATE },
+      { entity: EntityType.TRACKING, operation: OperationType.CREATE },
     ]),
   ] as const,
   request: {
@@ -210,7 +210,7 @@ export const getOne = createRoute({
   middleware: [
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
-      { entity: EntityType.ORDERS, operation: OperationType.READ },
+      { entity: EntityType.TRACKING, operation: OperationType.READ },
     ]),
   ] as const,
   request: {
@@ -237,7 +237,7 @@ export const patch = createRoute({
   middleware: [
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
-      { entity: EntityType.ORDERS, operation: OperationType.UPDATE },
+      { entity: EntityType.TRACKING, operation: OperationType.UPDATE },
     ]),
   ] as const,
   request: {
@@ -265,7 +265,7 @@ export const searchOrder = createRoute({
   middleware: [
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
-      { entity: EntityType.ORDERS, operation: OperationType.READ },
+      { entity: EntityType.TRACKING, operation: OperationType.READ },
     ]),
   ] as const,
   request: {
@@ -294,7 +294,7 @@ export const assignOrders = createRoute({
   middleware: [
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
-      { entity: EntityType.ORDERS, operation: OperationType.UPDATE },
+      { entity: EntityType.TRACKING, operation: OperationType.UPDATE },
     ]),
   ] as const,
   request: {
@@ -326,7 +326,7 @@ export const removeOrder = createRoute({
   middleware: [
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
-      { entity: EntityType.ORDERS, operation: OperationType.UPDATE },
+      { entity: EntityType.TRACKING, operation: OperationType.UPDATE },
     ]),
   ] as const,
   request: {
@@ -353,7 +353,7 @@ export const updateStep = createRoute({
   middleware: [
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
-      { entity: EntityType.ORDERS, operation: OperationType.UPDATE },
+      { entity: EntityType.TRACKING, operation: OperationType.UPDATE },
     ]),
   ] as const,
   request: {
@@ -381,7 +381,7 @@ export const undoLastStep = createRoute({
   middleware: [
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
-      { entity: EntityType.ORDERS, operation: OperationType.UPDATE },
+      { entity: EntityType.TRACKING, operation: OperationType.UPDATE },
     ]),
   ] as const,
   request: {
@@ -409,7 +409,7 @@ export const createKiloBill = createRoute({
   middleware: [
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
-      { entity: EntityType.ORDERS, operation: OperationType.UPDATE },
+      { entity: EntityType.TRACKING, operation: OperationType.UPDATE },
     ]),
   ] as const,
   request: {

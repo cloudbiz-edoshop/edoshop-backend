@@ -24,7 +24,7 @@ export const baseProductSchema = z.object({
   imageUrls: z.array(z.string()).optional(),
   tagIds: z.array(z.number()).optional(),
   categoryIds: z.array(z.number()).optional(),
-  concurrentReqs: z.number().min(1),
+  concurrentReqs: z.number().min(1).optional(),
 
   // Fields for direct order store
   directOrderCode: z.string().max(50).optional(),
@@ -89,18 +89,20 @@ export const createProductRequestSchema = baseProductSchema
         return (
           data.totalItems !== undefined &&
           data.groupCriteriaId !== undefined &&
-          data.completionCriteria !== undefined
+          data.completionCriteria !== undefined &&
+          data.concurrentReqs !== undefined
         );
       }
       return true;
     },
     {
       message:
-        "totalItems, groupCriteria, and completionCriteria are required for Dropshipping Store",
+        "totalItems, groupCriteria, completionCriteria, and concurrentReqs are required for Dropshipping Store",
       path: [
         "totalItems",
         "groupCriteriaId",
         "completionCriteria",
+        "concurrentReqs",
       ],
     },
   )
@@ -127,8 +129,7 @@ export const createProductRequestSchema = baseProductSchema
   )
   .refine(
     (data) => {
-      // Validate that concurrentReqs is a positive number
-      return data.concurrentReqs >= 1;
+      return data.storeId !== StoreIds.dropshipping || (data.concurrentReqs ?? 0) >= 1;
     },
     {
       message: "Concurrent requests must be at least 1",

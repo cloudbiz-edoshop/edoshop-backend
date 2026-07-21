@@ -21,7 +21,6 @@ import {
   getAllBinLocationsForWarehouseResponseSchema,
   getAllTransfersForAWarehouseResponseSchema,
   getBinMovementHistoryResponseSchema,
-
   getPendingReceiptsListResponseSchema,
   getReceivedEntriesListResponseSchema,
   getReversibleEntriesListResponseSchema,
@@ -56,6 +55,7 @@ export const getTransferableEntriesList = createRoute({
   middleware: [
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
+      { entity: EntityType.WAREHOUSE_1, operation: OperationType.READ },
       { entity: EntityType.ENTRIES, operation: OperationType.READ },
     ]),
   ] as const,
@@ -97,6 +97,7 @@ export const sendTransferableEntries = createRoute({
   middleware: [
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
+      { entity: EntityType.WAREHOUSE_1, operation: OperationType.UPDATE },
       { entity: EntityType.ENTRIES, operation: OperationType.UPDATE },
       {
         entity: EntityType.WAREHOUSE_TRANSFERS,
@@ -145,6 +146,7 @@ export const getReversibleEntriesList = createRoute({
   middleware: [
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
+      { entity: EntityType.WAREHOUSE_1, operation: OperationType.READ },
       { entity: EntityType.ENTRIES, operation: OperationType.READ },
     ]),
   ] as const,
@@ -185,6 +187,7 @@ export const reverseSentEntries = createRoute({
   middleware: [
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
+      { entity: EntityType.WAREHOUSE_1, operation: OperationType.UPDATE },
       { entity: EntityType.ENTRIES, operation: OperationType.UPDATE },
       {
         entity: EntityType.WAREHOUSE_TRANSFERS,
@@ -195,14 +198,17 @@ export const reverseSentEntries = createRoute({
   request: {
     headers: jwtHeaderSchema,
     params: z.object({
-      warehouseId: z.coerce.number().min(1).openapi({
-        param: {
-          name: "warehouseId",
-          in: "path",
-          required: true,
-        },
-        required: ["warehouseId"],
-      }),
+      warehouseId: z.coerce
+        .number()
+        .min(1)
+        .openapi({
+          param: {
+            name: "warehouseId",
+            in: "path",
+            required: true,
+          },
+          required: ["warehouseId"],
+        }),
     }),
     body: jsonContentRequired(
       reverseSentEntriesRequestSchema,
@@ -241,6 +247,7 @@ export const getPendingReceiptsList = createRoute({
   middleware: [
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
+      { entity: EntityType.WAREHOUSE_2, operation: OperationType.READ },
       {
         entity: EntityType.WAREHOUSE_TRANSFERS,
         operation: OperationType.READ,
@@ -266,7 +273,6 @@ export const getPendingReceiptsList = createRoute({
         HttpStatusCodes.FORBIDDEN,
         HttpStatusCodes.INTERNAL_SERVER_ERROR,
         HttpStatusCodes.NOT_FOUND,
-
       ],
       commonQueryParamsSchema,
     ),
@@ -285,6 +291,7 @@ export const receiveTransfers = createRoute({
   middleware: [
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
+      { entity: EntityType.WAREHOUSE_2, operation: OperationType.UPDATE },
       { entity: EntityType.ENTRIES, operation: OperationType.UPDATE },
       {
         entity: EntityType.WAREHOUSE_TRANSFERS,
@@ -340,6 +347,7 @@ export const getReceivedEntriesList = createRoute({
   middleware: [
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
+      { entity: EntityType.WAREHOUSE_2, operation: OperationType.READ },
       {
         entity: EntityType.WAREHOUSE_TRANSFERS,
         operation: OperationType.READ,
@@ -353,7 +361,9 @@ export const getReceivedEntriesList = createRoute({
   },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
-      createSuccessResponseSchemaWithPagination(getReceivedEntriesListResponseSchema),
+      createSuccessResponseSchemaWithPagination(
+        getReceivedEntriesListResponseSchema,
+      ),
       "The list of received warehouse transfer entries",
     ),
     ...commonErrorResponses(
@@ -363,7 +373,6 @@ export const getReceivedEntriesList = createRoute({
         HttpStatusCodes.FORBIDDEN,
         HttpStatusCodes.INTERNAL_SERVER_ERROR,
         HttpStatusCodes.NOT_FOUND,
-
       ],
       commonQueryParamsSchema,
     ),
@@ -382,7 +391,12 @@ export const undoReceivedEntries = createRoute({
   middleware: [
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
-      { entity: EntityType.WAREHOUSE_TRANSFERS, operation: OperationType.UPDATE },
+      { entity: EntityType.WAREHOUSE_2, operation: OperationType.UPDATE },
+      {
+        entity: EntityType.WAREHOUSE_TRANSFERS,
+        operation: OperationType.UPDATE,
+      },
+      { entity: EntityType.ENTRIES, operation: OperationType.UPDATE },
     ]),
   ] as const,
   request: {
@@ -430,7 +444,7 @@ export const getAllTransfersForAWarehouse = createRoute({
   middleware: [
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
-      { entity: EntityType.WAREHOUSE_TRANSFERS, operation: OperationType.READ },
+      { entity: EntityType.EWMS_MANAGEMENT, operation: OperationType.READ },
     ]),
   ] as const,
   request: {
@@ -443,7 +457,9 @@ export const getAllTransfersForAWarehouse = createRoute({
     "List warehouse transfers with pagination, filtering, and sorting",
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
-      createSuccessResponseSchemaWithPagination(getAllTransfersForAWarehouseResponseSchema),
+      createSuccessResponseSchemaWithPagination(
+        getAllTransfersForAWarehouseResponseSchema,
+      ),
       "The list of warehouse transfers",
     ),
     ...commonErrorResponses(
@@ -459,19 +475,19 @@ export const getAllTransfersForAWarehouse = createRoute({
   },
 });
 
-export type GetAllTransfersForAWarehouseRoute = typeof getAllTransfersForAWarehouse;
+export type GetAllTransfersForAWarehouseRoute =
+  typeof getAllTransfersForAWarehouse;
 
 export const getAllBinLocationsForWarehouse = createRoute({
   path: "/warehouse-transfers/{id}/available-bin-locations",
   method: "get",
   tags,
   summary: "List available bin locations for a warehouse",
-  description:
-    "List all available bin locations for a given warehouse",
+  description: "List all available bin locations for a given warehouse",
   middleware: [
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
-      { entity: EntityType.WAREHOUSE_TRANSFERS, operation: OperationType.READ },
+      { entity: EntityType.EWMS_MANAGEMENT, operation: OperationType.READ },
     ]),
   ] as const,
   request: {
@@ -481,7 +497,9 @@ export const getAllBinLocationsForWarehouse = createRoute({
   },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
-      createSuccessResponseSchemaWithPagination(getAllBinLocationsForWarehouseResponseSchema),
+      createSuccessResponseSchemaWithPagination(
+        getAllBinLocationsForWarehouseResponseSchema,
+      ),
       "The list of all bin locations",
     ),
     ...commonErrorResponses(
@@ -497,7 +515,8 @@ export const getAllBinLocationsForWarehouse = createRoute({
   },
 });
 
-export type GetAllBinLocationsForWarehouseRoute = typeof getAllBinLocationsForWarehouse;
+export type GetAllBinLocationsForWarehouseRoute =
+  typeof getAllBinLocationsForWarehouse;
 
 export const updateBinLocationsForWarehouseTransfers = createRoute({
   path: "/warehouse-transfers/update-bin-locations",
@@ -509,11 +528,7 @@ export const updateBinLocationsForWarehouseTransfers = createRoute({
   middleware: [
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
-      { entity: EntityType.ENTRIES, operation: OperationType.UPDATE },
-      {
-        entity: EntityType.WAREHOUSE_TRANSFERS,
-        operation: OperationType.UPDATE,
-      },
+      { entity: EntityType.EWMS_MANAGEMENT, operation: OperationType.UPDATE },
     ]),
   ] as const,
   request: {
@@ -525,7 +540,9 @@ export const updateBinLocationsForWarehouseTransfers = createRoute({
   },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
-      createSuccessResponseSchema(updateBinLocationForWarehouseTransfersResponseSchema),
+      createSuccessResponseSchema(
+        updateBinLocationForWarehouseTransfersResponseSchema,
+      ),
       "Bin locations updated successfully for the specified entries",
     ),
     ...commonErrorResponses(
@@ -542,7 +559,8 @@ export const updateBinLocationsForWarehouseTransfers = createRoute({
   },
 });
 
-export type UpdateBinLocationsForWarehouseTransfersRoute = typeof updateBinLocationsForWarehouseTransfers;
+export type UpdateBinLocationsForWarehouseTransfersRoute =
+  typeof updateBinLocationsForWarehouseTransfers;
 
 export const assignEntryToBin = createRoute({
   path: "/warehouse-store/assign-entry-bin",
@@ -554,6 +572,7 @@ export const assignEntryToBin = createRoute({
   middleware: [
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
+      { entity: EntityType.WAREHOUSE_1, operation: OperationType.UPDATE },
       { entity: EntityType.ENTRIES, operation: OperationType.UPDATE },
     ]),
   ] as const,
@@ -595,6 +614,7 @@ export const unassignEntryFromBin = createRoute({
   middleware: [
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
+      { entity: EntityType.WAREHOUSE_1, operation: OperationType.UPDATE },
       { entity: EntityType.ENTRIES, operation: OperationType.UPDATE },
     ]),
   ] as const,
@@ -636,12 +656,11 @@ export const getAllBinsMovementHistory = createRoute({
   tags,
   summary: "Get detailed bin PICK and PLACE history",
   description:
-     "Fetches movement history for all bins in a warehouse, indicating if items were PICKED or PLACED.",
+    "Fetches movement history for all bins in a warehouse, indicating if items were PICKED or PLACED.",
   middleware: [
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
-      { entity: EntityType.ENTRIES, operation: OperationType.READ },
-      { entity: EntityType.WAREHOUSE_TRANSFERS, operation: OperationType.READ },
+      { entity: EntityType.EWMS_MANAGEMENT, operation: OperationType.READ },
     ]),
   ] as const,
   request: {
@@ -682,8 +701,7 @@ export const getStockView = createRoute({
   middleware: [
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
-      { entity: EntityType.ENTRIES, operation: OperationType.READ },
-      { entity: EntityType.WAREHOUSE_TRANSFERS, operation: OperationType.READ },
+      { entity: EntityType.EWMS_MANAGEMENT, operation: OperationType.READ },
     ]),
   ] as const,
   request: {

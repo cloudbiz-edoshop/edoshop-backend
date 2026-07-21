@@ -6,6 +6,7 @@ import { HTTPException } from "hono/http-exception";
 
 import * as HttpStatusCodes from "@/lib/http-status-codes";
 import { EmployeeService } from "@/modules/employees/employees.service";
+import { PermissionsService } from "@/modules/permissions/permissions.service";
 import { RoleService } from "@/modules/roles/roles.service";
 
 /**
@@ -45,6 +46,25 @@ export const rolesAndPermissionsMiddleware = (
     );
 
     if (isAdmin) {
+      const permissionsService = new PermissionsService();
+      const accessProfile = await permissionsService.getUserAccessProfile(user.id);
+      const hasPermission =
+        checkType === "ALL"
+          ? permissions.every(({ entity, operation }) =>
+              permissionsService.hasPermission(
+                accessProfile,
+                entity,
+                operation,
+              ),
+            )
+          : permissionsService.hasAnyPermission(accessProfile, permissions);
+
+      if (!hasPermission) {
+        throw new HTTPException(HttpStatusCodes.FORBIDDEN, {
+          message: "Super Admin does not have this permission",
+        });
+      }
+
       return next();
     }
 
@@ -59,6 +79,14 @@ export const rolesAndPermissionsMiddleware = (
     if (!employee.roleId) {
       throw new HTTPException(HttpStatusCodes.FORBIDDEN, {
         message: "Employee has no role",
+      });
+    }
+    if (
+      employee.roleExpiresAt &&
+      new Date(employee.roleExpiresAt).getTime() <= Date.now()
+    ) {
+      throw new HTTPException(HttpStatusCodes.FORBIDDEN, {
+        message: "Employee role has expired",
       });
     }
 

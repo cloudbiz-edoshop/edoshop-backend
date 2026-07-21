@@ -146,6 +146,22 @@ export {
 
 // Role Constants
 export { ROLE_DESCRIPTIONS, RoleType } from "./roles.constants";
+export {
+  DELIVERY_ENTITIES,
+  DIALOGUE_ENTITIES,
+  EWMS_MANAGEMENT_ENTITIES,
+  EWMS_W1_ENTITIES,
+  EWMS_W2_ENTITIES,
+  formatPermissionKey,
+  isProtectedRoleName,
+  isSettingsEntity,
+  NOTIFICATION_ENTITIES,
+  PROTECTED_ROLE_NAMES,
+  SECTION_ENTITY_MAP,
+  SETTINGS_ENTITIES,
+  STORE_ENTITIES,
+  TRACKING_ENTITIES,
+} from "./permissions.constants";
 
 // Shelves Constants
 export { SHELVES_DATA } from "./shelves.constants";

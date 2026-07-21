@@ -6,6 +6,7 @@ const router = createRouter();
 
 router.openapi(routes.loginRoute, handlers.login);
 router.openapi(routes.getCurrentUserRoute, handlers.getCurrentUser);
+router.openapi(routes.getCurrentUserAccessRoute, handlers.getCurrentUserAccess);
 router.openapi(routes.updateCurrentUserRoute, handlers.updateCurrentUser);
 router.openapi(routes.getAllUserNames, handlers.getAllUserNames);
 router.openapi(routes.getAllEmails, handlers.getAllEmails);

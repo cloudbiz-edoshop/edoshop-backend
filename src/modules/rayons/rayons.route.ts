@@ -29,7 +29,7 @@ export const getRayonsStatsForAWarehouse = createRoute({
   middleware: [
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
-      { entity: EntityType.WAREHOUSE_TRANSFERS, operation: OperationType.READ },
+      { entity: EntityType.EWMS_MANAGEMENT, operation: OperationType.READ },
     ]),
   ] as const,
   request: {
@@ -76,7 +76,7 @@ export const getRayonsForWarehouse = createRoute({
   middleware: [
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
-      { entity: EntityType.WAREHOUSE_TRANSFERS, operation: OperationType.READ },
+      { entity: EntityType.EWMS_MANAGEMENT, operation: OperationType.READ },
     ]),
   ] as const,
   request: {
@@ -123,7 +123,7 @@ export const createRayonsForWarehouse = createRoute({
   middleware: [
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
-      { entity: EntityType.WAREHOUSE_TRANSFERS, operation: OperationType.CREATE },
+      { entity: EntityType.EWMS_MANAGEMENT, operation: OperationType.CREATE },
     ]),
   ] as const,
   request: {
@@ -172,7 +172,7 @@ export const createShelvesForRayon = createRoute({
   middleware: [
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
-      { entity: EntityType.WAREHOUSE_TRANSFERS, operation: OperationType.CREATE },
+      { entity: EntityType.EWMS_MANAGEMENT, operation: OperationType.CREATE },
     ]),
   ] as const,
   request: {
@@ -211,7 +211,7 @@ export const createBinsForShelf = createRoute({
   middleware: [
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
-      { entity: EntityType.WAREHOUSE_TRANSFERS, operation: OperationType.CREATE },
+      { entity: EntityType.EWMS_MANAGEMENT, operation: OperationType.CREATE },
     ]),
   ] as const,
   request: {
@@ -250,7 +250,7 @@ export const getAllShelvesForRayon = createRoute({
   middleware: [
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
-      { entity: EntityType.WAREHOUSE_TRANSFERS, operation: OperationType.READ },
+      { entity: EntityType.EWMS_MANAGEMENT, operation: OperationType.READ },
     ]),
   ] as const,
   request: {
@@ -287,7 +287,7 @@ export const updateRayonForWarehouse = createRoute({
   middleware: [
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
-      { entity: EntityType.WAREHOUSE_TRANSFERS, operation: OperationType.UPDATE },
+      { entity: EntityType.EWMS_MANAGEMENT, operation: OperationType.UPDATE },
     ]),
   ] as const,
   request: {
@@ -327,7 +327,7 @@ export const deleteRayonForWarehouse = createRoute({
   middleware: [
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
-      { entity: EntityType.WAREHOUSE_TRANSFERS, operation: OperationType.DELETE },
+      { entity: EntityType.EWMS_MANAGEMENT, operation: OperationType.DELETE },
     ]),
   ] as const,
   request: {
@@ -364,7 +364,7 @@ export const updateShelvesForRayon = createRoute({
   middleware: [
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
-      { entity: EntityType.WAREHOUSE_TRANSFERS, operation: OperationType.UPDATE },
+      { entity: EntityType.EWMS_MANAGEMENT, operation: OperationType.UPDATE },
     ]),
   ] as const,
   request: {
@@ -404,7 +404,7 @@ export const updateBinsForShelf = createRoute({
   middleware: [
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
-      { entity: EntityType.WAREHOUSE_TRANSFERS, operation: OperationType.UPDATE },
+      { entity: EntityType.EWMS_MANAGEMENT, operation: OperationType.UPDATE },
     ]),
   ] as const,
   request: {

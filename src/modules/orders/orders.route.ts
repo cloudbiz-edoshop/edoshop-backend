@@ -56,7 +56,12 @@ export const getOrderDetailsForACustomer = createRoute({
   path: "/orders/details-for-a-customer/{id}",
   method: "get",
   tags,
-  middleware: [jwtMiddleware()] as const,
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.ORDERS, operation: OperationType.READ },
+    ]),
+  ] as const,
   request: {
     headers: jwtHeaderSchema,
     query: commonQueryParamsSchema,
@@ -129,7 +134,7 @@ export const listDirectOrderTracking = createRoute({
   middleware: [
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
-      { entity: EntityType.ORDERS, operation: OperationType.READ },
+      { entity: EntityType.TRACKING, operation: OperationType.READ },
     ]),
   ] as const,
   request: {
@@ -163,7 +168,7 @@ export const getDirectOrderTracking = createRoute({
   middleware: [
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
-      { entity: EntityType.ORDERS, operation: OperationType.READ },
+      { entity: EntityType.TRACKING, operation: OperationType.READ },
     ]),
   ] as const,
   request: {
@@ -195,7 +200,7 @@ export const updateDirectOrderTrackingStep = createRoute({
   middleware: [
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
-      { entity: EntityType.ORDERS, operation: OperationType.UPDATE },
+      { entity: EntityType.TRACKING, operation: OperationType.UPDATE },
     ]),
   ] as const,
   request: {

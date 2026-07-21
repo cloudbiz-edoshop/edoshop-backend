@@ -28,6 +28,7 @@ import {
   updatePasswordRequestSchema,
   updatePasswordResponseSchema,
   updateCurrentUserRequestSchema,
+  userAccessProfileSchema,
   verifyOtpRequestSchema,
   verifyOtpResponseSchema,
 } from "@/modules/users/users.schema";
@@ -77,6 +78,27 @@ export const getCurrentUserRoute = createRoute({
     [HttpStatusCodes.OK]: jsonContent(
       createSuccessResponseSchema(currentUserResponseSchema),
       "Current user profile",
+    ),
+    ...commonErrorResponses(
+      [HttpStatusCodes.UNAUTHORIZED, HttpStatusCodes.NOT_FOUND],
+      z.object({}),
+    ),
+  },
+});
+
+export const getCurrentUserAccessRoute = createRoute({
+  method: "get",
+  path: "/users/me/access",
+  tags,
+  summary: "Get current user access profile",
+  middleware: [jwtMiddleware()] as const,
+  request: {
+    headers: jwtHeaderSchema,
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(userAccessProfileSchema),
+      "Current user access profile",
     ),
     ...commonErrorResponses(
       [HttpStatusCodes.UNAUTHORIZED, HttpStatusCodes.NOT_FOUND],
@@ -339,7 +361,14 @@ export const registerUserWithoutRolesRoute = createRoute({
   tags,
   summary: "Register User without Roles",
   description: "Register a new user without assigning any roles",
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.USERS, operation: OperationType.CREATE },
+    ]),
+  ] as const,
   request: {
+    headers: jwtHeaderSchema,
     body: jsonContentRequired(
       registerUserAdminPanelRequestSchema,
       "Register User without Roles",
@@ -355,6 +384,8 @@ export const registerUserWithoutRolesRoute = createRoute({
     ...commonErrorResponses(
       [
         HttpStatusCodes.UNPROCESSABLE_ENTITY,
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.FORBIDDEN,
         HttpStatusCodes.BAD_REQUEST,
         HttpStatusCodes.INTERNAL_SERVER_ERROR,
       ],
@@ -365,6 +396,7 @@ export const registerUserWithoutRolesRoute = createRoute({
 
 export type LoginRoute = typeof loginRoute;
 export type GetCurrentUserRoute = typeof getCurrentUserRoute;
+export type GetCurrentUserAccessRoute = typeof getCurrentUserAccessRoute;
 export type UpdateCurrentUserRoute = typeof updateCurrentUserRoute;
 export type ListAllUserNamesRoute = typeof getAllUserNames;
 export type ListAllEmailsRoute = typeof getAllEmails;

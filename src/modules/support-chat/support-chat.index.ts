@@ -2,7 +2,12 @@ import { createRoute, z } from "@hono/zod-openapi";
 import { and, eq } from "drizzle-orm";
 
 import env from "@/config/env.config";
+import { EntityType, OperationType } from "@/constants";
 import { FulfillmentMethod } from "@/constants/fulfillment.constants";
+import {
+  jwtMiddleware,
+  rolesAndPermissionsMiddleware,
+} from "@/core/middlewares";
 import db from "@/db";
 import { orders, paymentTransactions } from "@/db/models";
 import { buildCustomerOrderTrackingSteps } from "@/modules/orders/order-tracking.util";
@@ -11,6 +16,7 @@ import * as HttpStatusCodes from "@/lib/http-status-codes";
 import { successResponse } from "@/lib/api-response";
 import { jsonContent, jsonContentRequired } from "@/lib/openapi/helpers";
 import { createSuccessResponseSchema } from "@/lib/openapi/schemas/create-api-response";
+import { jwtHeaderSchema } from "@/lib/zod-schemas/common-schemas";
 
 const router = createRouter();
 
@@ -32,8 +38,13 @@ const supportThreadSchema = z.object({
   unreadCustomerCount: z.number().int().nonnegative(),
 });
 
-const createSupportMessageSchema = z.object({
-  sender: z.enum(["customer", "support"]),
+const createCustomerSupportMessageSchema = z.object({
+  sender: z.literal("customer"),
+  text: z.string().min(1).max(2000),
+});
+
+const createAdminSupportMessageSchema = z.object({
+  sender: z.literal("support"),
   text: z.string().min(1).max(2000),
 });
 
@@ -63,13 +74,17 @@ const AGENT_HANDOFF_REQUEST_MARKER = "[[EDOSHOP_AGENT_HANDOFF_REQUEST]]";
 const ATTACHMENT_MARKER_PREFIX = "[[EDOSHOP_ATTACHMENT:";
 const ATTACHMENT_MARKER_SUFFIX = "]]";
 const LEGACY_ATTACHMENT_PATTERN = /^Attachment:\s*(.+?)\n(https?:\/\/\S+)/im;
-const PRODUCT_DISCOVERY_PATTERN = /product|products|catalog|show me|item|items|trending|dropshipping|drop shipping|direct order/i;
-const ORDER_TRACKING_INTENT_PATTERN = /\b(track|tracking|where is my order|order status|status of my order|delivery status|shipment status)\b/i;
-const AGENT_HANDOFF_PATTERN = /\b(talk to (a )?(human )?agent|live agent|support agent|human support|admin support|connect me to agent|real person|representative)\b/i;
+const PRODUCT_DISCOVERY_PATTERN =
+  /product|products|catalog|show me|item|items|trending|dropshipping|drop shipping|direct order/i;
+const ORDER_TRACKING_INTENT_PATTERN =
+  /\b(track|tracking|where is my order|order status|status of my order|delivery status|shipment status)\b/i;
+const AGENT_HANDOFF_PATTERN =
+  /\b(talk to (a )?(human )?agent|live agent|support agent|human support|admin support|connect me to agent|real person|representative)\b/i;
 const ORDER_CODE_PATTERN = /\b(ORD-\d{8}-\d{4,})\b/i;
 const TRACKING_REFERENCE_PATTERN = /\b(TXN-[A-Z0-9-]{6,}|TRK-[A-Z0-9-]{4,})\b/i;
 const NUMERIC_ORDER_ID_PATTERN = /\border\s*(?:id|#)?\s*[:#-]?\s*(\d{1,12})\b/i;
-const CONVERSATIONAL_SHORTCUT_PATTERN = /^(hi|hello|hey|yo|thanks?|thank you|thx|ty|gotcha|got it|ok got it|cool thanks|nice thanks|cool|ok|okay|nice|great|awesome|perfect|bye|goodbye|see you|cya|talk later|good night|gn)$/i;
+const CONVERSATIONAL_SHORTCUT_PATTERN =
+  /^(hi|hello|hey|yo|thanks?|thank you|thx|ty|gotcha|got it|ok got it|cool thanks|nice thanks|cool|ok|okay|nice|great|awesome|perfect|bye|goodbye|see you|cya|talk later|good night|gn)$/i;
 
 const ORDER_SUGGESTIONS = [
   "Track order ORD-20260705-1234",
@@ -155,7 +170,9 @@ const parseSupportAttachment = (text: string): SupportAttachment | null => {
 
   if (markerMatch?.[1]) {
     try {
-      const parsed = JSON.parse(Buffer.from(markerMatch[1], "base64").toString("utf8"));
+      const parsed = JSON.parse(
+        Buffer.from(markerMatch[1], "base64").toString("utf8"),
+      );
       if (parsed?.url) {
         return {
           fileName: parsed.fileName,
@@ -211,10 +228,16 @@ const withBotMarker = (text: string) => `${BOT_MARKER}${text}`;
 
 const isBotMessage = (text: string) => String(text || "").includes(BOT_MARKER);
 
-const withAgentHandoffMarker = (text: string) => `${AGENT_HANDOFF_REQUEST_MARKER}${text}`;
+const withAgentHandoffMarker = (text: string) =>
+  `${AGENT_HANDOFF_REQUEST_MARKER}${text}`;
 
-const buildSupportThreads = (allMessages: SupportMessage[]): SupportThreadSummary[] => {
-  const threadMap = new Map<string, SupportThreadSummary & { latestMessageText: string }>();
+const buildSupportThreads = (
+  allMessages: SupportMessage[],
+): SupportThreadSummary[] => {
+  const threadMap = new Map<
+    string,
+    SupportThreadSummary & { latestMessageText: string }
+  >();
 
   allMessages.forEach((message) => {
     const threadId = getThreadIdFromText(message.text);
@@ -229,8 +252,10 @@ const buildSupportThreads = (allMessages: SupportMessage[]): SupportThreadSummar
         id: threadId,
         latestMessageAt: latestAt,
         latestMessagePreview: cleanedText,
-        latestCustomerMessagePreview: message.sender === "customer" ? cleanedText : "",
-        latestCustomerMessageAt: message.sender === "customer" ? latestAt : null,
+        latestCustomerMessagePreview:
+          message.sender === "customer" ? cleanedText : "",
+        latestCustomerMessageAt:
+          message.sender === "customer" ? latestAt : null,
         isEscalated: escalatedThreads.has(threadId),
         waitingForHuman: escalatedThreads.has(threadId),
         unreadCustomerCount: message.sender === "customer" ? 1 : 0,
@@ -261,16 +286,23 @@ const buildSupportThreads = (allMessages: SupportMessage[]): SupportThreadSummar
       if (left.isEscalated !== right.isEscalated) {
         return left.isEscalated ? -1 : 1;
       }
-      return new Date(right.latestMessageAt).getTime() - new Date(left.latestMessageAt).getTime();
+      return (
+        new Date(right.latestMessageAt).getTime() -
+        new Date(left.latestMessageAt).getTime()
+      );
     })
     .map(({ latestMessageText: _ignored, ...thread }) => thread);
 };
 
 const withSuggestionsMarker = (text: string, suggestions: string[]) => {
-  const uniqueSuggestions = [...new Set((suggestions || []).filter(Boolean))].slice(0, 4);
+  const uniqueSuggestions = [
+    ...new Set((suggestions || []).filter(Boolean)),
+  ].slice(0, 4);
   if (!uniqueSuggestions.length) return text;
 
-  const encodedSuggestions = Buffer.from(JSON.stringify(uniqueSuggestions)).toString("base64");
+  const encodedSuggestions = Buffer.from(
+    JSON.stringify(uniqueSuggestions),
+  ).toString("base64");
   return `${text}\n${SUGGESTIONS_MARKER_PREFIX}${encodedSuggestions}${SUGGESTIONS_MARKER_SUFFIX}`;
 };
 
@@ -281,7 +313,9 @@ const getIntentSuggestions = (message: string) => {
     return ORDER_SUGGESTIONS;
   }
 
-  if (/payment|campay|stripe|card|checkout|declin|transaction/.test(normalized)) {
+  if (
+    /payment|campay|stripe|card|checkout|declin|transaction/.test(normalized)
+  ) {
     return PAYMENT_SUGGESTIONS;
   }
 
@@ -289,7 +323,11 @@ const getIntentSuggestions = (message: string) => {
     return ACCOUNT_SUGGESTIONS;
   }
 
-  if (/product|products|catalog|item|items|trending|dropshipping|drop shipping/.test(normalized)) {
+  if (
+    /product|products|catalog|item|items|trending|dropshipping|drop shipping/.test(
+      normalized,
+    )
+  ) {
     return PRODUCT_SUGGESTIONS;
   }
 
@@ -303,7 +341,9 @@ const resolveProductImageUrl = (url: string | null | undefined) => {
   return `http://localhost:${env.PORT}/api/images/${url}`;
 };
 
-const getSupportProductCards = async (query: string): Promise<SupportProductCard[]> => {
+const getSupportProductCards = async (
+  query: string,
+): Promise<SupportProductCard[]> => {
   try {
     const response = await fetch(
       `http://localhost:${env.PORT}/v1/public/products?page=1&limit=12&sortBy=createdAt&sortOrder=desc`,
@@ -314,8 +354,17 @@ const getSupportProductCards = async (query: string): Promise<SupportProductCard
     const result = await response.json();
     const products = Array.isArray(result?.data) ? result.data : [];
     const normalizedQuery = query.toLowerCase();
-    const categoryHints = ["men", "women", "beauty", "accessories", "shoes", "bags"];
-    const matchedHint = categoryHints.find((hint) => normalizedQuery.includes(hint));
+    const categoryHints = [
+      "men",
+      "women",
+      "beauty",
+      "accessories",
+      "shoes",
+      "bags",
+    ];
+    const matchedHint = categoryHints.find((hint) =>
+      normalizedQuery.includes(hint),
+    );
 
     const filteredProducts = matchedHint
       ? products.filter((product: any) =>
@@ -330,12 +379,14 @@ const getSupportProductCards = async (query: string): Promise<SupportProductCard
     return filteredProducts.slice(0, 4).map((product: any) => ({
       id: product?.id,
       title: product?.name || "Product",
-      price: Number.isFinite(Number(product?.price)) ? Number(product.price) : null,
+      price: Number.isFinite(Number(product?.price))
+        ? Number(product.price)
+        : null,
       imageUrl: resolveProductImageUrl(
-        product?.imageUrls?.find?.(Boolean)
-        || product?.imageUrl
-        || product?.variants?.[0]?.images?.[0]?.imageUrl
-        || product?.variants?.[0]?.images?.[0],
+        product?.imageUrls?.find?.(Boolean) ||
+          product?.imageUrl ||
+          product?.variants?.[0]?.images?.[0]?.imageUrl ||
+          product?.variants?.[0]?.images?.[0],
       ),
     }));
   } catch {
@@ -401,10 +452,10 @@ const formatTrackingDate = (value: string | null | undefined) => {
 const formatAddress = (
   address:
     | {
-      streetAddress?: string | null;
-      landmark?: string | null;
-      country?: { name?: string | null } | null;
-    }
+        streetAddress?: string | null;
+        landmark?: string | null;
+        country?: { name?: string | null } | null;
+      }
     | null
     | undefined,
 ) => {
@@ -457,37 +508,60 @@ const buildEscalatedWaitingReply = (
   customerMessage: string,
   recentMessages: SupportMessage[],
 ) => {
-  const cleanedMessage = stripThreadMarker(customerMessage).toLowerCase().trim();
+  const cleanedMessage = stripThreadMarker(customerMessage)
+    .toLowerCase()
+    .trim();
   const intentSuggestions = getIntentSuggestions(cleanedMessage);
   const filteredSuggestions = intentSuggestions.filter(
-    (suggestion) => normalizeReply(suggestion) !== normalizeReply(cleanedMessage),
+    (suggestion) =>
+      normalizeReply(suggestion) !== normalizeReply(cleanedMessage),
   );
   const nextSuggestions = filteredSuggestions.length
     ? filteredSuggestions
     : intentSuggestions;
 
-  let baseReply = "A human support agent has been notified and will reply here soon. I have added your latest message to the ticket.";
+  let baseReply =
+    "A human support agent has been notified and will reply here soon. I have added your latest message to the ticket.";
 
-  if (/\blogin\b|sign in|signin|log in|can't login|cannot login|otp|password|profile|account/.test(cleanedMessage)) {
-    baseReply = "I have shared your account/login issue with the human support agent. While you wait, please keep the exact error text ready so they can resolve faster.";
-  } else if (/payment|campay|stripe|card|checkout|failed|declin/.test(cleanedMessage)) {
-    baseReply = "I have shared your payment issue with the human support agent. While you wait, please keep the method used and exact error text ready for quick resolution.";
-  } else if (/order|track|status|delivery|shipping|shipment/.test(cleanedMessage)) {
-    baseReply = "I have shared your order/tracking request with the human support agent. If you have your order code (ORD-...), send it now to speed up the response.";
-  } else if (/product|products|catalog|item|items|trending|dropshipping|drop shipping/.test(cleanedMessage)) {
-    baseReply = "I have shared your product request with the human support agent. You can also send your preferred category to get a faster recommendation.";
+  if (
+    /\blogin\b|sign in|signin|log in|can't login|cannot login|otp|password|profile|account/.test(
+      cleanedMessage,
+    )
+  ) {
+    baseReply =
+      "I have shared your account/login issue with the human support agent. While you wait, please keep the exact error text ready so they can resolve faster.";
+  } else if (
+    /payment|campay|stripe|card|checkout|failed|declin/.test(cleanedMessage)
+  ) {
+    baseReply =
+      "I have shared your payment issue with the human support agent. While you wait, please keep the method used and exact error text ready for quick resolution.";
+  } else if (
+    /order|track|status|delivery|shipping|shipment/.test(cleanedMessage)
+  ) {
+    baseReply =
+      "I have shared your order/tracking request with the human support agent. If you have your order code (ORD-...), send it now to speed up the response.";
+  } else if (
+    /product|products|catalog|item|items|trending|dropshipping|drop shipping/.test(
+      cleanedMessage,
+    )
+  ) {
+    baseReply =
+      "I have shared your product request with the human support agent. You can also send your preferred category to get a faster recommendation.";
   } else if (CONVERSATIONAL_SHORTCUT_PATTERN.test(cleanedMessage)) {
-    baseReply = "Thanks. Your conversation is still queued for a human support agent, and they will reply here shortly.";
+    baseReply =
+      "Thanks. Your conversation is still queued for a human support agent, and they will reply here shortly.";
   }
 
   const fullReply = withSuggestionsMarker(baseReply, nextSuggestions);
   const lastSupportText = stripThreadMarker(
-    [...recentMessages]
-      .reverse()
-      .find((item) => item.sender === "support")?.text || "",
+    [...recentMessages].reverse().find((item) => item.sender === "support")
+      ?.text || "",
   );
 
-  if (normalizeReply(stripThreadMarker(fullReply)) === normalizeReply(lastSupportText)) {
+  if (
+    normalizeReply(stripThreadMarker(fullReply)) ===
+    normalizeReply(lastSupportText)
+  ) {
     return withSuggestionsMarker(
       "Update received. I have attached it to your existing support ticket. A human support agent will reply here soon.",
       nextSuggestions,
@@ -619,7 +693,8 @@ const getSupportOrderTrackingReply = async (message: string) => {
       );
     }
 
-    const paymentStatus = order.paymentTransactions?.[0]?.paymentStatus?.name || "pending";
+    const paymentStatus =
+      order.paymentTransactions?.[0]?.paymentStatus?.name || "pending";
     const steps = buildCustomerOrderTrackingSteps({
       statusId: order.statusId,
       fulfillmentMethod: order.fulfillmentMethod ?? FulfillmentMethod.DELIVERY,
@@ -627,8 +702,8 @@ const getSupportOrderTrackingReply = async (message: string) => {
       updatedAt: order.updatedAt,
     });
     const currentStep =
-      steps.find((step) => step.active)
-      || steps.filter((step) => step.completed).slice(-1)[0];
+      steps.find((step) => step.active) ||
+      steps.filter((step) => step.completed).slice(-1)[0];
     const lastUpdated = formatTrackingDate(order.updatedAt || order.createdAt);
     const eta = resolveEta(order, currentStep?.label || "");
     const location = resolveTrackingLocation(order);
@@ -655,21 +730,29 @@ const buildRuleBasedReply = (message: string) => {
       );
     }
 
-    if (/payment|campay|stripe|card|checkout|failed|declin/.test(normalizedChip)) {
+    if (
+      /payment|campay|stripe|card|checkout|failed|declin/.test(normalizedChip)
+    ) {
       return withSuggestionsMarker(
         "I can help with payment issues. Share the method you used and the exact error text.",
         PAYMENT_SUGGESTIONS,
       );
     }
 
-    if (/login|sign in|signin|otp|password|profile|account/.test(normalizedChip)) {
+    if (
+      /login|sign in|signin|otp|password|profile|account/.test(normalizedChip)
+    ) {
       return withSuggestionsMarker(
         "I can help with account access. Tell me if this is login, OTP, password reset, or profile update.",
         ACCOUNT_SUGGESTIONS,
       );
     }
 
-    if (/product|products|catalog|show me|item|items|trending|dropshipping|drop shipping/.test(normalizedChip)) {
+    if (
+      /product|products|catalog|show me|item|items|trending|dropshipping|drop shipping/.test(
+        normalizedChip,
+      )
+    ) {
       return withSuggestionsMarker(
         "Sure. Tell me what you want to browse, or pick one of these product options.",
         PRODUCT_SUGGESTIONS,
@@ -681,11 +764,17 @@ const buildRuleBasedReply = (message: string) => {
     }
   }
 
-  if (/^thanks?$|^thank you$|^thx$|^ty$|thank\b|thank you so much|thanks a lot|gotcha|got it|ok got it|cool thanks|nice thanks/.test(normalized)) {
+  if (
+    /^thanks?$|^thank you$|^thx$|^ty$|thank\b|thank you so much|thanks a lot|gotcha|got it|ok got it|cool thanks|nice thanks/.test(
+      normalized,
+    )
+  ) {
     return "You are welcome. If you want, I can also help you with orders, payments, account settings, or product discovery.";
   }
 
-  if (/^cool$|^ok$|^okay$|^nice$|^great$|^awesome$|^perfect$/.test(normalized)) {
+  if (
+    /^cool$|^ok$|^okay$|^nice$|^great$|^awesome$|^perfect$/.test(normalized)
+  ) {
     return withSuggestionsMarker(
       "Nice. Want to continue with anything else?",
       GENERAL_SUGGESTIONS,
@@ -699,7 +788,9 @@ const buildRuleBasedReply = (message: string) => {
     );
   }
 
-  if (/^bye$|^goodbye$|see you|cya|talk later|good night|gn$/.test(normalized)) {
+  if (
+    /^bye$|^goodbye$|see you|cya|talk later|good night|gn$/.test(normalized)
+  ) {
     return "Bye for now. I am here whenever you need help with orders, payments, account, or products.";
   }
 
@@ -710,14 +801,20 @@ const buildRuleBasedReply = (message: string) => {
     );
   }
 
-  if (/\blogin\b|sign in|signin|log in|can't login|cannot login/.test(normalized)) {
+  if (
+    /\blogin\b|sign in|signin|log in|can't login|cannot login/.test(normalized)
+  ) {
     return withSuggestionsMarker(
       "For login issues, please try this: 1) confirm the same phone/email used at signup, 2) verify country code on phone number, 3) use Forgot Password to reset, 4) retry after clearing browser cache. If it still fails, send the exact error text and whether you are on mobile or web.",
       ACCOUNT_SUGGESTIONS,
     );
   }
 
-  if (/^otp$|code not received|verification code|one time password/.test(normalized)) {
+  if (
+    /^otp$|code not received|verification code|one time password/.test(
+      normalized,
+    )
+  ) {
     return withSuggestionsMarker(
       "For OTP issues: 1) check the phone number format with country code, 2) wait 30-60 seconds and resend once, 3) ensure WhatsApp/SMS network is stable. If OTP still does not arrive, share the phone number mask and timestamp so support can trace delivery.",
       ACCOUNT_SUGGESTIONS,
@@ -785,13 +882,19 @@ const buildChatHistory = (recentMessages: SupportMessage[]) =>
     .map((item) => `${item.sender}: ${stripThreadMarker(item.text)}`)
     .join("\n");
 
-const buildSupportPrompt = (cleanedMessage: string, recentMessages: SupportMessage[]) => ({
+const buildSupportPrompt = (
+  cleanedMessage: string,
+  recentMessages: SupportMessage[],
+) => ({
   system:
     "You are Edoshop support. Keep answers short, practical, and commerce-focused. If information is missing, ask one concise follow-up question. If user says thanks/thank you, reply with a short polite closure instead of restarting generic help options.",
   user: `Recent chat:\n${buildChatHistory(recentMessages)}\n\nCurrent customer message:\n${cleanedMessage}`,
 });
 
-const callOpenAi = async (cleanedMessage: string, recentMessages: SupportMessage[]) => {
+const callOpenAi = async (
+  cleanedMessage: string,
+  recentMessages: SupportMessage[],
+) => {
   const prompt = buildSupportPrompt(cleanedMessage, recentMessages);
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -814,7 +917,10 @@ const callOpenAi = async (cleanedMessage: string, recentMessages: SupportMessage
   return result?.choices?.[0]?.message?.content?.trim() || "";
 };
 
-const callOllama = async (cleanedMessage: string, recentMessages: SupportMessage[]) => {
+const callOllama = async (
+  cleanedMessage: string,
+  recentMessages: SupportMessage[],
+) => {
   const prompt = buildSupportPrompt(cleanedMessage, recentMessages);
   const response = await fetch(`${env.OLLAMA_BASE_URL}/api/chat`, {
     method: "POST",
@@ -880,11 +986,19 @@ const createAiReply = async (
   }
 
   // Keep a deterministic, polite closure for gratitude messages.
-  if (/^thanks?$|^thank you$|^thx$|^ty$|thank\b|thank you so much|thanks a lot|gotcha|got it|ok got it|cool thanks|nice thanks|cool|ok|okay|nice|great|awesome|perfect/i.test(cleanedMessage)) {
+  if (
+    /^thanks?$|^thank you$|^thx$|^ty$|thank\b|thank you so much|thanks a lot|gotcha|got it|ok got it|cool thanks|nice thanks|cool|ok|okay|nice|great|awesome|perfect/i.test(
+      cleanedMessage,
+    )
+  ) {
     return "You are welcome. If you need anything else, I am here to help.";
   }
 
-  if (/^bye$|^goodbye$|see you|cya|talk later|good night|gn$/i.test(cleanedMessage)) {
+  if (
+    /^bye$|^goodbye$|see you|cya|talk later|good night|gn$/i.test(
+      cleanedMessage,
+    )
+  ) {
     return "Bye for now. I am here whenever you need help again.";
   }
 
@@ -907,9 +1021,8 @@ const createAiReply = async (
 
     const replyText = text || buildRuleBasedReply(cleanedMessage);
     const lastSupportText = stripThreadMarker(
-      [...recentMessages]
-        .reverse()
-        .find((item) => item.sender === "support")?.text || "",
+      [...recentMessages].reverse().find((item) => item.sender === "support")
+        ?.text || "",
     );
 
     if (normalizeReply(replyText) === normalizeReply(lastSupportText)) {
@@ -923,9 +1036,8 @@ const createAiReply = async (
   } catch {
     const fallbackReply = buildRuleBasedReply(cleanedMessage);
     const lastSupportText = stripThreadMarker(
-      [...recentMessages]
-        .reverse()
-        .find((item) => item.sender === "support")?.text || "",
+      [...recentMessages].reverse().find((item) => item.sender === "support")
+        ?.text || "",
     );
 
     if (normalizeReply(fallbackReply) === normalizeReply(lastSupportText)) {
@@ -939,7 +1051,10 @@ const createAiReply = async (
   }
 };
 
-const createMessage = (sender: "customer" | "support", text: string): SupportMessage => ({
+const createMessage = (
+  sender: "customer" | "support",
+  text: string,
+): SupportMessage => ({
   id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
   sender,
   text: text.trim(),
@@ -955,10 +1070,12 @@ const messages: SupportMessage[] = [
   {
     id: "welcome",
     sender: "support",
-    text: withBotMarker(withSuggestionsMarker(
-      "Hi! Welcome to Edoshop Support. Pick an option below to get started, or type your issue.",
-      GENERAL_SUGGESTIONS,
-    )),
+    text: withBotMarker(
+      withSuggestionsMarker(
+        "Hi! Welcome to Edoshop Support. Pick an option below to get started, or type your issue.",
+        GENERAL_SUGGESTIONS,
+      ),
+    ),
     createdAt: new Date().toISOString(),
   },
 ];
@@ -986,6 +1103,11 @@ const listMessagesRoute = createRoute({
   method: "get",
   path: "/support-chat/messages",
   tags: ["Support Chat"],
+  request: {
+    query: z.object({
+      threadId: z.string().min(16).max(200),
+    }),
+  },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
       createSuccessResponseSchema(z.array(supportMessageSchema)),
@@ -994,10 +1116,40 @@ const listMessagesRoute = createRoute({
   },
 });
 
+const listAdminMessagesRoute = createRoute({
+  method: "get",
+  path: "/support-chat/admin/messages",
+  tags: ["Support Chat"],
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.CHAT, operation: OperationType.READ },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(z.array(supportMessageSchema)),
+      "Admin support chat messages",
+    ),
+  },
+});
+
 const listThreadsRoute = createRoute({
   method: "get",
   path: "/support-chat/threads",
   tags: ["Support Chat"],
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.CHAT, operation: OperationType.READ },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+  },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
       createSuccessResponseSchema(z.array(supportThreadSchema)),
@@ -1011,7 +1163,35 @@ const createMessageRoute = createRoute({
   path: "/support-chat/messages",
   tags: ["Support Chat"],
   request: {
-    body: jsonContentRequired(createSupportMessageSchema, "Support chat message"),
+    body: jsonContentRequired(
+      createCustomerSupportMessageSchema,
+      "Customer support chat message",
+    ),
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(supportMessageSchema),
+      "Support chat message created",
+    ),
+  },
+});
+
+const createAdminMessageRoute = createRoute({
+  method: "post",
+  path: "/support-chat/admin/messages",
+  tags: ["Support Chat"],
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.CHAT, operation: OperationType.CREATE },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    body: jsonContentRequired(
+      createAdminSupportMessageSchema,
+      "Admin support chat message",
+    ),
   },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
@@ -1022,64 +1202,87 @@ const createMessageRoute = createRoute({
 });
 
 router.openapi(listMessagesRoute, (async (c) => {
-  return c.json(successResponse(messages, "Support chat messages retrieved"));
+  const { threadId } = c.req.valid("query");
+  const threadMessages = messages.filter(
+    (message) =>
+      message.id === "welcome" || getThreadIdFromText(message.text) === threadId,
+  );
+  return c.json(
+    successResponse(threadMessages, "Support chat messages retrieved"),
+  );
+}) as any);
+
+router.openapi(listAdminMessagesRoute, (async (c) => {
+  return c.json(
+    successResponse(messages, "Admin support chat messages retrieved"),
+  );
 }) as any);
 
 router.openapi(listThreadsRoute, (async (c) => {
-  return c.json(successResponse(buildSupportThreads(messages), "Support chat threads retrieved"));
+  return c.json(
+    successResponse(
+      buildSupportThreads(messages),
+      "Support chat threads retrieved",
+    ),
+  );
 }) as any);
 
-router.openapi(createMessageRoute, (async (c) => {
+router.openapi(createAdminMessageRoute, (async (c) => {
   const data = c.req.valid("json");
-  const message = createMessage(data.sender, data.text);
+  const message = createMessage("support", data.text);
   const threadId = getThreadIdFromText(message.text);
 
   messages.push(message);
 
-  if (message.sender === "support") {
-    if (threadId && !isBotMessage(message.text)) {
-      escalatedThreads.delete(threadId);
-      escalatedThreadLastAckAt.delete(threadId);
-      escalatedThreadLastCustomerText.delete(threadId);
-    }
+  if (threadId && !isBotMessage(message.text)) {
+    escalatedThreads.delete(threadId);
+    escalatedThreadLastAckAt.delete(threadId);
+    escalatedThreadLastCustomerText.delete(threadId);
+  }
 
+  return c.json(successResponse(message, "Support chat message created"));
+}) as any);
+
+router.openapi(createMessageRoute, (async (c) => {
+  const data = c.req.valid("json");
+  const message = createMessage("customer", data.text);
+  const threadId = getThreadIdFromText(message.text);
+
+  messages.push(message);
+
+  if (threadId && escalatedThreads.has(threadId)) {
+    escalatedThreadLastCustomerText.set(
+      threadId,
+      normalizeReply(stripThreadMarker(message.text)),
+    );
     return c.json(successResponse(message, "Support chat message created"));
   }
 
-  if (message.sender === "customer") {
-    if (threadId && escalatedThreads.has(threadId)) {
-      escalatedThreadLastCustomerText.set(
-        threadId,
-        normalizeReply(stripThreadMarker(message.text)),
-      );
-      return c.json(successResponse(message, "Support chat message created"));
-    }
+  const relevantMessages = threadId
+    ? messages.filter((item) => getThreadIdFromText(item.text) === threadId)
+    : messages;
 
-    const relevantMessages = threadId
-      ? messages.filter((item) => getThreadIdFromText(item.text) === threadId)
-      : messages;
+  const replyText = await createAiReply(message.text, relevantMessages);
 
-    const replyText = await createAiReply(message.text, relevantMessages);
-
-    if (
-      threadId
-      && (
-        parseSupportAttachment(message.text)
-        || replyText.includes(AGENT_HANDOFF_REQUEST_MARKER)
-      )
-    ) {
-      escalatedThreads.add(threadId);
-      escalatedThreadLastAckAt.set(threadId, Date.now());
-      escalatedThreadLastCustomerText.set(threadId, normalizeReply(stripThreadMarker(message.text)));
-    }
-
-    const supportReply = createMessage(
-      "support",
-      withThreadMarker(withBotMarker(replyText), threadId),
+  if (
+    threadId &&
+    (parseSupportAttachment(message.text) ||
+      replyText.includes(AGENT_HANDOFF_REQUEST_MARKER))
+  ) {
+    escalatedThreads.add(threadId);
+    escalatedThreadLastAckAt.set(threadId, Date.now());
+    escalatedThreadLastCustomerText.set(
+      threadId,
+      normalizeReply(stripThreadMarker(message.text)),
     );
-
-    messages.push(supportReply);
   }
+
+  const supportReply = createMessage(
+    "support",
+    withThreadMarker(withBotMarker(replyText), threadId),
+  );
+
+  messages.push(supportReply);
 
   return c.json(successResponse(message, "Support chat message created"));
 }) as any);

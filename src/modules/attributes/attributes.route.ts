@@ -31,6 +31,12 @@ export const getTypes = createRoute({
   path: "/attributes/types",
   method: "get",
   tags,
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.ATTRIBUTES, operation: OperationType.READ },
+    ]),
+  ] as const,
   request: {
     headers: jwtHeaderSchema,
     query: commonQueryParamsSchema,

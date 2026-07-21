@@ -1,15 +1,18 @@
+import type { MiddlewareHandler } from "hono";
+
 import { createRoute, z } from "@hono/zod-openapi";
-import { jwtMiddleware } from "@/core/middlewares";
+import { EntityType, OperationType } from "@/constants";
+import {
+  jwtMiddleware,
+  rolesAndPermissionsMiddleware,
+} from "@/core/middlewares";
 import * as HttpStatusCodes from "@/lib/http-status-codes";
 import {
   commonErrorResponses,
   jsonContent,
   jsonContentRequired,
 } from "@/lib/openapi/helpers";
-import {
-  createSuccessResponseSchema,
-  idParams,
-} from "@/lib/openapi/schemas";
+import { createSuccessResponseSchema, idParams } from "@/lib/openapi/schemas";
 import { createSuccessResponseSchemaWithPagination } from "@/lib/openapi/schemas/create-api-response";
 import commonQueryParamsSchema from "@/lib/openapi/schemas/query-params-schema";
 
@@ -19,11 +22,19 @@ import * as schemas from "./packages.schema";
 
 const tags = ["Packages"];
 
+const acl = (
+  entity: EntityType,
+  operation: OperationType,
+): [MiddlewareHandler, MiddlewareHandler] => [
+  jwtMiddleware(),
+  rolesAndPermissionsMiddleware([{ entity, operation }]),
+];
+
 export const createPackage = createRoute({
   path: "/packages",
   method: "post",
   tags,
-  middleware: [jwtMiddleware()] as const,
+  middleware: acl(EntityType.WAREHOUSE_1, OperationType.CREATE),
   summary: "Create a package",
   description: "Create a new package for a customer",
   request: {
@@ -53,7 +64,7 @@ export const editPackage = createRoute({
   path: "/packages/{id}",
   method: "patch",
   tags,
-  middleware: [jwtMiddleware()] as const,
+  middleware: acl(EntityType.WAREHOUSE_1, OperationType.UPDATE),
   summary: "Update a package",
   description: "Update package details",
   request: {
@@ -85,7 +96,7 @@ export const createShippingLabel = createRoute({
   path: "/packages/shipping-labels",
   method: "post",
   tags,
-  middleware: [jwtMiddleware()] as const,
+  middleware: acl(EntityType.WAREHOUSE_1, OperationType.CREATE),
   summary: "Create a shipping label",
   description: "Create a new shipping label for a package",
   request: {
@@ -119,7 +130,7 @@ export const editShippingLabel = createRoute({
   path: "/packages/shipping-labels/{id}",
   method: "patch",
   tags,
-  middleware: [jwtMiddleware()] as const,
+  middleware: acl(EntityType.WAREHOUSE_1, OperationType.UPDATE),
   summary: "Update a shipping label",
   description: "Update shipping label details",
   request: {
@@ -154,9 +165,10 @@ export const getPackageManagementW1 = createRoute({
   path: "/packages/management/w1",
   method: "get",
   tags,
-  middleware: [jwtMiddleware()] as const,
+  middleware: acl(EntityType.WAREHOUSE_1, OperationType.READ),
   summary: "Get package management for warehouse 1",
-  description: "Retrieve all packages for warehouse 1 management with pagination, filtering and sorting",
+  description:
+    "Retrieve all packages for warehouse 1 management with pagination, filtering and sorting",
   request: {
     headers: jwtHeaderSchema,
     query: commonQueryParamsSchema,
@@ -179,9 +191,10 @@ export const getPackageManagementW2 = createRoute({
   path: "/packages/management/w2",
   method: "get",
   tags,
-  middleware: [jwtMiddleware()] as const,
+  middleware: acl(EntityType.WAREHOUSE_2, OperationType.READ),
   summary: "Get package management for warehouse 2",
-  description: "Retrieve all packages for warehouse 2 management with pagination, filtering and sorting",
+  description:
+    "Retrieve all packages for warehouse 2 management with pagination, filtering and sorting",
   request: {
     headers: jwtHeaderSchema,
     query: commonQueryParamsSchema,
@@ -204,7 +217,7 @@ export const createPackageWithItems = createRoute({
   path: "/packages/with-items",
   method: "post",
   tags,
-  middleware: [jwtMiddleware()] as const,
+  middleware: acl(EntityType.WAREHOUSE_1, OperationType.CREATE),
   summary: "Create package with order items",
   description:
     "Create a package and add multiple order items to it in a single atomic transaction",
@@ -240,7 +253,7 @@ export const printShippingLabel = createRoute({
   path: "/packages/{packageId}/print-label",
   method: "get",
   tags,
-  middleware: [jwtMiddleware()] as const,
+  middleware: acl(EntityType.WAREHOUSE_1, OperationType.READ),
   summary: "Generate shipping label PDF",
   description: "Generate and download a shipping label PDF for a package",
   request: {
@@ -274,9 +287,10 @@ export const receiveAPackageFromW1 = createRoute({
   path: "/packages/w2/receive",
   method: "patch",
   tags,
-  middleware: [jwtMiddleware()] as const,
+  middleware: acl(EntityType.WAREHOUSE_2, OperationType.UPDATE),
   summary: "Receive package from warehouse 1 in 2",
-  description: "Receive a package from warehouse 1 in warehouse 2 and update its status accordingly",
+  description:
+    "Receive a package from warehouse 1 in warehouse 2 and update its status accordingly",
   request: {
     headers: jwtHeaderSchema,
     body: jsonContentRequired(
@@ -309,7 +323,7 @@ export const editReceivedPackageFromW1 = createRoute({
   path: "/packages/{id}/edit-received",
   method: "patch",
   tags,
-  middleware: [jwtMiddleware()] as const,
+  middleware: acl(EntityType.WAREHOUSE_2, OperationType.UPDATE),
   summary: "Edit received package",
   description: "Edit the details of a received package",
   request: {
@@ -345,9 +359,10 @@ export const getPackedPackagesThatAreBeingReceived = createRoute({
   path: "/packages/w2/receiving",
   method: "get",
   tags,
-  middleware: [jwtMiddleware()] as const,
+  middleware: acl(EntityType.WAREHOUSE_2, OperationType.READ),
   summary: "Get packed packages that are being received",
-  description: "Retrieve all packed packages that are being received with pagination, filtering and sorting",
+  description:
+    "Retrieve all packed packages that are being received with pagination, filtering and sorting",
   request: {
     headers: jwtHeaderSchema,
     query: commonQueryParamsSchema,
@@ -370,9 +385,10 @@ export const listShippingLabels = createRoute({
   path: "/packages/shipping-labels",
   method: "get",
   tags,
-  middleware: [jwtMiddleware()] as const,
+  middleware: acl(EntityType.SHIPPING_LABELS, OperationType.READ),
   summary: "Get all shipping labels",
-  description: "Retrieve all shipping labels with pagination, filtering and sorting",
+  description:
+    "Retrieve all shipping labels with pagination, filtering and sorting",
   request: {
     headers: jwtHeaderSchema,
     query: commonQueryParamsSchema,
@@ -395,7 +411,7 @@ export const receivedPackageDispatchManagement = createRoute({
   path: "/packages/dispatch",
   method: "get",
   tags,
-  middleware: [jwtMiddleware()] as const,
+  middleware: acl(EntityType.WAREHOUSE_2, OperationType.READ),
   summary: "Get packages ready for dispatch",
   description: "Retrieve all packages that are ready to be dispatched",
   request: {
@@ -420,9 +436,10 @@ export const getShippingPriorityCodes = createRoute({
   path: "/packages/shipping-priority-codes",
   method: "get",
   tags,
+  middleware: acl(EntityType.SHIPPING_LABELS, OperationType.READ),
   summary: "Get all shipping priority codes",
   description: "Retrieve all available shipping priority codes",
-  request: {},
+  request: { headers: jwtHeaderSchema },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
       createSuccessResponseSchema(
@@ -442,9 +459,10 @@ export const getShippingTypes = createRoute({
   path: "/packages/shipping-types",
   method: "get",
   tags,
+  middleware: acl(EntityType.SHIPPING_LABELS, OperationType.READ),
   summary: "Get all shipping types",
   description: "Retrieve all available shipping types",
-  request: {},
+  request: { headers: jwtHeaderSchema },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
       createSuccessResponseSchema(
@@ -464,10 +482,10 @@ export const getAllPackageStatuses = createRoute({
   path: "/packages/statuses",
   method: "get",
   tags,
+  middleware: acl(EntityType.WAREHOUSE_2, OperationType.READ),
   summary: "Get all package statuses",
   description: "Retrieve all available package statuses",
-  request: {
-  },
+  request: { headers: jwtHeaderSchema },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
       createSuccessResponseSchema(
@@ -477,9 +495,7 @@ export const getAllPackageStatuses = createRoute({
       "Package statuses retrieved successfully",
     ),
     ...commonErrorResponses(
-      [
-        HttpStatusCodes.INTERNAL_SERVER_ERROR,
-      ],
+      [HttpStatusCodes.INTERNAL_SERVER_ERROR],
       z.object({}),
     ),
   },
@@ -489,7 +505,7 @@ export const updateReceivedPackageStatus = createRoute({
   path: "/packages/{id}/dispatch",
   method: "patch",
   tags,
-  middleware: [jwtMiddleware()] as const,
+  middleware: acl(EntityType.WAREHOUSE_2, OperationType.UPDATE),
   summary: "Update dispatched package status",
   description: "Update the status of a dispatched package",
   request: {
@@ -525,7 +541,7 @@ export const dispatchPackages = createRoute({
   path: "/packages/dispatch",
   method: "post",
   tags,
-  middleware: [jwtMiddleware()] as const,
+  middleware: acl(EntityType.WAREHOUSE_2, OperationType.UPDATE),
   summary: "Dispatch package",
   description: "Dispatch a package",
   request: {
@@ -560,9 +576,10 @@ export const getPackageInfoForShippingLabel = createRoute({
   path: "/packages/{id}/shipping-info",
   method: "get",
   tags,
-  middleware: [jwtMiddleware()] as const,
+  middleware: acl(EntityType.SHIPPING_LABELS, OperationType.READ),
   summary: "Get package info for shipping label",
-  description: "Retrieve package information needed for creating a shipping label",
+  description:
+    "Retrieve package information needed for creating a shipping label",
   request: {
     headers: jwtHeaderSchema,
     params: idParams,
@@ -594,15 +611,19 @@ export type CreateShippingLabelRoute = typeof createShippingLabel;
 export type EditShippingLabelRoute = typeof editShippingLabel;
 export type GetPackageManagementW1Route = typeof getPackageManagementW1;
 export type GetPackageManagementW2Route = typeof getPackageManagementW2;
-export type GetPackageInfoForShippingLabelRoute = typeof getPackageInfoForShippingLabel;
+export type GetPackageInfoForShippingLabelRoute =
+  typeof getPackageInfoForShippingLabel;
 export type CreatePackageWithItemsRoute = typeof createPackageWithItems;
 export type PrintShippingLabelRoute = typeof printShippingLabel;
 export type ListShippingLabelsRoute = typeof listShippingLabels;
 export type ReceiveAPackagesFromW1Route = typeof receiveAPackageFromW1;
 export type EditReceivedPackageFromW1Route = typeof editReceivedPackageFromW1;
-export type GetPackedPackagesThatAreBeingReceived = typeof getPackedPackagesThatAreBeingReceived;
-export type UpdateReceivedPackageStatusRoute = typeof updateReceivedPackageStatus;
-export type ReceivedPackageDispatchManagementRoute = typeof receivedPackageDispatchManagement;
+export type GetPackedPackagesThatAreBeingReceived =
+  typeof getPackedPackagesThatAreBeingReceived;
+export type UpdateReceivedPackageStatusRoute =
+  typeof updateReceivedPackageStatus;
+export type ReceivedPackageDispatchManagementRoute =
+  typeof receivedPackageDispatchManagement;
 export type DispatchPackagesRoute = typeof dispatchPackages;
 export type GetAllPackageStatusesRoute = typeof getAllPackageStatuses;
 export type GetShippingTypesRoute = typeof getShippingTypes;

@@ -3,6 +3,12 @@
  * Using enum for better type safety and autocompletion
  */
 export enum EntityType {
+  SETTINGS = "settings",
+  STORES = "stores",
+  CHAT = "chat",
+  TRACKING = "tracking",
+  EWMS_MANAGEMENT = "ewms_management",
+  TICKETING = "ticketing",
   ENTITIES = "entities",
   OPERATIONS = "operations",
   ROLES = "roles",
@@ -46,6 +52,12 @@ export enum EntityType {
  * Provides descriptions for entity types
  */
 export const ENTITY_DESCRIPTIONS: Record<EntityType, string> = {
+  [EntityType.SETTINGS]: "Settings",
+  [EntityType.STORES]: "Stores",
+  [EntityType.CHAT]: "Chat",
+  [EntityType.TRACKING]: "Tracking",
+  [EntityType.EWMS_MANAGEMENT]: "EWMS Management",
+  [EntityType.TICKETING]: "Ticketing",
   [EntityType.ENTITIES]: "Entities",
   [EntityType.OPERATIONS]: "Operations",
   [EntityType.ROLES]: "Roles",

@@ -150,10 +150,27 @@ export const loginRequestSchema = z
 export type LoginRequest = z.infer<typeof loginRequestSchema>;
 
 // Login response schema
+export const userAccessProfileSchema = z.object({
+  isSuperAdmin: z.boolean(),
+  isAdminRole: z.boolean(),
+  role: z
+    .object({
+      id: z.number(),
+      name: z.string(),
+      description: z.string().nullable(),
+    })
+    .nullable(),
+  permissions: z.array(z.string()),
+  sections: z.record(z.string(), z.boolean()),
+});
+
+export type UserAccessProfile = z.infer<typeof userAccessProfileSchema>;
+
 export const loginResponseSchema = z.object({
   user: userSchema.describe("User information"),
   accessToken: jwtTokenSchema.describe("JWT access token"),
   refreshToken: jwtTokenSchema.describe("JWT refresh token"),
+  accessProfile: userAccessProfileSchema.describe("User access profile"),
 });
 
 // Login response type

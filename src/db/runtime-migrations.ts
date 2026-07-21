@@ -1,6 +1,19 @@
-import { sql } from "drizzle-orm";
+import { inArray, sql } from "drizzle-orm";
 
+import {
+  ENTITY_DESCRIPTIONS,
+  EntityType,
+  ROLE_DESCRIPTIONS,
+  RoleType,
+} from "@/constants";
 import db from "@/db";
+import {
+  entities,
+  operations,
+  permissions,
+  roles,
+} from "@/db/models";
+import { getRolePermissionTemplate } from "@/modules/permissions/permissions.service";
 
 export async function ensureRuntimeMigrations() {
   await db.execute(
@@ -409,4 +422,270 @@ export async function ensureRuntimeMigrations() {
         )
     `),
   );
+
+  await ensureAclRolesAndEntities();
+}
+
+async function ensureAclRolesAndEntities() {
+  const newEntities = Object.entries(ENTITY_DESCRIPTIONS);
+
+  for (const [name, description] of newEntities) {
+    await db.execute(
+      sql.raw(`
+        INSERT INTO "entities" ("name", "description")
+        SELECT '${name}', '${description}'
+        WHERE NOT EXISTS (
+          SELECT 1 FROM "entities" WHERE "name" = '${name}'
+        )
+      `),
+    );
+  }
+
+  const newRoles = [
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.MANAGER,
+    RoleType.AUDITOR,
+    RoleType.W1_TECH,
+    RoleType.W2_TECH,
+    RoleType.CUSTOMER_SERVICE,
+    RoleType.WAREHOUSE_SUPERVISOR,
+    RoleType.DIGITAL_MARKETER,
+  ].map((role) => [role, ROLE_DESCRIPTIONS[role]]);
+
+  for (const [name, description] of newRoles) {
+    await db.execute(
+      sql.raw(`
+        WITH actor AS (
+          SELECT "id" FROM "users" ORDER BY "id" LIMIT 1
+        )
+        INSERT INTO "roles" ("name", "description", "created_by", "updated_by")
+        SELECT '${name}', '${description}', actor."id", actor."id"
+        FROM actor
+        WHERE NOT EXISTS (
+          SELECT 1 FROM "roles" WHERE "name" = '${name}'
+        )
+      `),
+    );
+  }
+
+  await db.execute(
+    sql.raw(`
+      INSERT INTO "permissions" ("role_id", "entity_id", "operation_id")
+      SELECT roles."id", entities."id", operations."id"
+      FROM "roles" AS roles
+      CROSS JOIN "entities" AS entities
+      CROSS JOIN "operations" AS operations
+      WHERE roles."name" = 'admin'
+        AND entities."name" NOT IN (
+          'settings', 'payment_methods', 'suppliers', 'entities', 'operations',
+          'roles', 'users', 'employees'
+        )
+        AND lower(operations."name") IN ('create', 'read', 'update', 'delete')
+        AND NOT EXISTS (
+          SELECT 1 FROM "permissions" AS existing
+          WHERE existing."role_id" = roles."id"
+            AND existing."entity_id" = entities."id"
+            AND existing."operation_id" = operations."id"
+        )
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
+      INSERT INTO "permissions" ("role_id", "entity_id", "operation_id")
+      SELECT roles."id", entities."id", operations."id"
+      FROM "roles" AS roles
+      CROSS JOIN "entities" AS entities
+      CROSS JOIN "operations" AS operations
+      WHERE roles."name" = 'auditor'
+        AND entities."name" IN (
+          'stores', 'orders', 'customers', 'retailers', 'discounts', 'faqs',
+          'filters', 'banners', 'categories', 'reviews', 'products', 'variants',
+          'new_arrivals', 'attributes', 'colors', 'sizes', 'tags', 'promotions',
+          'warehouse_1', 'warehouse_2', 'entries', 'warehouse_transfers'
+        )
+        AND lower(operations."name") = 'read'
+        AND NOT EXISTS (
+          SELECT 1 FROM "permissions" AS existing
+          WHERE existing."role_id" = roles."id"
+            AND existing."entity_id" = entities."id"
+            AND existing."operation_id" = operations."id"
+        )
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
+      INSERT INTO "permissions" ("role_id", "entity_id", "operation_id")
+      SELECT roles."id", entities."id", operations."id"
+      FROM "roles" AS roles
+      CROSS JOIN "entities" AS entities
+      CROSS JOIN "operations" AS operations
+      WHERE roles."name" = 'w1_tech'
+        AND entities."name" IN (
+          'stores', 'orders', 'customers', 'retailers', 'discounts', 'faqs',
+          'filters', 'banners', 'categories', 'reviews', 'products', 'variants',
+          'new_arrivals', 'attributes', 'colors', 'sizes', 'tags', 'promotions',
+          'warehouse_1', 'entries', 'warehouse_transfers', 'shipping_labels'
+        )
+        AND lower(operations."name") IN ('create', 'read', 'update', 'delete')
+        AND NOT EXISTS (
+          SELECT 1 FROM "permissions" AS existing
+          WHERE existing."role_id" = roles."id"
+            AND existing."entity_id" = entities."id"
+            AND existing."operation_id" = operations."id"
+        )
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
+      INSERT INTO "permissions" ("role_id", "entity_id", "operation_id")
+      SELECT roles."id", entities."id", operations."id"
+      FROM "roles" AS roles
+      CROSS JOIN "entities" AS entities
+      CROSS JOIN "operations" AS operations
+      WHERE roles."name" = 'w2_tech'
+        AND entities."name" IN (
+          'stores', 'orders', 'customers', 'retailers', 'discounts', 'faqs',
+          'filters', 'banners', 'categories', 'reviews', 'products', 'variants',
+          'new_arrivals', 'attributes', 'colors', 'sizes', 'tags', 'promotions',
+          'warehouse_2', 'entries', 'warehouse_transfers'
+        )
+        AND lower(operations."name") IN ('create', 'read', 'update', 'delete')
+        AND NOT EXISTS (
+          SELECT 1 FROM "permissions" AS existing
+          WHERE existing."role_id" = roles."id"
+            AND existing."entity_id" = entities."id"
+            AND existing."operation_id" = operations."id"
+        )
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
+      INSERT INTO "permissions" ("role_id", "entity_id", "operation_id")
+      SELECT roles."id", entities."id", operations."id"
+      FROM "roles" AS roles
+      CROSS JOIN "entities" AS entities
+      CROSS JOIN "operations" AS operations
+      WHERE roles."name" = 'customer_service'
+        AND entities."name" IN ('chat', 'testimonials', 'about_us', 'notifications', 'tracking', 'orders')
+        AND lower(operations."name") IN ('create', 'read', 'update', 'delete')
+        AND NOT EXISTS (
+          SELECT 1 FROM "permissions" AS existing
+          WHERE existing."role_id" = roles."id"
+            AND existing."entity_id" = entities."id"
+            AND existing."operation_id" = operations."id"
+        )
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
+      INSERT INTO "permissions" ("role_id", "entity_id", "operation_id")
+      SELECT roles."id", entities."id", operations."id"
+      FROM "roles" AS roles
+      CROSS JOIN "entities" AS entities
+      CROSS JOIN "operations" AS operations
+      WHERE roles."name" = 'warehouse_supervisor'
+        AND entities."name" IN (
+          'stores', 'orders', 'customers', 'retailers', 'discounts', 'faqs',
+          'filters', 'banners', 'categories', 'reviews', 'products', 'variants',
+          'new_arrivals', 'attributes', 'colors', 'sizes', 'tags', 'promotions',
+          'warehouse_1', 'warehouse_2', 'entries', 'warehouse_transfers',
+          'ewms_management', 'warehouses', 'shipping_labels', 'delivery_plans'
+        )
+        AND lower(operations."name") IN ('create', 'read', 'update', 'delete')
+        AND NOT EXISTS (
+          SELECT 1 FROM "permissions" AS existing
+          WHERE existing."role_id" = roles."id"
+            AND existing."entity_id" = entities."id"
+            AND existing."operation_id" = operations."id"
+        )
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
+      INSERT INTO "permissions" ("role_id", "entity_id", "operation_id")
+      SELECT roles."id", entities."id", operations."id"
+      FROM "roles" AS roles
+      CROSS JOIN "entities" AS entities
+      CROSS JOIN "operations" AS operations
+      WHERE roles."name" = 'digital_marketer'
+        AND entities."name" IN (
+          'stores', 'orders', 'customers', 'retailers', 'discounts', 'faqs',
+          'filters', 'banners', 'categories', 'reviews', 'products', 'variants',
+          'new_arrivals', 'attributes', 'colors', 'sizes', 'tags', 'promotions'
+        )
+        AND lower(operations."name") IN ('create', 'read', 'update', 'delete')
+        AND NOT EXISTS (
+          SELECT 1 FROM "permissions" AS existing
+          WHERE existing."role_id" = roles."id"
+            AND existing."entity_id" = entities."id"
+            AND existing."operation_id" = operations."id"
+        )
+    `),
+  );
+
+  await ensurePredefinedRolePermissions();
+}
+
+async function ensurePredefinedRolePermissions() {
+  const [roleRows, entityRows, operationRows] = await Promise.all([
+    db.select({ id: roles.id, name: roles.name }).from(roles),
+    db.select({ id: entities.id, name: entities.name }).from(entities),
+    db.select({ id: operations.id, name: operations.name }).from(operations),
+  ]);
+  const roleIds = new Map(roleRows.map((role) => [role.name.toLowerCase(), role.id]));
+  const entityIds = new Map(entityRows.map((entity) => [entity.name, entity.id]));
+  const operationIds = new Map(
+    operationRows.map((operation) => [operation.name.toLowerCase(), operation.id]),
+  );
+  const predefinedRoles = [
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.MANAGER,
+    RoleType.AUDITOR,
+    RoleType.W1_TECH,
+    RoleType.W2_TECH,
+    RoleType.CUSTOMER_SERVICE,
+    RoleType.WAREHOUSE_SUPERVISOR,
+    RoleType.DIGITAL_MARKETER,
+  ];
+  const predefinedRoleIds = predefinedRoles
+    .map((roleName) => roleIds.get(roleName))
+    .filter((roleId): roleId is number => Boolean(roleId));
+
+  // Predefined roles are managed templates. Remove legacy or manually-added
+  // grants before inserting the current template so revoked access cannot
+  // survive an application upgrade.
+  if (predefinedRoleIds.length > 0) {
+    await db
+      .delete(permissions)
+      .where(inArray(permissions.roleId, predefinedRoleIds));
+  }
+
+  const rows = predefinedRoles.flatMap((roleName) => {
+    const roleId = roleIds.get(roleName);
+    if (!roleId) {
+      return [];
+    }
+
+    return getRolePermissionTemplate(roleName).flatMap((permissionKey) => {
+      const [entityName, operationName] = permissionKey.split(":");
+      const entityId = entityIds.get(entityName);
+      const operationId = operationIds.get(operationName.toLowerCase());
+      return entityId && operationId ? [{ roleId, entityId, operationId }] : [];
+    });
+  });
+
+  for (let index = 0; index < rows.length; index += 100) {
+    await db
+      .insert(permissions)
+      .values(rows.slice(index, index + 100))
+      .onConflictDoNothing();
+  }
 }

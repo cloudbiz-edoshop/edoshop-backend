@@ -1,11 +1,19 @@
+import type { MiddlewareHandler } from "hono";
+
 import { createRoute, z } from "@hono/zod-openapi";
 
+import { EntityType, OperationType } from "@/constants";
+import {
+  jwtMiddleware,
+  rolesAndPermissionsMiddleware,
+} from "@/core/middlewares";
 import * as HttpStatusCodes from "@/lib/http-status-codes";
 import {
   jsonContent,
   jsonContentRequired,
 } from "@/lib/openapi/helpers";
 import { createSuccessResponseSchema } from "@/lib/openapi/schemas/create-api-response";
+import { jwtHeaderSchema } from "@/lib/zod-schemas";
 
 import {
   deleteFilesResponseSchema,
@@ -19,13 +27,24 @@ import {
 
 const tags = ["Uploads"];
 
+const uploadAcl = (
+  operation: OperationType,
+): [MiddlewareHandler, MiddlewareHandler] => [
+  jwtMiddleware(),
+  rolesAndPermissionsMiddleware([
+    { entity: EntityType.VARIANT_IMAGES, operation },
+  ]),
+];
+
 export const presignedUrlRoute = createRoute({
   method: "post",
   path: "/presigned",
   tags,
+  middleware: uploadAcl(OperationType.CREATE),
   summary: "Get presigned URL for upload",
   description: "Get a presigned URL for uploading a file directly to MinIO. This URL can be used for QR code-based mobile uploads.",
   request: {
+    headers: jwtHeaderSchema,
     body: jsonContentRequired(presignedUrlSchema, "File details"),
   },
   responses: {
@@ -43,9 +62,11 @@ export const getFileInfoRoute = createRoute({
   method: "get",
   path: "/info/{fileName}",
   tags,
+  middleware: uploadAcl(OperationType.READ),
   summary: "Get file information",
   description: "Get metadata about a file including name, size, and content type",
   request: {
+    headers: jwtHeaderSchema,
     params: z.object({
       fileName: z.string().min(1).openapi({
         description: "The name/key of the file",
@@ -68,9 +89,11 @@ export const uploadFilesRoute = createRoute({
   method: "post",
   path: "/upload",
   tags,
+  middleware: uploadAcl(OperationType.CREATE),
   summary: "Upload multiple files",
   description: "Upload multiple files at once (max 10 files per request)",
   request: {
+    headers: jwtHeaderSchema,
     body: {
       required: true,
       content: {
@@ -110,9 +133,11 @@ export const listFilesRoute = createRoute({
   method: "get",
   path: "/list-all",
   tags,
+  middleware: uploadAcl(OperationType.READ),
   summary: "List all files in bucket",
   description: "Get a list of all files stored in the bucket with their metadata",
   request: {
+    headers: jwtHeaderSchema,
     query: z.object({
       prefix: z.string().optional().openapi({
         description: "Filter files by prefix/folder path",
@@ -135,9 +160,11 @@ export const deleteFilesRoute = createRoute({
   method: "post",
   path: "/delete",
   tags,
+  middleware: uploadAcl(OperationType.DELETE),
   summary: "Delete multiple files",
   description: "Delete multiple files from storage at once (max 10 files per request)",
   request: {
+    headers: jwtHeaderSchema,
     body: jsonContentRequired(deleteFilesSchema, "Files to delete"),
   },
   responses: {
@@ -155,9 +182,11 @@ export const replaceFilesRoute = createRoute({
   method: "post",
   path: "/replace",
   tags,
+  middleware: uploadAcl(OperationType.UPDATE),
   summary: "Replace multiple files",
   description: "Replace multiple files at once. Requires 'files' and 'existingFileNames' arrays with matching indices.",
   request: {
+    headers: jwtHeaderSchema,
     body: {
       required: true,
       content: {

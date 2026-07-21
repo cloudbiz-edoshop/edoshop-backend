@@ -36,6 +36,12 @@ export const getNotificationTypes = createRoute({
   path: "/notifications/types",
   method: "get",
   tags,
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.NOTIFICATIONS, operation: OperationType.READ },
+    ]),
+  ] as const,
   request: {
     headers: jwtHeaderSchema,
   },
@@ -61,6 +67,12 @@ export const getNotificationFrequencies = createRoute({
   path: "/notifications/frequencies",
   method: "get",
   tags,
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.NOTIFICATIONS, operation: OperationType.READ },
+    ]),
+  ] as const,
   request: {
     headers: jwtHeaderSchema,
   },
@@ -86,6 +98,12 @@ export const getNotificationRecipientTypes = createRoute({
   path: "/notifications/recipient-types",
   method: "get",
   tags,
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.NOTIFICATIONS, operation: OperationType.READ },
+    ]),
+  ] as const,
   request: {
     headers: jwtHeaderSchema,
   },
@@ -332,7 +350,8 @@ export const getMyNotificationSettings = createRoute({
     headers: jwtHeaderSchema,
   },
   summary: "Get my notification settings",
-  description: "Returns notification preference toggles for the authenticated customer.",
+  description:
+    "Returns notification preference toggles for the authenticated customer.",
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
       createSuccessResponseSchema(z.array(userNotificationPreferenceSchema)),
@@ -358,7 +377,8 @@ export const updateMyNotificationSettings = createRoute({
     ),
   },
   summary: "Update my notification settings",
-  description: "Updates optional notification preferences for the authenticated customer.",
+  description:
+    "Updates optional notification preferences for the authenticated customer.",
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
       createSuccessResponseSchema(z.array(userNotificationPreferenceSchema)),
