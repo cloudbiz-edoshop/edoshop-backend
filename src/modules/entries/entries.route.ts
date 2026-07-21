@@ -439,7 +439,7 @@ export const createSupplierOrderRoute = createRoute({
   middleware: [
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
-      { entity: EntityType.ENTRIES, operation: OperationType.CREATE },
+      { entity: EntityType.SUPPLIERS, operation: OperationType.CREATE },
     ]),
   ] as const,
   request: {

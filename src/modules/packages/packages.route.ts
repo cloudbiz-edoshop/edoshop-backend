@@ -253,7 +253,7 @@ export const printShippingLabel = createRoute({
   path: "/packages/{packageId}/print-label",
   method: "get",
   tags,
-  middleware: acl(EntityType.WAREHOUSE_1, OperationType.READ),
+  middleware: acl(EntityType.SHIPPING_LABELS, OperationType.READ),
   summary: "Generate shipping label PDF",
   description: "Generate and download a shipping label PDF for a package",
   request: {
