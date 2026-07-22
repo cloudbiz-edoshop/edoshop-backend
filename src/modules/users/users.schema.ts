@@ -8,6 +8,7 @@ import {
   idSchema,
   jwtTokenSchema,
   otpSchema,
+  nextcloudLoginIdentifierSchema,
   passwordSchema,
   phoneSchema,
   usernameSchema,
@@ -136,13 +137,17 @@ export const loginRequestSchema = z
   .object({
     email: emailSchema.optional(),
     phoneNumber: phoneSchema.optional(),
+    username: nextcloudLoginIdentifierSchema.optional(),
     password: passwordSchema.describe("User password"),
   })
   .refine(
-    (data) => data.email !== undefined || data.phoneNumber !== undefined,
+    (data) =>
+      data.email !== undefined ||
+      data.phoneNumber !== undefined ||
+      data.username !== undefined,
     {
-      message: "Either email or phone number is required",
-      path: ["email", "phoneNumber"],
+      message: "Email, phone number, or username is required",
+      path: ["email", "phoneNumber", "username"],
     },
   );
 

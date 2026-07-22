@@ -92,6 +92,12 @@ const EnvSchema = z
     AI_PROVIDER: z.enum(["auto", "openai", "ollama", "rules"]).default("auto"),
     OLLAMA_BASE_URL: z.string().optional().default("http://localhost:11434"),
     OLLAMA_MODEL: z.string().optional().default("llama3.1:8b"),
+    NEXTCLOUD_URL: z.string().optional().default(""),
+    NEXTCLOUD_AUTH_ENABLED: stringBoolean,
+    NEXTCLOUD_OAUTH_CLIENT_ID: z.string().optional().default(""),
+    NEXTCLOUD_OAUTH_CLIENT_SECRET: z.string().optional().default(""),
+    NEXTCLOUD_OAUTH_REDIRECT_URI: z.string().optional().default(""),
+    ADMIN_PANEL_URL: z.string().optional().default("http://localhost:5173"),
   })
   .transform((input) => ({
     ...input,

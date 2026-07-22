@@ -10,6 +10,7 @@ import {
   isSettingsEntity,
 } from "@/constants/permissions.constants";
 import { db } from "@/db";
+import { isNextcloudAuthEnabled } from "@/lib/nextcloud-auth";
 import { EmployeeRepository } from "@/modules/employees/employees.repository";
 import { PermissionsService } from "@/modules/permissions/permissions.service";
 import { RoleRepository } from "@/modules/roles/roles.repository";
@@ -104,16 +105,40 @@ export class EmployeeService {
     sortOrder?: "asc" | "desc";
     filters?: Record<string, any>;
   }) {
+    const standaloneAdmins = await this.userRepository.listStandaloneAdminUsers(
+      params.search,
+    );
+    const adminRows = standaloneAdmins.map((user) => ({
+      id: -user.id,
+      userId: user.id,
+      employeeCode: "SUPER-ADMIN",
+      isActive: user.isActive,
+      roleExpiresAt: null,
+      isSuperAdminMember: true,
+      user,
+      role: {
+        id: 0,
+        name: "super_admin",
+        description: "Super Admin",
+        permissions: [],
+      },
+    }));
+
     const employees = await this.employeeRepository.list(params);
-    const formattedEmployees = employees.data.map((employee) => {
-      return {
-        ...employee,
-        role: this.roleService.formatRoleWithPermissions(employee.role),
-      };
-    });
+    const formattedEmployees = employees.data.map((employee) => ({
+      ...employee,
+      role: this.roleService.formatRoleWithPermissions(employee.role),
+    }));
+
+    const combined = [...adminRows, ...formattedEmployees];
+    const total = adminRows.length + employees.total;
+    const start = (params.page - 1) * params.limit;
+    const end = start + params.limit;
+
     return {
       ...employees,
-      data: formattedEmployees,
+      data: combined.slice(start, end),
+      total,
     };
   }
 
@@ -165,7 +190,7 @@ export class EmployeeService {
     email: string;
     fullName: string;
     username: string;
-    password: string;
+    password?: string;
     roleId: number;
     isTempRole?: boolean;
     roleExpiresAfter?: number;
@@ -192,6 +217,10 @@ export class EmployeeService {
 
     const role = await this.assertCanAssignRole(createdBy, roleId);
 
+    if (!password && !isNextcloudAuthEnabled()) {
+      throw new ValidationError("Password is required");
+    }
+
     // Check if employee already exists with this email
     const existingEmployee = await this.employeeRepository.findByEmail(email);
     if (existingEmployee) {
@@ -216,7 +245,7 @@ export class EmployeeService {
           email,
           fullName,
           username,
-          password,
+          password: password || undefined,
         });
       } else {
         user = userOrNull;

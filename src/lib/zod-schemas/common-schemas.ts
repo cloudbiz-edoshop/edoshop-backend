@@ -78,6 +78,17 @@ export const usernameSchema = z
   .describe("Username");
 
 /**
+ * Nextcloud login identifier — username (may include spaces) or email.
+ * Used only for App Password SSO, not for stored Edoshop usernames.
+ */
+export const nextcloudLoginIdentifierSchema = z
+  .string()
+  .trim()
+  .min(3, constraintAndMessages.USERNAME.MIN_LENGTH_ERROR)
+  .max(255, constraintAndMessages.USERNAME.MAX_LENGTH_ERROR)
+  .describe("Nextcloud username or email");
+
+/**
  * Phone number schema with standardized validation
  */
 export const phoneSchema = z

@@ -35,9 +35,14 @@ const usersService = new UsersService();
 const permissionsService = new PermissionsService();
 
 export const login: AppRouteHandler<LoginRoute> = async (c) => {
-  const { email, phoneNumber, password } = c.req.valid("json");
+  const { email, phoneNumber, username, password } = c.req.valid("json");
 
-  const result = await usersService.login({ email, phoneNumber, password });
+  const result = await usersService.login({
+    email,
+    phoneNumber,
+    username,
+    password,
+  });
   const accessProfile = await permissionsService.getUserAccessProfile(
     result.user.id,
   );

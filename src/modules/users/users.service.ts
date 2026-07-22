@@ -44,6 +44,11 @@ import {
 } from "@/lib/generate-token";
 import { sendEmail } from "@/lib/send-email";
 import sendWhatsapp from "@/lib/send-whatsapp";
+import type { NextcloudUserIdentity } from "@/lib/nextcloud-auth";
+import {
+  authenticateNextcloudAppPassword,
+  isNextcloudAuthEnabled,
+} from "@/lib/nextcloud-auth";
 import { UserRepository } from "@/modules/users/users.repository";
 
 import { AddressService } from "../addresses/addresses.service";
@@ -174,14 +179,31 @@ export class UsersService {
    * @throws UnauthorizedError if credentials are invalid
    */
   async login(loginData: LoginRequest): Promise<LoginResponse> {
-    const { email, phoneNumber, password } = loginData;
+    const { email, phoneNumber, username, password } = loginData;
 
-    if (!email && !phoneNumber) {
-      throw new ValidationError("Email or phone number is required");
+    if (!email && !phoneNumber && !username) {
+      throw new ValidationError("Email, phone number, or username is required");
     }
 
     if (!password) {
       throw new ValidationError("Password is required");
+    }
+
+    if (username) {
+      if (!isNextcloudAuthEnabled()) {
+        throw new UnauthorizedError("Invalid credentials");
+      }
+
+      const identity = await authenticateNextcloudAppPassword(
+        username,
+        password,
+      );
+
+      if (!identity) {
+        throw new UnauthorizedError("Invalid credentials");
+      }
+
+      return this.loginWithNextcloudIdentity(identity);
     }
 
     let user;
@@ -196,24 +218,57 @@ export class UsersService {
       throw new UnauthorizedError("Invalid credentials");
     }
 
-    if (!user.password) {
-      throw new UnauthorizedError("Invalid credentials");
+    const isTeamMember = await this.userRepository.isAdminPanelTeamMember(user.id);
+
+    if (isTeamMember && isNextcloudAuthEnabled()) {
+      const identity = await authenticateNextcloudAppPassword(
+        user.username,
+        password,
+      );
+
+      if (!identity) {
+        throw new UnauthorizedError("Invalid credentials");
+      }
+    } else {
+      if (!user.password) {
+        throw new UnauthorizedError("Invalid credentials");
+      }
+
+      const passwordValid = await argon2.verify(user.password, password);
+
+      if (!passwordValid) {
+        throw new UnauthorizedError("Invalid credentials");
+      }
     }
 
-    const passwordValid = await argon2.verify(user.password, password);
+    return this.buildLoginResponse(user);
+  }
 
-    if (!passwordValid) {
-      throw new UnauthorizedError("Invalid credentials");
+  async loginWithNextcloudIdentity(
+    identity: NextcloudUserIdentity,
+  ): Promise<LoginResponse> {
+    const user = await this.userRepository.findTeamMemberByNextcloudIdentity({
+      username: identity.id,
+      email: identity.email ?? undefined,
+    });
+
+    if (!user) {
+      throw new UnauthorizedError(
+        "This Nextcloud account is not linked to an Edoshop team member",
+      );
     }
 
-    // Remove password from the user object
+    return this.buildLoginResponse(user);
+  }
+
+  private async buildLoginResponse(user: {
+    id: number;
+    username: string;
+    password?: string | null;
+    [key: string]: unknown;
+  }): Promise<LoginResponse> {
     const { password: _, ...userWithoutPassword } = user;
-    user = userWithoutPassword;
 
-    // Generate token version for the refresh token
-    const tokenVersion = Math.floor(Math.random() * 1000000);
-
-    // Generate tokens
     const accessToken = await signJwtToken({
       userId: user.id,
       username: user.username,
@@ -222,17 +277,14 @@ export class UsersService {
     const refreshToken = await signRefreshToken({
       userId: user.id,
       username: user.username,
-      tokenVersion,
+      tokenVersion: Math.floor(Math.random() * 1000000),
     });
 
-    // Map to UserDTO
-    const userDto: LoginResponse = {
-      user,
+    return {
+      user: userWithoutPassword,
       accessToken,
       refreshToken,
     };
-
-    return userDto;
   }
 
   async getCurrentUser(userId: number) {

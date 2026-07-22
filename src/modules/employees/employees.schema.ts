@@ -18,7 +18,7 @@ const baseEmployeeSchema = z.object({
   email: emailSchema,
   fullName: fullNameSchema,
   username: usernameSchema,
-  password: passwordSchema,
+  password: passwordSchema.optional(),
   profilePhotoUrl: profilePhotoUrlSchema.optional(),
   roleId: idSchema.describe("ID of the employee's role"),
   isTempRole: z.boolean().optional().describe("If the role is temporary"),

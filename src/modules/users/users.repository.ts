@@ -409,4 +409,112 @@ export class UserRepository {
       .from(users);
     return result;
   }
+
+  async listStandaloneAdminUsers(search?: string) {
+    const normalizedSearch = search?.trim();
+
+    const adminUsers = await db.query.users.findMany({
+      where: and(eq(users.isAdmin, true), eq(users.isDeleted, false)),
+      columns: {
+        password: false,
+      },
+      with: {
+        employee: true,
+      },
+      orderBy: (userTable, { desc }) => [desc(userTable.createdAt)],
+    });
+
+    return adminUsers.filter((user) => {
+      if (user.employee && !user.employee.isDeleted) {
+        return false;
+      }
+
+      if (!normalizedSearch) {
+        return true;
+      }
+
+      const haystack = [
+        user.fullName,
+        user.username,
+        user.email,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return haystack.includes(normalizedSearch.toLowerCase());
+    });
+  }
+
+  async isAdminPanelTeamMember(userId: number) {
+    const user = await db.query.users.findFirst({
+      where: and(eq(users.id, userId), eq(users.isDeleted, false)),
+      columns: {
+        id: true,
+        isAdmin: true,
+      },
+      with: {
+        employee: {
+          columns: {
+            id: true,
+            isDeleted: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      return false;
+    }
+
+    if (user.isAdmin) {
+      return true;
+    }
+
+    return Boolean(user.employee && !user.employee.isDeleted);
+  }
+
+  async findTeamMemberByNextcloudIdentity(identity: {
+    username?: string;
+    email?: string;
+  }) {
+    const normalizedUsername = identity.username?.trim().toLowerCase();
+    const normalizedEmail = identity.email?.trim().toLowerCase();
+
+    const candidates = await db.query.users.findMany({
+      where: and(eq(users.isDeleted, false)),
+      columns: {
+        password: false,
+      },
+      with: {
+        employee: {
+          columns: {
+            id: true,
+            isDeleted: true,
+          },
+        },
+      },
+    });
+
+    const matchedUser = candidates.find((user) => {
+      const usernameMatches = normalizedUsername
+        ? user.username.trim().toLowerCase() === normalizedUsername
+        : false;
+      const emailMatches = normalizedEmail
+        ? String(user.email || "").trim().toLowerCase() === normalizedEmail
+        : false;
+
+      return usernameMatches || emailMatches;
+    });
+
+    if (!matchedUser) {
+      return null;
+    }
+
+    const isTeamMember =
+      matchedUser.isAdmin ||
+      Boolean(matchedUser.employee && !matchedUser.employee.isDeleted);
+
+    return isTeamMember ? matchedUser : null;
+  }
 }

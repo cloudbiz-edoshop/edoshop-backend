@@ -44,6 +44,7 @@ import trackingBundles from "@/modules/tracking-bundles/tracking-bundles.index";
 import uploadTokens from "@/modules/upload-tokens/upload-tokens.index";
 import uploads from "@/modules/uploads/uploads.index";
 import users from "@/modules/users/users.index";
+import nextcloudAuth from "@/modules/nextcloud-auth/nextcloud-auth.index";
 import variants from "@/modules/variants/variants.index";
 import warehouseTransfers from "@/modules/warehouse-transfers/warehouse-transfers.index";
 import warehouses from "@/modules/warehouses/warehouses.index";
@@ -77,6 +78,7 @@ if (appConfig.isProduction) {
 
 const routes = [
   users,
+  nextcloudAuth,
   employees,
   suppliers,
   customers,
