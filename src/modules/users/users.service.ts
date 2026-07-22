@@ -45,6 +45,7 @@ import {
 import { sendEmail } from "@/lib/send-email";
 import sendWhatsapp from "@/lib/send-whatsapp";
 import type { NextcloudUserIdentity } from "@/lib/nextcloud-auth";
+import { LOGIN_ERROR_MESSAGES } from "@/constants/login.constants";
 import {
   authenticateNextcloudAppPassword,
   isNextcloudAuthEnabled,
@@ -191,7 +192,7 @@ export class UsersService {
 
     if (username) {
       if (!isNextcloudAuthEnabled()) {
-        throw new UnauthorizedError("Invalid credentials");
+        throw new UnauthorizedError(LOGIN_ERROR_MESSAGES.NEXTCLOUD_DISABLED);
       }
 
       const identity = await authenticateNextcloudAppPassword(
@@ -200,7 +201,7 @@ export class UsersService {
       );
 
       if (!identity) {
-        throw new UnauthorizedError("Invalid credentials");
+        throw new UnauthorizedError(LOGIN_ERROR_MESSAGES.NEXTCLOUD_INVALID);
       }
 
       return this.loginWithNextcloudIdentity(identity);
@@ -215,30 +216,17 @@ export class UsersService {
     }
 
     if (!user) {
-      throw new UnauthorizedError("Invalid credentials");
+      throw new UnauthorizedError(LOGIN_ERROR_MESSAGES.LOCAL_INVALID);
     }
 
-    const isTeamMember = await this.userRepository.isAdminPanelTeamMember(user.id);
+    if (!user.password) {
+      throw new UnauthorizedError(LOGIN_ERROR_MESSAGES.LOCAL_NO_PASSWORD);
+    }
 
-    if (isTeamMember && isNextcloudAuthEnabled()) {
-      const identity = await authenticateNextcloudAppPassword(
-        user.username,
-        password,
-      );
+    const passwordValid = await argon2.verify(user.password, password);
 
-      if (!identity) {
-        throw new UnauthorizedError("Invalid credentials");
-      }
-    } else {
-      if (!user.password) {
-        throw new UnauthorizedError("Invalid credentials");
-      }
-
-      const passwordValid = await argon2.verify(user.password, password);
-
-      if (!passwordValid) {
-        throw new UnauthorizedError("Invalid credentials");
-      }
+    if (!passwordValid) {
+      throw new UnauthorizedError(LOGIN_ERROR_MESSAGES.LOCAL_INVALID);
     }
 
     return this.buildLoginResponse(user);
@@ -253,9 +241,7 @@ export class UsersService {
     });
 
     if (!user) {
-      throw new UnauthorizedError(
-        "This Nextcloud account is not linked to an Edoshop team member",
-      );
+      throw new UnauthorizedError(LOGIN_ERROR_MESSAGES.NEXTCLOUD_NOT_LINKED);
     }
 
     return this.buildLoginResponse(user);
