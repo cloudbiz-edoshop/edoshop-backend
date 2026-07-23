@@ -22,6 +22,7 @@
     "db:drop": "tsx src/db/drop.ts",
     "db:studio": "drizzle-kit studio",
     "users:upsert-team": "tsx src/scripts/upsert-team-admin-users.ts",
+    "users:remove-nabeel": "tsx src/scripts/remove-nabeel-admin-logins.ts",
     "rayons:repair-bins": "tsx src/scripts/repair-rayon-bin-layouts.ts",
     "rayons:normalize-rows": "tsx src/scripts/normalize-rayon-bin-rows.ts",
     "products:backfill-xs-sizes": "tsx src/scripts/backfill-missing-product-sizes.ts"

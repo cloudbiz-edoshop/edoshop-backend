@@ -13,7 +13,7 @@ const commonQueryParamsSchema = z.object({
         in: "query",
         required: false,
       },
-      example: "nabeel",
+      example: "admin",
     }),
   page: z.coerce
     .number()

@@ -3,15 +3,6 @@
  */
 export const ADMINS = [
   {
-    username: "nabeel",
-    email: "nabeelkhan5666@gmail.com",
-    password: "N@beel123",
-    fullName: "Nabeel Khan",
-    phoneNumber: "+923162266713",
-    profilePhotoUrl: "https://example.com/profile.jpg",
-    isAdmin: true,
-  },
-  {
     username: "admin",
     email: "admin@edoshop.online",
     password: "Adm!n321",
