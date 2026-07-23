@@ -62,7 +62,7 @@ export const ENTITY_DESCRIPTIONS: Record<EntityType, string> = {
   [EntityType.OPERATIONS]: "Operations",
   [EntityType.ROLES]: "Roles",
   [EntityType.USERS]: "Users",
-  [EntityType.EMPLOYEES]: "Employees",
+  [EntityType.EMPLOYEES]: "Team Members",
   [EntityType.SUPPLIERS]: "Suppliers",
   [EntityType.CUSTOMERS]: "Customers",
   [EntityType.RETAILERS]: "Retailers",
