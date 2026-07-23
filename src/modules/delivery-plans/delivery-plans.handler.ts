@@ -1,12 +1,17 @@
 import type {
   CreateRoute,
+  CreateFeeRuleRoute,
   GetOneRoute,
   ListRoute,
+  ListFeeRulesRoute,
   PatchRoute,
   RemoveRoute,
+  RemoveFeeRuleRoute,
+  UpdateFeeRuleRoute,
 } from "./delivery-plans.route";
 
 import type {
+  DeliveryFeeRuleResponse,
   DeliveryPlanResponse,
   ListDeliveryPlansResponse,
 } from "./delivery-plans.schema";
@@ -103,6 +108,48 @@ export const remove: AppRouteHandler<RemoveRoute> = async (c) => {
   const { id } = c.req.valid("param");
 
   await deliveryPlansService.deleteDeliveryPlan(id);
+
+  return new Response(null, { status: HttpStatusCodes.NO_CONTENT });
+};
+
+export const listFeeRules: AppRouteHandler<ListFeeRulesRoute> = async (c) => {
+  const { planId } = c.req.valid("param");
+  const rules = await deliveryPlansService.listFeeRules(planId);
+
+  return c.json(successResponse(rules), HttpStatusCodes.OK);
+};
+
+export const createFeeRule: AppRouteHandler<CreateFeeRuleRoute> = async (c) => {
+  const { planId } = c.req.valid("param");
+  const data = c.req.valid("json");
+  const rule = await deliveryPlansService.createFeeRule(planId, data);
+
+  return c.json(
+    successResponse<DeliveryFeeRuleResponse>(
+      rule,
+      STANDARD_MESSAGES.SUCCESS.CREATED,
+    ),
+    HttpStatusCodes.CREATED,
+  );
+};
+
+export const updateFeeRule: AppRouteHandler<UpdateFeeRuleRoute> = async (c) => {
+  const { planId, ruleId } = c.req.valid("param");
+  const data = c.req.valid("json");
+  const rule = await deliveryPlansService.updateFeeRule(planId, ruleId, data);
+
+  return c.json(
+    successResponse<DeliveryFeeRuleResponse>(
+      rule,
+      STANDARD_MESSAGES.SUCCESS.UPDATED,
+    ),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const removeFeeRule: AppRouteHandler<RemoveFeeRuleRoute> = async (c) => {
+  const { planId, ruleId } = c.req.valid("param");
+  await deliveryPlansService.deleteFeeRule(planId, ruleId);
 
   return new Response(null, { status: HttpStatusCodes.NO_CONTENT });
 };

@@ -223,6 +223,31 @@ export class OrdersService {
     };
   }
 
+  async calculateDeliveryFee(input: {
+    deliveryPlanId?: number;
+    latitude: number;
+    longitude: number;
+    weightKg?: number;
+    lengthCm?: number;
+    widthCm?: number;
+    heightCm?: number;
+  }) {
+    const fee = await deliveryPlansService.calculateDeliveryFee({
+      deliveryPlanId: input.deliveryPlanId,
+      latitude: input.latitude,
+      longitude: input.longitude,
+      weightKg: input.weightKg,
+      lengthCm: input.lengthCm,
+      widthCm: input.widthCm,
+      heightCm: input.heightCm,
+    });
+
+    return {
+      fee,
+      currency: "XAF",
+    };
+  }
+
   async getMyOrders(
     userId: number,
     params: { page: number; limit: number; cancelled?: boolean; trackableOnly?: boolean },

@@ -747,6 +747,14 @@ export class OrdersRepository {
       await deliveryPlansService.getShippingFee(
         fulfillmentMethod,
         shippingPriorityCodeId,
+        {
+          latitude: Number.isFinite(mapLatitude) ? mapLatitude : null,
+          longitude: Number.isFinite(mapLongitude) ? mapLongitude : null,
+          weightKg: Math.max(
+            1,
+            resolvedItems.reduce((sum, item) => sum + item.quantity, 0) * 0.5,
+          ),
+        },
       )
     ).toFixed(2);
     const totalAmount = (

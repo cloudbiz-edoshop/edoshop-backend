@@ -6,6 +6,11 @@ export enum FulfillmentMethod {
 export const DIRECT_ORDER_DELIVERY_FEE_XAF = 2000;
 export const DIRECT_ORDER_PICKUP_FEE_XAF = 0;
 
+export const EDOSHOP_STORE_COORDINATES = {
+  latitude: 4.0519857,
+  longitude: 9.7668418,
+} as const;
+
 export const DIRECT_ORDER_DELIVERY_OPTIONS = [
   {
     id: 1,

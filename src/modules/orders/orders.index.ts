@@ -12,6 +12,7 @@ router.openapi(routes.getOrderDetailsForACustomer, handlers.getOrderDetailsForAC
 router.openapi(routes.updateAvailableQuantityForFulfillment, handlers.updateAvailableQuantity);
 router.openapi(routes.checkoutDirectOrder, handlers.checkoutDirectOrder);
 router.openapi(routes.getFulfillmentOptions, handlers.getFulfillmentOptions);
+router.openapi(routes.calculateDeliveryFee, handlers.calculateDeliveryFee);
 router.openapi(routes.getMyOrders, handlers.getMyOrders);
 router.openapi(routes.getMyOrderTracking, handlers.getMyOrderTracking);
 router.openapi(routes.requestPostCheckoutDelivery, handlers.requestPostCheckoutDelivery);

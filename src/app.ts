@@ -47,6 +47,7 @@ import users from "@/modules/users/users.index";
 import nextcloudAuth from "@/modules/nextcloud-auth/nextcloud-auth.index";
 import variants from "@/modules/variants/variants.index";
 import warehouseTransfers from "@/modules/warehouse-transfers/warehouse-transfers.index";
+import warehouseTickets from "@/modules/warehouse-tickets/warehouse-tickets.index";
 import warehouses from "@/modules/warehouses/warehouses.index";
 
 const app = createApp();
@@ -93,6 +94,7 @@ const routes = [
   uploadTokens,
   mobileUpload,
   warehouseTransfers,
+  warehouseTickets,
   warehouses,
   rayons,
   attributes,

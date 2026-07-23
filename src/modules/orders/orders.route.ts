@@ -346,6 +346,48 @@ export const getFulfillmentOptions = createRoute({
   },
 });
 
+export const calculateDeliveryFee = createRoute({
+  path: "/public/calculate-delivery-fee",
+  method: "post",
+  tags,
+  summary: "Calculate delivery fee from distance and package details",
+  description:
+    "Returns the shipping fee for a delivery plan based on customer coordinates and package weight/dimensions",
+  request: {
+    body: jsonContentRequired(
+      z.object({
+        deliveryPlanId: z.number().int().positive().optional(),
+        latitude: z.number(),
+        longitude: z.number(),
+        weightKg: z.number().nonnegative().optional(),
+        lengthCm: z.number().nonnegative().optional(),
+        widthCm: z.number().nonnegative().optional(),
+        heightCm: z.number().nonnegative().optional(),
+      }),
+      "Delivery fee calculation input",
+    ),
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(
+        z.object({
+          fee: z.number(),
+          currency: z.string(),
+        }),
+        "Calculated delivery fee",
+      ),
+      "Delivery fee calculation result",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNPROCESSABLE_ENTITY,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      z.object({}),
+    ),
+  },
+});
+
 export const getMyOrders = createRoute({
   path: "/orders/me",
   method: "get",
@@ -413,5 +455,6 @@ export const getMyOrderTracking = createRoute({
 });
 
 export type GetFulfillmentOptionsRoute = typeof getFulfillmentOptions;
+export type CalculateDeliveryFeeRoute = typeof calculateDeliveryFee;
 export type GetMyOrdersRoute = typeof getMyOrders;
 export type GetMyOrderTrackingRoute = typeof getMyOrderTracking;

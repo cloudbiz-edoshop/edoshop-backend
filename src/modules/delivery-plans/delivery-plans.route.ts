@@ -18,8 +18,12 @@ import { jwtHeaderSchema } from "@/lib/zod-schemas";
 
 import {
   createDeliveryPlanRequestSchema,
+  createDeliveryFeeRuleRequestSchema,
+  deliveryFeeRuleResponseSchema,
   deliveryPlanResponseSchema,
+  listDeliveryFeeRulesResponseSchema,
   listDeliveryPlansResponseSchema,
+  updateDeliveryFeeRuleRequestSchema,
   updateDeliveryPlanRequestSchema,
 } from "./delivery-plans.schema";
 
@@ -203,8 +207,161 @@ export const remove = createRoute({
   },
 });
 
+const planIdParams = z.object({
+  planId: z.coerce.number().int().positive(),
+});
+
+const feeRuleParams = planIdParams.extend({
+  ruleId: z.coerce.number().int().positive(),
+});
+
+export const listFeeRules = createRoute({
+  path: "/delivery-plans/:planId/fee-rules",
+  method: "get",
+  tags,
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.DELIVERY_PLANS, operation: OperationType.READ },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    params: planIdParams,
+  },
+  summary: "List delivery fee rules for a plan",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(listDeliveryFeeRulesResponseSchema),
+      "Delivery fee rules",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.FORBIDDEN,
+        HttpStatusCodes.NOT_FOUND,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      planIdParams,
+    ),
+  },
+});
+
+export const createFeeRule = createRoute({
+  path: "/delivery-plans/:planId/fee-rules",
+  method: "post",
+  tags,
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.DELIVERY_PLANS, operation: OperationType.UPDATE },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    params: planIdParams,
+    body: jsonContentRequired(
+      createDeliveryFeeRuleRequestSchema,
+      "Create delivery fee rule",
+    ),
+  },
+  summary: "Create a delivery fee rule",
+  responses: {
+    [HttpStatusCodes.CREATED]: jsonContent(
+      createSuccessResponseSchema(
+        deliveryFeeRuleResponseSchema,
+        "Delivery fee rule created",
+      ),
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.FORBIDDEN,
+        HttpStatusCodes.NOT_FOUND,
+        HttpStatusCodes.UNPROCESSABLE_ENTITY,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      planIdParams,
+    ),
+  },
+});
+
+export const updateFeeRule = createRoute({
+  path: "/delivery-plans/:planId/fee-rules/:ruleId",
+  method: "patch",
+  tags,
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.DELIVERY_PLANS, operation: OperationType.UPDATE },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    params: feeRuleParams,
+    body: jsonContentRequired(
+      updateDeliveryFeeRuleRequestSchema,
+      "Update delivery fee rule",
+    ),
+  },
+  summary: "Update a delivery fee rule",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(
+        deliveryFeeRuleResponseSchema,
+        "Delivery fee rule updated",
+      ),
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.FORBIDDEN,
+        HttpStatusCodes.NOT_FOUND,
+        HttpStatusCodes.UNPROCESSABLE_ENTITY,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      feeRuleParams,
+    ),
+  },
+});
+
+export const removeFeeRule = createRoute({
+  path: "/delivery-plans/:planId/fee-rules/:ruleId",
+  method: "delete",
+  tags,
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.DELIVERY_PLANS, operation: OperationType.UPDATE },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    params: feeRuleParams,
+  },
+  summary: "Delete a delivery fee rule",
+  responses: {
+    [HttpStatusCodes.NO_CONTENT]: {
+      description: "Delivery fee rule deleted successfully",
+    },
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.FORBIDDEN,
+        HttpStatusCodes.NOT_FOUND,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      feeRuleParams,
+    ),
+  },
+});
+
 export type ListRoute = typeof list;
 export type CreateRoute = typeof create;
 export type GetOneRoute = typeof getOne;
 export type PatchRoute = typeof update;
 export type RemoveRoute = typeof remove;
+export type ListFeeRulesRoute = typeof listFeeRules;
+export type CreateFeeRuleRoute = typeof createFeeRule;
+export type UpdateFeeRuleRoute = typeof updateFeeRule;
+export type RemoveFeeRuleRoute = typeof removeFeeRule;

@@ -3,7 +3,7 @@ import type { TX } from "@/lib/types";
 import { and, asc, count, desc, eq, sql } from "drizzle-orm";
 
 import db from "@/db";
-import { deliveryPlans } from "@/db/models";
+import { deliveryFeeRules, deliveryPlans } from "@/db/models";
 import {
   createFilterConditions,
   createSearchCondition,
@@ -61,6 +61,143 @@ export class DeliveryPlansRepository {
     });
 
     return defaultPlan?.fee ?? fallbackFee;
+  }
+
+  async listFeeRules(deliveryPlanId: number) {
+    return db.query.deliveryFeeRules.findMany({
+      where: eq(deliveryFeeRules.deliveryPlanId, deliveryPlanId),
+      orderBy: [asc(deliveryFeeRules.sortOrder), asc(deliveryFeeRules.id)],
+    });
+  }
+
+  async findFeeRuleById(ruleId: number, deliveryPlanId: number) {
+    return db.query.deliveryFeeRules.findFirst({
+      where: and(
+        eq(deliveryFeeRules.id, ruleId),
+        eq(deliveryFeeRules.deliveryPlanId, deliveryPlanId),
+      ),
+    });
+  }
+
+  async createFeeRule(
+    deliveryPlanId: number,
+    data: {
+      minDistanceKm: number;
+      maxDistanceKm?: number | null;
+      minWeightKg: number;
+      maxWeightKg?: number | null;
+      maxLengthCm?: number | null;
+      maxWidthCm?: number | null;
+      maxHeightCm?: number | null;
+      fee: number;
+      sortOrder?: number;
+      isActive?: boolean;
+    },
+  ) {
+    const now = new Date().toISOString();
+    const [rule] = await db
+      .insert(deliveryFeeRules)
+      .values({
+        deliveryPlanId,
+        minDistanceKm: String(data.minDistanceKm),
+        maxDistanceKm:
+          data.maxDistanceKm != null ? String(data.maxDistanceKm) : null,
+        minWeightKg: String(data.minWeightKg),
+        maxWeightKg:
+          data.maxWeightKg != null ? String(data.maxWeightKg) : null,
+        maxLengthCm: data.maxLengthCm ?? null,
+        maxWidthCm: data.maxWidthCm ?? null,
+        maxHeightCm: data.maxHeightCm ?? null,
+        fee: data.fee,
+        sortOrder: data.sortOrder ?? 0,
+        isActive: data.isActive ?? true,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning();
+
+    return rule;
+  }
+
+  async updateFeeRule(
+    ruleId: number,
+    deliveryPlanId: number,
+    data: Partial<{
+      minDistanceKm: number;
+      maxDistanceKm: number | null;
+      minWeightKg: number;
+      maxWeightKg: number | null;
+      maxLengthCm: number | null;
+      maxWidthCm: number | null;
+      maxHeightCm: number | null;
+      fee: number;
+      sortOrder: number;
+      isActive: boolean;
+    }>,
+  ) {
+    const updates: Record<string, unknown> = {
+      updatedAt: new Date().toISOString(),
+    };
+
+    if (data.minDistanceKm != null) {
+      updates.minDistanceKm = String(data.minDistanceKm);
+    }
+    if (data.maxDistanceKm !== undefined) {
+      updates.maxDistanceKm =
+        data.maxDistanceKm != null ? String(data.maxDistanceKm) : null;
+    }
+    if (data.minWeightKg != null) {
+      updates.minWeightKg = String(data.minWeightKg);
+    }
+    if (data.maxWeightKg !== undefined) {
+      updates.maxWeightKg =
+        data.maxWeightKg != null ? String(data.maxWeightKg) : null;
+    }
+    if (data.maxLengthCm !== undefined) {
+      updates.maxLengthCm = data.maxLengthCm;
+    }
+    if (data.maxWidthCm !== undefined) {
+      updates.maxWidthCm = data.maxWidthCm;
+    }
+    if (data.maxHeightCm !== undefined) {
+      updates.maxHeightCm = data.maxHeightCm;
+    }
+    if (data.fee != null) {
+      updates.fee = data.fee;
+    }
+    if (data.sortOrder != null) {
+      updates.sortOrder = data.sortOrder;
+    }
+    if (data.isActive != null) {
+      updates.isActive = data.isActive;
+    }
+
+    const [rule] = await db
+      .update(deliveryFeeRules)
+      .set(updates)
+      .where(
+        and(
+          eq(deliveryFeeRules.id, ruleId),
+          eq(deliveryFeeRules.deliveryPlanId, deliveryPlanId),
+        ),
+      )
+      .returning();
+
+    return rule;
+  }
+
+  async deleteFeeRule(ruleId: number, deliveryPlanId: number) {
+    const [rule] = await db
+      .delete(deliveryFeeRules)
+      .where(
+        and(
+          eq(deliveryFeeRules.id, ruleId),
+          eq(deliveryFeeRules.deliveryPlanId, deliveryPlanId),
+        ),
+      )
+      .returning();
+
+    return rule;
   }
 
   async list(params: {

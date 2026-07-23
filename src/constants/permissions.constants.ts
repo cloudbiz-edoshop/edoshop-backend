@@ -75,7 +75,19 @@ export const DELIVERY_ENTITIES: EntityType[] = [
   EntityType.ORDERS,
 ];
 
-export const TICKETING_ENTITIES: EntityType[] = [EntityType.TICKETING];
+export const TICKETING_CORE_ENTITIES: EntityType[] = [
+  EntityType.TICKETING,
+  EntityType.TICKET_APPROVER,
+];
+
+export const TICKET_BORROW_LIMIT_ENTITIES: EntityType[] = [
+  EntityType.TICKET_BORROW_LIMITS,
+];
+
+export const TICKETING_ENTITIES: EntityType[] = [
+  ...TICKETING_CORE_ENTITIES,
+  ...TICKET_BORROW_LIMIT_ENTITIES,
+];
 
 export const ALL_ENTITY_TYPES = Object.values(EntityType);
 

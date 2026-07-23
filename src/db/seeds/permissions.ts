@@ -175,13 +175,13 @@ function getRolePermissionsFromTemplate(
       break;
     case RoleType.W1_TECH:
       templateKeys = buildPermissionKeys(
-        [...STORE_ENTITIES, ...EWMS_W1_ENTITIES],
+        [...STORE_ENTITIES, ...EWMS_W1_ENTITIES, ...TICKETING_ENTITIES],
         STANDARD_CRUD_OPERATIONS,
       );
       break;
     case RoleType.W2_TECH:
       templateKeys = buildPermissionKeys(
-        [...STORE_ENTITIES, ...EWMS_W2_ENTITIES],
+        [...STORE_ENTITIES, ...EWMS_W2_ENTITIES, ...TICKETING_ENTITIES],
         STANDARD_CRUD_OPERATIONS,
       );
       break;
@@ -199,13 +199,14 @@ function getRolePermissionsFromTemplate(
           ...EWMS_W2_ENTITIES,
           ...EWMS_MANAGEMENT_ENTITIES,
           ...DELIVERY_ENTITIES,
+          ...TICKETING_ENTITIES,
         ],
         STANDARD_CRUD_OPERATIONS,
       );
       break;
     case RoleType.DIGITAL_MARKETER:
       templateKeys = buildPermissionKeys(
-        STORE_ENTITIES,
+        [...STORE_ENTITIES, ...TICKETING_ENTITIES],
         STANDARD_CRUD_OPERATIONS,
       );
       break;

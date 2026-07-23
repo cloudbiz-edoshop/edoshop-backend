@@ -13,7 +13,8 @@ import {
   SETTINGS_ENTITIES,
   STANDARD_CRUD_OPERATIONS,
   STORE_ENTITIES,
-  TICKETING_ENTITIES,
+  TICKETING_CORE_ENTITIES,
+  TICKET_BORROW_LIMIT_ENTITIES,
   TRACKING_ENTITIES,
   type AccessSection,
   type PermissionPair,
@@ -223,13 +224,13 @@ export function getRolePermissionTemplate(roleName: RoleType) {
 
     case RoleType.W1_TECH:
       return buildPermissionKeys(
-        [...STORE_ENTITIES, ...EWMS_W1_ENTITIES],
+        [...STORE_ENTITIES, ...EWMS_W1_ENTITIES, ...TICKETING_CORE_ENTITIES],
         STANDARD_CRUD_OPERATIONS,
       );
 
     case RoleType.W2_TECH:
       return buildPermissionKeys(
-        [...STORE_ENTITIES, ...EWMS_W2_ENTITIES],
+        [...STORE_ENTITIES, ...EWMS_W2_ENTITIES, ...TICKETING_CORE_ENTITIES],
         STANDARD_CRUD_OPERATIONS,
       );
 
@@ -251,12 +252,16 @@ export function getRolePermissionTemplate(roleName: RoleType) {
           ...EWMS_W2_ENTITIES,
           ...EWMS_MANAGEMENT_ENTITIES,
           ...DELIVERY_ENTITIES,
+          ...TICKETING_CORE_ENTITIES,
         ],
         STANDARD_CRUD_OPERATIONS,
       );
 
     case RoleType.DIGITAL_MARKETER:
-      return buildPermissionKeys(STORE_ENTITIES, STANDARD_CRUD_OPERATIONS);
+      return buildPermissionKeys(
+        [...STORE_ENTITIES, ...TICKETING_CORE_ENTITIES],
+        STANDARD_CRUD_OPERATIONS,
+      );
 
     case RoleType.MANAGER: {
       const systemEntities = [
@@ -268,7 +273,9 @@ export function getRolePermissionTemplate(roleName: RoleType) {
         ...SETTINGS_ENTITIES,
       ];
       const managerEntities = ALL_ENTITY_TYPES.filter(
-        (entity) => !systemEntities.includes(entity),
+        (entity) =>
+          !systemEntities.includes(entity) &&
+          !TICKET_BORROW_LIMIT_ENTITIES.includes(entity),
       );
 
       return [
@@ -281,7 +288,7 @@ export function getRolePermissionTemplate(roleName: RoleType) {
           [EntityType.ENTITIES, EntityType.OPERATIONS, EntityType.ROLES, EntityType.USERS],
           READ_ONLY_OPERATIONS,
         ),
-        ...buildPermissionKeys(TICKETING_ENTITIES, STANDARD_CRUD_OPERATIONS),
+        ...buildPermissionKeys(TICKETING_CORE_ENTITIES, STANDARD_CRUD_OPERATIONS),
       ];
     }
 

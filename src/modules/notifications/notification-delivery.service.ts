@@ -29,6 +29,9 @@ type DeliverNotificationInput = {
   message: string;
   notificationTypeId: number;
   channels?: DeliveryChannel[];
+  actionUrl?: string | null;
+  referenceType?: string | null;
+  referenceId?: number | null;
 };
 
 export class NotificationDeliveryService {
@@ -208,6 +211,9 @@ export class NotificationDeliveryService {
       message,
       notificationTypeId,
       channels = ["webapp", "whatsapp"],
+      actionUrl,
+      referenceType,
+      referenceId,
     } = input;
 
     const categoryKey = getPreferenceKeyForNotificationType(notificationTypeId);
@@ -235,6 +241,10 @@ export class NotificationDeliveryService {
           message: message.slice(0, 255),
           categoryKey,
           channel: "webapp",
+          actionUrl: actionUrl ?? null,
+          referenceType: referenceType ?? null,
+          referenceId: referenceId ?? null,
+          isActive: true,
           sentAt: new Date().toISOString(),
         })
         .onConflictDoNothing({
@@ -355,11 +365,13 @@ export class NotificationDeliveryService {
       ? and(
           eq(userNotificationDeliveries.userId, userId),
           eq(userNotificationDeliveries.channel, "webapp"),
+          eq(userNotificationDeliveries.isActive, true),
           eq(userNotificationDeliveries.isRead, false),
         )
       : and(
           eq(userNotificationDeliveries.userId, userId),
           eq(userNotificationDeliveries.channel, "webapp"),
+          eq(userNotificationDeliveries.isActive, true),
         );
 
     const rows = await db.query.userNotificationDeliveries.findMany({
@@ -419,11 +431,36 @@ export class NotificationDeliveryService {
         and(
           eq(userNotificationDeliveries.userId, userId),
           eq(userNotificationDeliveries.channel, "webapp"),
+          eq(userNotificationDeliveries.isActive, true),
           eq(userNotificationDeliveries.isRead, false),
         ),
       );
 
     return count;
+  }
+
+  async deactivateNotificationsByReference(params: {
+    referenceType: string;
+    referenceId: number;
+    userIds?: number[];
+  }) {
+    const conditions = [
+      eq(userNotificationDeliveries.referenceType, params.referenceType),
+      eq(userNotificationDeliveries.referenceId, params.referenceId),
+      eq(userNotificationDeliveries.isActive, true),
+    ];
+
+    if (params.userIds?.length) {
+      conditions.push(inArray(userNotificationDeliveries.userId, params.userIds));
+    }
+
+    await db
+      .update(userNotificationDeliveries)
+      .set({
+        isActive: false,
+        deactivatedAt: new Date().toISOString(),
+      })
+      .where(and(...conditions));
   }
 }
 

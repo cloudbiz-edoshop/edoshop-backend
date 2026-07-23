@@ -1,6 +1,8 @@
 import type {
   CreateDeliveryPlanRequest,
+  CreateDeliveryFeeRuleRequest,
   DeliveryPlanResponse,
+  UpdateDeliveryFeeRuleRequest,
   UpdateDeliveryPlanRequest,
 } from "./delivery-plans.schema";
 import { ConflictError, NotFoundError } from "@/core/errors";
@@ -15,12 +17,18 @@ import {
 import db from "@/db";
 
 import { DeliveryPlansRepository } from "./delivery-plans.repository";
+import {
+  DeliveryFeeCalculator,
+  type DeliveryFeeCalculationInput,
+} from "./delivery-fee.calculator";
 
 export class DeliveryPlansService {
   private readonly deliveryPlansRepository: DeliveryPlansRepository;
+  private readonly deliveryFeeCalculator: DeliveryFeeCalculator;
 
   constructor() {
     this.deliveryPlansRepository = new DeliveryPlansRepository();
+    this.deliveryFeeCalculator = new DeliveryFeeCalculator();
   }
 
   mapToPublicOption(plan: {
@@ -37,7 +45,8 @@ export class DeliveryPlansService {
       label: plan.label,
       leadTime: plan.leadTime,
       description: plan.description,
-      fee: plan.fee,
+      fee: 0,
+      pricingNote: "Calculated from distance and package size/weight",
     };
   }
 
@@ -59,12 +68,124 @@ export class DeliveryPlansService {
   async getShippingFee(
     fulfillmentMethod: FulfillmentMethod | string,
     shippingPriorityCodeId?: number | null,
+    calculation?: DeliveryFeeCalculationInput,
   ) {
     if (fulfillmentMethod === FulfillmentMethod.PICKUP) {
       return DIRECT_ORDER_PICKUP_FEE_XAF;
     }
 
+    if (calculation) {
+      return this.deliveryFeeCalculator.calculateFee({
+        deliveryPlanId: shippingPriorityCodeId,
+        ...calculation,
+      });
+    }
+
     return this.deliveryPlansRepository.getFeeById(shippingPriorityCodeId);
+  }
+
+  async calculateDeliveryFee(input: DeliveryFeeCalculationInput) {
+    return this.deliveryFeeCalculator.calculateFee(input);
+  }
+
+  mapFeeRule(rule: {
+    id: number;
+    deliveryPlanId: number;
+    minDistanceKm: string;
+    maxDistanceKm: string | null;
+    minWeightKg: string;
+    maxWeightKg: string | null;
+    maxLengthCm: number | null;
+    maxWidthCm: number | null;
+    maxHeightCm: number | null;
+    fee: number;
+    sortOrder: number;
+    isActive: boolean;
+    createdAt?: string;
+    updatedAt?: string;
+  }) {
+    return {
+      id: rule.id,
+      deliveryPlanId: rule.deliveryPlanId,
+      minDistanceKm: Number(rule.minDistanceKm),
+      maxDistanceKm:
+        rule.maxDistanceKm != null ? Number(rule.maxDistanceKm) : null,
+      minWeightKg: Number(rule.minWeightKg),
+      maxWeightKg: rule.maxWeightKg != null ? Number(rule.maxWeightKg) : null,
+      maxLengthCm: rule.maxLengthCm,
+      maxWidthCm: rule.maxWidthCm,
+      maxHeightCm: rule.maxHeightCm,
+      fee: rule.fee,
+      sortOrder: rule.sortOrder,
+      isActive: rule.isActive,
+      createdAt: rule.createdAt,
+      updatedAt: rule.updatedAt,
+    };
+  }
+
+  async listFeeRules(deliveryPlanId: number) {
+    const plan = await this.deliveryPlansRepository.findById(deliveryPlanId);
+    if (!plan) {
+      throw new NotFoundError("Delivery plan not found");
+    }
+
+    const rules = await this.deliveryPlansRepository.listFeeRules(deliveryPlanId);
+    return rules.map((rule) => this.mapFeeRule(rule));
+  }
+
+  async createFeeRule(
+    deliveryPlanId: number,
+    data: CreateDeliveryFeeRuleRequest,
+  ) {
+    const plan = await this.deliveryPlansRepository.findById(deliveryPlanId);
+    if (!plan) {
+      throw new NotFoundError("Delivery plan not found");
+    }
+
+    const rule = await this.deliveryPlansRepository.createFeeRule(
+      deliveryPlanId,
+      data,
+    );
+
+    return this.mapFeeRule(rule);
+  }
+
+  async updateFeeRule(
+    deliveryPlanId: number,
+    ruleId: number,
+    data: UpdateDeliveryFeeRuleRequest,
+  ) {
+    const existing = await this.deliveryPlansRepository.findFeeRuleById(
+      ruleId,
+      deliveryPlanId,
+    );
+    if (!existing) {
+      throw new NotFoundError("Delivery fee rule not found");
+    }
+
+    const rule = await this.deliveryPlansRepository.updateFeeRule(
+      ruleId,
+      deliveryPlanId,
+      data,
+    );
+
+    if (!rule) {
+      throw new NotFoundError("Delivery fee rule not found");
+    }
+
+    return this.mapFeeRule(rule);
+  }
+
+  async deleteFeeRule(deliveryPlanId: number, ruleId: number) {
+    const existing = await this.deliveryPlansRepository.findFeeRuleById(
+      ruleId,
+      deliveryPlanId,
+    );
+    if (!existing) {
+      throw new NotFoundError("Delivery fee rule not found");
+    }
+
+    await this.deliveryPlansRepository.deleteFeeRule(ruleId, deliveryPlanId);
   }
 
   async createDeliveryPlan(

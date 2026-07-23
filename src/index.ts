@@ -9,6 +9,7 @@ import { serve } from "@hono/node-server";
 import app from "./app";
 import { appConfig } from "./config";
 import { ensureRuntimeMigrations } from "./db/runtime-migrations";
+import { startWarehouseTicketReminderJob } from "./jobs/warehouse-ticket-reminders";
 
 const port = appConfig.port;
 
@@ -19,6 +20,7 @@ const port = appConfig.port;
  */
 async function startServer() {
   await ensureRuntimeMigrations();
+  startWarehouseTicketReminderJob();
 
   // eslint-disable-next-line no-console
   console.log(`Server is running on port http://localhost:${port}`);

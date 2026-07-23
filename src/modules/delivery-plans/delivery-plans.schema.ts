@@ -49,3 +49,48 @@ export const publicDeliveryPlanSchema = z.object({
 });
 
 export type PublicDeliveryPlan = z.infer<typeof publicDeliveryPlanSchema>;
+
+export const deliveryFeeRuleResponseSchema = z.object({
+  id: z.number(),
+  deliveryPlanId: z.number(),
+  minDistanceKm: z.number(),
+  maxDistanceKm: z.number().nullable().optional(),
+  minWeightKg: z.number(),
+  maxWeightKg: z.number().nullable().optional(),
+  maxLengthCm: z.number().nullable().optional(),
+  maxWidthCm: z.number().nullable().optional(),
+  maxHeightCm: z.number().nullable().optional(),
+  fee: z.number().int().min(0),
+  sortOrder: z.number().int().min(0),
+  isActive: z.boolean(),
+  createdAt: z.string().optional(),
+  updatedAt: z.string().optional(),
+});
+
+export const createDeliveryFeeRuleRequestSchema = z.object({
+  minDistanceKm: z.coerce.number().min(0),
+  maxDistanceKm: z.coerce.number().min(0).nullable().optional(),
+  minWeightKg: z.coerce.number().min(0),
+  maxWeightKg: z.coerce.number().min(0).nullable().optional(),
+  maxLengthCm: z.coerce.number().int().min(0).nullable().optional(),
+  maxWidthCm: z.coerce.number().int().min(0).nullable().optional(),
+  maxHeightCm: z.coerce.number().int().min(0).nullable().optional(),
+  fee: z.coerce.number().int().min(0),
+  sortOrder: z.coerce.number().int().min(0).optional(),
+  isActive: z.boolean().optional(),
+});
+
+export const updateDeliveryFeeRuleRequestSchema =
+  createDeliveryFeeRuleRequestSchema.partial();
+
+export const listDeliveryFeeRulesResponseSchema = z.array(
+  deliveryFeeRuleResponseSchema,
+);
+
+export type DeliveryFeeRuleResponse = z.infer<typeof deliveryFeeRuleResponseSchema>;
+export type CreateDeliveryFeeRuleRequest = z.infer<
+  typeof createDeliveryFeeRuleRequestSchema
+>;
+export type UpdateDeliveryFeeRuleRequest = z.infer<
+  typeof updateDeliveryFeeRuleRequestSchema
+>;

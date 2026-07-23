@@ -9,5 +9,9 @@ router.openapi(routes.create, handlers.create);
 router.openapi(routes.getOne, handlers.getOne);
 router.openapi(routes.update, handlers.update);
 router.openapi(routes.remove, handlers.remove);
+router.openapi(routes.listFeeRules, handlers.listFeeRules);
+router.openapi(routes.createFeeRule, handlers.createFeeRule);
+router.openapi(routes.updateFeeRule, handlers.updateFeeRule);
+router.openapi(routes.removeFeeRule, handlers.removeFeeRule);
 
 export default router;

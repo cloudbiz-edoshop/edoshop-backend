@@ -1,4 +1,5 @@
 import type {
+  CalculateDeliveryFeeRoute,
   CheckoutDirectOrderRoute,
   GetDirectOrderTrackingRoute,
   GetFulfillmentOptionsRoute,
@@ -196,6 +197,18 @@ export const getFulfillmentOptions: AppRouteHandler<
   const result = await ordersService.getFulfillmentOptions();
   return c.json(
     successResponse(result, "Fulfillment options retrieved successfully"),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const calculateDeliveryFee: AppRouteHandler<
+  CalculateDeliveryFeeRoute
+> = async (c) => {
+  const payload = c.req.valid("json");
+  const result = await ordersService.calculateDeliveryFee(payload);
+
+  return c.json(
+    successResponse(result, "Delivery fee calculated successfully"),
     HttpStatusCodes.OK,
   );
 };

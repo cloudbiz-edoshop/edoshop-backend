@@ -98,6 +98,11 @@ export const userNotificationDeliveryResponseSchema = z.object({
   channel: z.string(),
   isRead: z.boolean(),
   readAt: z.string().nullable(),
+  actionUrl: z.string().nullable().optional(),
+  referenceType: z.string().nullable().optional(),
+  referenceId: z.number().nullable().optional(),
+  isActive: z.boolean().optional(),
+  deactivatedAt: z.string().nullable().optional(),
   sentAt: z.string(),
   createdAt: z.string(),
 });

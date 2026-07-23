@@ -423,6 +423,113 @@ export async function ensureRuntimeMigrations() {
     `),
   );
 
+  await db.execute(
+    sql.raw(`
+      CREATE TABLE IF NOT EXISTS "warehouse_tickets" (
+        "id" serial PRIMARY KEY,
+        "ticket_code" varchar(64) UNIQUE NOT NULL,
+        "warehouse_id" integer NOT NULL REFERENCES "warehouses"("id"),
+        "reason" text NOT NULL,
+        "status" varchar(32) NOT NULL,
+        "paused_from_status" varchar(32),
+        "status_comment" text,
+        "requester_id" integer NOT NULL REFERENCES "users"("id"),
+        "approver_id" integer REFERENCES "users"("id"),
+        "warehouse_tech_id" integer REFERENCES "users"("id"),
+        "approved_at" timestamp,
+        "paused_at" timestamp,
+        "rejected_at" timestamp,
+        "confirmed_at" timestamp,
+        "completed_at" timestamp,
+        "total_quantity" integer NOT NULL DEFAULT 0,
+        "created_at" timestamp NOT NULL DEFAULT now(),
+        "updated_at" timestamp NOT NULL DEFAULT now(),
+        "created_by" integer NOT NULL REFERENCES "users"("id"),
+        "updated_by" integer NOT NULL REFERENCES "users"("id")
+      )
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
+      CREATE TABLE IF NOT EXISTS "warehouse_ticket_items" (
+        "id" serial PRIMARY KEY,
+        "ticket_id" integer NOT NULL REFERENCES "warehouse_tickets"("id") ON DELETE CASCADE,
+        "entry_id" integer REFERENCES "entries"("id"),
+        "product_label" varchar(255) NOT NULL,
+        "sku" varchar(128),
+        "quantity" integer NOT NULL,
+        "transferred_quantity" integer NOT NULL DEFAULT 0,
+        "notes" text,
+        "created_at" timestamp NOT NULL DEFAULT now(),
+        "updated_at" timestamp NOT NULL DEFAULT now()
+      )
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
+      CREATE TABLE IF NOT EXISTS "warehouse_ticket_events" (
+        "id" serial PRIMARY KEY,
+        "ticket_id" integer NOT NULL REFERENCES "warehouse_tickets"("id") ON DELETE CASCADE,
+        "actor_id" integer NOT NULL REFERENCES "users"("id"),
+        "action" varchar(32) NOT NULL,
+        "comment" text,
+        "previous_status" varchar(32),
+        "new_status" varchar(32),
+        "created_at" timestamp NOT NULL DEFAULT now()
+      )
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
+      CREATE INDEX IF NOT EXISTS "warehouse_tickets_status_idx"
+        ON "warehouse_tickets" ("status")
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
+      CREATE INDEX IF NOT EXISTS "warehouse_tickets_requester_idx"
+        ON "warehouse_tickets" ("requester_id")
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
+      CREATE INDEX IF NOT EXISTS "warehouse_tickets_warehouse_idx"
+        ON "warehouse_tickets" ("warehouse_id")
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
+      CREATE TABLE IF NOT EXISTS "warehouse_ticket_settings" (
+        "id" serial PRIMARY KEY,
+        "max_line_items" integer NOT NULL DEFAULT 20,
+        "max_total_quantity" integer NOT NULL DEFAULT 50,
+        "max_open_tickets_per_user" integer NOT NULL DEFAULT 5,
+        "updated_at" timestamp NOT NULL DEFAULT now(),
+        "updated_by" integer REFERENCES "users"("id")
+      )
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
+      INSERT INTO "warehouse_ticket_settings" (
+        "max_line_items",
+        "max_total_quantity",
+        "max_open_tickets_per_user"
+      )
+      SELECT 20, 50, 5
+      WHERE NOT EXISTS (
+        SELECT 1 FROM "warehouse_ticket_settings"
+      )
+    `),
+  );
+
   await ensureAclRolesAndEntities();
 }
 
@@ -631,6 +738,59 @@ async function ensureAclRolesAndEntities() {
   );
 
   await ensurePredefinedRolePermissions();
+
+  await db.execute(
+    sql.raw(`
+      ALTER TABLE "user_notification_deliveries"
+        ADD COLUMN IF NOT EXISTS "action_url" varchar(1024),
+        ADD COLUMN IF NOT EXISTS "reference_type" varchar(64),
+        ADD COLUMN IF NOT EXISTS "reference_id" integer,
+        ADD COLUMN IF NOT EXISTS "is_active" boolean NOT NULL DEFAULT true,
+        ADD COLUMN IF NOT EXISTS "deactivated_at" timestamp
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
+      ALTER TABLE "warehouse_ticket_items"
+        ADD COLUMN IF NOT EXISTS "returned_quantity" integer NOT NULL DEFAULT 0
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
+      ALTER TABLE "warehouse_tickets"
+        ADD COLUMN IF NOT EXISTS "borrow_due_at" timestamp
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
+      ALTER TABLE "warehouse_ticket_settings"
+        ADD COLUMN IF NOT EXISTS "return_reminder_days" integer NOT NULL DEFAULT 7
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
+      CREATE TABLE IF NOT EXISTS "delivery_fee_rules" (
+        "id" serial PRIMARY KEY,
+        "delivery_plan_id" integer NOT NULL REFERENCES "delivery_plans"("id") ON DELETE CASCADE,
+        "min_distance_km" numeric(10, 2) NOT NULL DEFAULT 0,
+        "max_distance_km" numeric(10, 2),
+        "min_weight_kg" numeric(10, 2) NOT NULL DEFAULT 0,
+        "max_weight_kg" numeric(10, 2),
+        "max_length_cm" integer,
+        "max_width_cm" integer,
+        "max_height_cm" integer,
+        "fee" integer NOT NULL,
+        "sort_order" integer NOT NULL DEFAULT 0,
+        "is_active" boolean NOT NULL DEFAULT true,
+        "created_at" timestamp NOT NULL DEFAULT now(),
+        "updated_at" timestamp NOT NULL DEFAULT now()
+      )
+    `),
+  );
 }
 
 async function ensurePredefinedRolePermissions() {

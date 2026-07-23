@@ -35,6 +35,7 @@ export {
   default as deliveryPlans,
   deliveryPlansRelations,
 } from "./delivery-plans";
+export { default as deliveryFeeRules, deliveryFeeRulesRelations } from "./delivery-fee-rules";
 export { default as drivers, driversRelations } from "./drivers";
 export {
   default as dropshippingProducts,
@@ -220,3 +221,12 @@ export {
   warehouseTransfersHistoryRelations,
 } from "./warehouse-transfers-history";
 export { default as warehouses, warehousesRelations } from "./warehouses";
+export {
+  default as warehouseTickets,
+  warehouseTicketEvents,
+  warehouseTicketEventsRelations,
+  warehouseTicketItems,
+  warehouseTicketItemsRelations,
+  warehouseTicketsRelations,
+} from "./warehouse-tickets";
+export { default as warehouseTicketSettings } from "./warehouse-ticket-settings";
