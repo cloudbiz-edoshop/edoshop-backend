@@ -22,11 +22,10 @@ const baseEmployeeSchema = z.object({
   profilePhotoUrl: profilePhotoUrlSchema.optional(),
   roleId: idSchema.describe("ID of the employee's role"),
   isTempRole: z.boolean().optional().describe("If the role is temporary"),
-  roleExpiresAfter: z
-    .number()
-    .min(1)
-    .optional()
-    .describe("Number of days the role will expire after"),
+  roleExpiresAfter: z.preprocess(
+    (value) => (value === null || value === undefined || value === "" ? undefined : value),
+    z.number().min(1).optional(),
+  ).describe("Number of days the role will expire after"),
   employeeCode: z
     .string()
     .optional()
