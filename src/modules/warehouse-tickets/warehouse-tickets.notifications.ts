@@ -100,7 +100,7 @@ export async function notifyApproversForNewTicket(params: {
     title: "Warehouse ticket awaiting approval",
     message: `${params.requesterName} submitted ticket ${params.ticketCode} for ${params.warehouseLabel}. Please review and approve, pause, or reject.`,
     notificationTypeId: NotificationTypeIds.REQUEST_APPROVED,
-    actionUrl: `/warehouse-tickets/${params.ticketId}`,
+    actionUrl: `/warehouse-tickets/approvals`,
     referenceType: WAREHOUSE_TICKET_NOTIFICATION_REFERENCES.APPROVAL,
     referenceId: params.ticketId,
   });
@@ -164,7 +164,16 @@ export async function notifyApproversAndRequester(params: {
   ).filter((userId) => userId !== params.requesterId);
 
   await notifyWarehouseTicketUsers({
-    userIds: [...approverIds, params.requesterId],
+    userIds: approverIds,
+    title: params.title,
+    message: params.message,
+    actionUrl: `/warehouse-tickets/approvals`,
+    referenceType: WAREHOUSE_TICKET_NOTIFICATION_REFERENCES.TICKET,
+    referenceId: params.ticketId,
+  });
+
+  await notifyWarehouseTicketUsers({
+    userIds: [params.requesterId],
     title: params.title,
     message: params.message,
     actionUrl: `/warehouse-tickets/${params.ticketId}`,
