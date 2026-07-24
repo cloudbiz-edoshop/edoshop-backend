@@ -20,6 +20,7 @@ import { PermissionsService } from "@/modules/permissions/permissions.service";
 
 import {
   deactivateTicketApprovalNotifications,
+  deactivateTicketNotifications,
   formatUserName,
   notifyApproversAndRequester,
   notifyApproversForNewTicket,
@@ -240,21 +241,9 @@ export class WarehouseTicketsService {
     ticketRequesterId: number,
     actor: ActorContext,
   ) {
-    if (actor.isAdmin) {
-      return;
-    }
-
-    const accessProfile = await this.permissionsService.getUserAccessProfile(
-      actor.userId,
-    );
-
-    if (accessProfile.isSuperAdmin) {
-      return;
-    }
-
     if (ticketRequesterId === actor.userId) {
       throw new ForbiddenError(
-        "You cannot approve or reject your own ticket. Another approver or Super Admin must review it.",
+        "You cannot approve or reject your own ticket. Another approver must review it.",
       );
     }
   }
@@ -931,6 +920,8 @@ export class WarehouseTicketsService {
       message: `Ticket ${ticket.ticketCode} is ready. Please collect your items from ${ticket.warehouse?.name ?? "the warehouse"}.`,
     });
 
+    await deactivateTicketNotifications(id);
+
     return await this.mapTicket(ticket);
   }
 
@@ -977,6 +968,8 @@ export class WarehouseTicketsService {
     if (!ticket) {
       throw new NotFoundError("Warehouse ticket not found");
     }
+
+    await deactivateTicketNotifications(id);
 
     return await this.mapTicket(ticket);
   }
@@ -1056,28 +1049,42 @@ export class WarehouseTicketsService {
   }
 
   async processReturnReminders() {
+    const settings = await this.repository.getTicketSettings();
+    const reminderDays = settings?.returnReminderDays ?? 7;
+    const reminderIntervalMs = reminderDays * 24 * 60 * 60 * 1000;
+    const nowMs = Date.now();
+
     const overdueTickets = await this.repository.listOverdueBorrowTickets();
-    await Promise.all(
-      overdueTickets.map((ticket) => {
-        const outstanding = (ticket.items ?? []).reduce(
-          (sum, item) =>
-            sum + Math.max(0, item.transferredQuantity - (item.returnedQuantity ?? 0)),
-          0,
-        );
+    let sentCount = 0;
 
-        if (outstanding <= 0) {
-          return Promise.resolve();
+    for (const ticket of overdueTickets) {
+      const outstanding = (ticket.items ?? []).reduce(
+        (sum, item) =>
+          sum + Math.max(0, item.transferredQuantity - (item.returnedQuantity ?? 0)),
+        0,
+      );
+
+      if (outstanding <= 0) {
+        continue;
+      }
+
+      if (ticket.lastReturnReminderAt) {
+        const lastSentMs = new Date(ticket.lastReturnReminderAt).getTime();
+        if (nowMs - lastSentMs < reminderIntervalMs) {
+          continue;
         }
+      }
 
-        return notifyReturnReminder({
-          requesterId: ticket.requesterId,
-          ticketId: ticket.id,
-          ticketCode: ticket.ticketCode,
-          outstandingQuantity: outstanding,
-        });
-      }),
-    );
+      await notifyReturnReminder({
+        requesterId: ticket.requesterId,
+        ticketId: ticket.id,
+        ticketCode: ticket.ticketCode,
+        outstandingQuantity: outstanding,
+      });
+      await this.repository.markReturnReminderSent(ticket.id);
+      sentCount += 1;
+    }
 
-    return overdueTickets.length;
+    return sentCount;
   }
 }

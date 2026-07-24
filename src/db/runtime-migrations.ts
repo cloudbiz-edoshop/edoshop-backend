@@ -773,6 +773,13 @@ async function ensureAclRolesAndEntities() {
 
   await db.execute(
     sql.raw(`
+      ALTER TABLE "warehouse_tickets"
+        ADD COLUMN IF NOT EXISTS "last_return_reminder_at" timestamp
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
       CREATE TABLE IF NOT EXISTS "delivery_fee_rules" (
         "id" serial PRIMARY KEY,
         "delivery_plan_id" integer NOT NULL REFERENCES "delivery_plans"("id") ON DELETE CASCADE,

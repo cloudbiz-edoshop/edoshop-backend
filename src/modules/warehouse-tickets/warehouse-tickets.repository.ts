@@ -488,6 +488,8 @@ export class WarehouseTicketsRepository {
       rejectedAt: string | null;
       confirmedAt: string | null;
       completedAt: string | null;
+      borrowDueAt: string | null;
+      lastReturnReminderAt: string | null;
       totalQuantity: number;
       updatedBy: number;
     }>,
@@ -578,6 +580,17 @@ export class WarehouseTicketsRepository {
         requester: true,
       },
     });
+  }
+
+  async markReturnReminderSent(ticketId: number) {
+    const now = new Date().toISOString();
+    await db
+      .update(warehouseTickets)
+      .set({
+        lastReturnReminderAt: now,
+        updatedAt: now,
+      })
+      .where(eq(warehouseTickets.id, ticketId));
   }
 
   async getNextTicketSequence() {

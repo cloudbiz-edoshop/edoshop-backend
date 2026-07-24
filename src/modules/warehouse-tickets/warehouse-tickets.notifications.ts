@@ -71,6 +71,16 @@ export async function deactivateTicketApprovalNotifications(ticketId: number) {
   });
 }
 
+export async function deactivateTicketNotifications(ticketId: number) {
+  await Promise.all([
+    deactivateTicketApprovalNotifications(ticketId),
+    notificationDeliveryService.deactivateNotificationsByReference({
+      referenceType: WAREHOUSE_TICKET_NOTIFICATION_REFERENCES.TICKET,
+      referenceId: ticketId,
+    }),
+  ]);
+}
+
 export async function notifyApproversForNewTicket(params: {
   ticketId: number;
   ticketCode: string;
@@ -133,7 +143,7 @@ export async function notifyWarehouseTechsForApprovedTicket(params: {
     title: "Approved warehouse ticket ready for delivery",
     message: `Ticket ${params.ticketCode} from ${params.requesterName} has been approved. Transfer items out of EWMS and confirm when ready for pickup.`,
     notificationTypeId: NotificationTypeIds.REQUEST_APPROVED,
-    actionUrl: `/warehouse/${params.warehouseId}/send-requested-products?ticketId=${params.ticketId}`,
+    actionUrl: `/warehouse/${params.warehouseId}/send-to-requester?ticketId=${params.ticketId}`,
     referenceType: WAREHOUSE_TICKET_NOTIFICATION_REFERENCES.TICKET,
     referenceId: params.ticketId,
   });

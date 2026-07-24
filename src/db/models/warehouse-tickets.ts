@@ -36,6 +36,7 @@ export const warehouseTickets = pgTable("warehouse_tickets", {
   confirmedAt: timestamp("confirmed_at", { mode: "string" }),
   completedAt: timestamp("completed_at", { mode: "string" }),
   borrowDueAt: timestamp("borrow_due_at", { mode: "string" }),
+  lastReturnReminderAt: timestamp("last_return_reminder_at", { mode: "string" }),
   totalQuantity: integer("total_quantity").notNull().default(0),
   createdAt: timestamp("created_at", { mode: "string" }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { mode: "string" }).notNull().defaultNow(),
