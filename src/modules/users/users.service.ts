@@ -195,6 +195,17 @@ export class UsersService {
         throw new UnauthorizedError(LOGIN_ERROR_MESSAGES.NEXTCLOUD_DISABLED);
       }
 
+      const teamMember =
+        await this.userRepository.findTeamMemberByNextcloudIdentity({
+          loginIdentifier: username,
+        });
+
+      if (!teamMember) {
+        throw new UnauthorizedError(
+          LOGIN_ERROR_MESSAGES.NOT_ADMIN_PANEL_MEMBER,
+        );
+      }
+
       const identity = await authenticateNextcloudAppPassword(
         username,
         password,
@@ -217,6 +228,10 @@ export class UsersService {
 
     if (!user) {
       throw new UnauthorizedError(LOGIN_ERROR_MESSAGES.LOCAL_INVALID);
+    }
+
+    if (!(await this.userRepository.isAdminPanelTeamMember(user.id))) {
+      throw new UnauthorizedError(LOGIN_ERROR_MESSAGES.NOT_ADMIN_PANEL_MEMBER);
     }
 
     if (!user.password) {
@@ -243,7 +258,7 @@ export class UsersService {
     });
 
     if (!user) {
-      throw new UnauthorizedError(LOGIN_ERROR_MESSAGES.NEXTCLOUD_NOT_LINKED);
+      throw new UnauthorizedError(LOGIN_ERROR_MESSAGES.NOT_ADMIN_PANEL_MEMBER);
     }
 
     return this.buildLoginResponse(user);
