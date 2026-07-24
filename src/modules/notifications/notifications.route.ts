@@ -463,6 +463,83 @@ export const getMyUnreadNotificationCount = createRoute({
   },
 });
 
+export const getStaffNotifications = createRoute({
+  path: "/employees/me/notifications",
+  method: "get",
+  tags: ["Team Notifications"],
+  middleware: [jwtMiddleware()] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    query: commonQueryParamsSchema.pick({ page: true, limit: true }).extend({
+      unreadOnly: z
+        .enum(["true", "false"])
+        .optional()
+        .transform((value) => value === "true"),
+    }),
+  },
+  summary: "List my team notifications",
+  description: "Returns in-app notifications intended for Edoshop staff.",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchemaWithPagination(
+        z.array(userNotificationDeliveryResponseSchema),
+      ),
+      "Team notifications",
+    ),
+    ...commonErrorResponses(
+      [HttpStatusCodes.UNAUTHORIZED, HttpStatusCodes.INTERNAL_SERVER_ERROR],
+      z.object({}),
+    ),
+  },
+});
+
+export const markStaffNotificationRead = createRoute({
+  path: "/employees/me/notifications/{id}/read",
+  method: "patch",
+  tags: ["Team Notifications"],
+  middleware: [jwtMiddleware()] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    params: idParams,
+  },
+  summary: "Mark a team notification as read",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(userNotificationDeliveryResponseSchema),
+      "Team notification marked as read",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.NOT_FOUND,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      idParams,
+    ),
+  },
+});
+
+export const getStaffUnreadNotificationCount = createRoute({
+  path: "/employees/me/notifications/unread-count",
+  method: "get",
+  tags: ["Team Notifications"],
+  middleware: [jwtMiddleware()] as const,
+  request: {
+    headers: jwtHeaderSchema,
+  },
+  summary: "Get unread team notification count",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(z.object({ count: z.number() })),
+      "Unread team notification count",
+    ),
+    ...commonErrorResponses(
+      [HttpStatusCodes.UNAUTHORIZED, HttpStatusCodes.INTERNAL_SERVER_ERROR],
+      z.object({}),
+    ),
+  },
+});
+
 export type ListRoute = typeof list;
 export type CreateRoute = typeof create;
 export type GetOneRoute = typeof getOne;
@@ -480,3 +557,7 @@ export type MarkMyNotificationReadRoute = typeof markMyNotificationRead;
 export type MarkAllMyNotificationsReadRoute = typeof markAllMyNotificationsRead;
 export type GetMyUnreadNotificationCountRoute =
   typeof getMyUnreadNotificationCount;
+export type GetStaffNotificationsRoute = typeof getStaffNotifications;
+export type MarkStaffNotificationReadRoute = typeof markStaffNotificationRead;
+export type GetStaffUnreadNotificationCountRoute =
+  typeof getStaffUnreadNotificationCount;

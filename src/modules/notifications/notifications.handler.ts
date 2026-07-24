@@ -7,9 +7,12 @@ import type {
   GetNotificationRecipientTypes,
   GetNotificationTypesRoute,
   GetOneRoute,
+  GetStaffNotificationsRoute,
+  GetStaffUnreadNotificationCountRoute,
   ListRoute,
   MarkAllMyNotificationsReadRoute,
   MarkMyNotificationReadRoute,
+  MarkStaffNotificationReadRoute,
   PatchRoute,
   RemoveSelectedRoute,
   UpdateMyNotificationSettingsRoute,
@@ -253,6 +256,58 @@ export const getMyUnreadNotificationCount: AppRouteHandler<GetMyUnreadNotificati
   );
   return c.json(
     successResponse({ count }, "Unread notification count retrieved successfully"),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const getStaffNotifications: AppRouteHandler<GetStaffNotificationsRoute> = async (c) => {
+  const query = c.req.valid("query");
+  const payload = c.get("accessTokenPayload");
+
+  const result = await notificationsService.getStaffNotifications({
+    userId: payload.userId,
+    page: query.page ?? 1,
+    limit: query.limit ?? 20,
+    unreadOnly: query.unreadOnly,
+  });
+
+  const pagination = createPagination(
+    result.total,
+    query.page ?? 1,
+    query.limit ?? 20,
+  );
+
+  return c.json(
+    successResponseWithPagination(
+      result.data,
+      pagination,
+      [],
+      "Team notifications retrieved successfully",
+    ),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const markStaffNotificationRead: AppRouteHandler<MarkStaffNotificationReadRoute> = async (c) => {
+  const payload = c.get("accessTokenPayload");
+  const { id } = c.req.valid("param");
+  const updated = await notificationsService.markMyNotificationRead(
+    payload.userId,
+    id,
+  );
+  return c.json(
+    successResponse(updated, "Team notification marked as read"),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const getStaffUnreadNotificationCount: AppRouteHandler<GetStaffUnreadNotificationCountRoute> = async (c) => {
+  const payload = c.get("accessTokenPayload");
+  const count = await notificationsService.getStaffUnreadNotificationCount(
+    payload.userId,
+  );
+  return c.json(
+    successResponse({ count }, "Unread team notification count retrieved successfully"),
     HttpStatusCodes.OK,
   );
 };

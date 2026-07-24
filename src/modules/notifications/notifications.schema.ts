@@ -101,6 +101,7 @@ export const userNotificationDeliveryResponseSchema = z.object({
   actionUrl: z.string().nullable().optional(),
   referenceType: z.string().nullable().optional(),
   referenceId: z.number().nullable().optional(),
+  audience: z.string().optional(),
   isActive: z.boolean().optional(),
   deactivatedAt: z.string().nullable().optional(),
   sentAt: z.string(),

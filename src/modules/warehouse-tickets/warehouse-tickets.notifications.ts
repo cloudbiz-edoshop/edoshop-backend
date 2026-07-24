@@ -1,4 +1,5 @@
 import { NotificationTypeIds } from "@/constants/notification-types.constants";
+import { NotificationAudience } from "@/constants/notification-audience.constants";
 import {
   WAREHOUSE_TICKET_NOTIFICATION_REFERENCES,
   WAREHOUSE_TICKET_PERMISSIONS,
@@ -57,6 +58,7 @@ export async function notifyWarehouseTicketUsers(params: {
         actionUrl: params.actionUrl ?? null,
         referenceType: params.referenceType ?? null,
         referenceId: params.referenceId ?? null,
+        audience: NotificationAudience.STAFF,
       }),
     ),
   );

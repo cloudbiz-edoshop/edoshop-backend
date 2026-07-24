@@ -5,14 +5,16 @@ import type {
 
 import { and, desc, eq, ne } from "drizzle-orm";
 import { GroupApprovalStatusIds } from "@/constants/group-approval-statuses.constants";
-import { NotificationFrequencyIds } from "@/constants/notification-frequencies.constants";
 import { NotificationTypeIds } from "@/constants/notification-types.constants";
-import { RecipientTypeIds } from "@/constants/recipient-types.constants";
+import {
+  NotificationAudience,
+  NOTIFICATION_REFERENCE_TYPES,
+} from "@/constants/notification-audience.constants";
 import { NotFoundError, ValidationError } from "@/core/errors";
 import { AppError } from "@/core/errors/app-error";
 import db from "@/db";
 
-import { groupApprovalStatuses, notifications, ongoingGroupRequests, ongoingGroups, products, users, variants, dropshippingProducts } from "@/db/models";
+import { groupApprovalStatuses, ongoingGroupRequests, ongoingGroups, products, users, variants, dropshippingProducts } from "@/db/models";
 
 import { notificationDeliveryService } from "../notifications/notification-delivery.service";
 import { OngoingGroupRequestsRepository } from "./ongoing-groups.repository";
@@ -159,36 +161,31 @@ export class OngoingGroupRequestsService {
     return Date.now() - createdTime <= REQUEST_CANCEL_WINDOW_HOURS * 60 * 60 * 1000;
   }
 
-  private async createSystemNotification(data: {
-    title: string;
-    message: string;
-    notificationTypeId: number;
-    recipientTypeId: number;
-    createdBy?: number;
-  }) {
-    await db.insert(notifications).values({
-      title: data.title,
-      message: data.message.slice(0, 255),
-      notificationTypeId: data.notificationTypeId,
-      notificationFrequencyId: NotificationFrequencyIds.ONE_TIME,
-      recipientTypeId: data.recipientTypeId,
-      status: "pending",
-      createdBy: data.createdBy ?? SYSTEM_USER_ID,
-      updatedBy: data.createdBy ?? SYSTEM_USER_ID,
-    });
+  private async notifyAdminsGroupReady(groupId: number, productName: string) {
+    const adminUserIds =
+      await notificationDeliveryService.listEmployeeUserIdsByPermission(
+        "ongoing_groups",
+        "read",
+      );
+
+    await Promise.all(
+      adminUserIds.map((userId) =>
+        notificationDeliveryService.deliverToUser({
+          userId,
+          title: "Groupage ready for approval",
+          message: `${productName} groupage is complete and ready for Edoshop approval.`,
+          notificationTypeId: NotificationTypeIds.GROUPAGE_ALMOST_CLOSING,
+          channels: ["webapp"],
+          actionUrl: `/ongoing-groups/group/${groupId}`,
+          referenceType: NOTIFICATION_REFERENCE_TYPES.ONGOING_GROUP,
+          referenceId: groupId,
+          audience: NotificationAudience.STAFF,
+        }),
+      ),
+    );
   }
 
-  private async notifyAdminsGroupReady(groupId: number, productName: string, createdBy: number) {
-    await this.createSystemNotification({
-      title: "Groupage ready for approval",
-      message: `${productName} groupage is complete and ready for Edoshop approval.`,
-      notificationTypeId: NotificationTypeIds.GROUPAGE_ALMOST_CLOSING,
-      recipientTypeId: RecipientTypeIds.ONGOING_GROUPS,
-      createdBy,
-    });
-  }
-
-  private async notifyCustomerRequestApproved(request: any, approvedBy: number) {
+  private async notifyCustomerRequestApproved(request: any) {
     const requestedById = typeof request.requestedBy === "object"
       ? request.requestedBy?.id
       : request.requestedBy;
@@ -197,19 +194,16 @@ export class OngoingGroupRequestsService {
     const productName = request.product?.name || "Your groupage item";
     const message = `${productName} has been approved. Please proceed with payment in Edoshop.`;
 
-    await this.createSystemNotification({
-      title: "Groupage approved - proceed with payment",
-      message,
-      notificationTypeId: NotificationTypeIds.REQUEST_APPROVED,
-      recipientTypeId: RecipientTypeIds.REQUEST_APPROVED_CHECKOUT_DELAYING,
-      createdBy: approvedBy,
-    });
-
     await notificationDeliveryService.deliverToUser({
       userId: requestedById,
       title: "Groupage approved - proceed with payment",
       message,
       notificationTypeId: NotificationTypeIds.REQUEST_APPROVED,
+      channels: ["webapp", "whatsapp"],
+      actionUrl: "/drop-shipping?tab=ongoing",
+      referenceType: NOTIFICATION_REFERENCE_TYPES.CUSTOMER_GROUPAGE,
+      referenceId: request.id ?? null,
+      audience: NotificationAudience.CUSTOMER,
     });
   }
 
@@ -226,19 +220,16 @@ export class OngoingGroupRequestsService {
     const productName = request.product?.name || "Your groupage item";
     const message = `${productName} groupage was rejected. Reason: ${reason}`;
 
-    await this.createSystemNotification({
-      title: "Groupage rejected",
-      message,
-      notificationTypeId: NotificationTypeIds.WARNING,
-      recipientTypeId: RecipientTypeIds.REJECTED_GROUPS,
-      createdBy: rejectedBy,
-    });
-
     await notificationDeliveryService.deliverToUser({
       userId: requestedById,
       title: "Groupage rejected",
       message,
       notificationTypeId: NotificationTypeIds.WARNING,
+      channels: ["webapp", "whatsapp"],
+      actionUrl: "/drop-shipping?tab=ongoing",
+      referenceType: NOTIFICATION_REFERENCE_TYPES.CUSTOMER_GROUPAGE,
+      referenceId: request.id ?? null,
+      audience: NotificationAudience.CUSTOMER,
     });
   }
 
@@ -619,7 +610,6 @@ export class OngoingGroupRequestsService {
       await this.notifyAdminsGroupReady(
         createdRequest.ongoingGroup.id,
         product.name,
-        requestData.createdBy,
       );
     }
 

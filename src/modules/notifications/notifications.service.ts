@@ -10,6 +10,7 @@ import db from "@/db";
 
 import { notificationDeliveryService } from "./notification-delivery.service";
 import { NotificationsRepository } from "./notifications.repository";
+import { NotificationAudience } from "@/constants/notification-audience.constants";
 
 export class NotificationsService {
   private readonly notificationsRepository: NotificationsRepository;
@@ -194,7 +195,22 @@ export class NotificationsService {
     limit: number;
     unreadOnly?: boolean;
   }) {
-    return notificationDeliveryService.listUserNotifications(params);
+    return notificationDeliveryService.listUserNotifications({
+      ...params,
+      audience: NotificationAudience.CUSTOMER,
+    });
+  }
+
+  async getStaffNotifications(params: {
+    userId: number;
+    page: number;
+    limit: number;
+    unreadOnly?: boolean;
+  }) {
+    return notificationDeliveryService.listUserNotifications({
+      ...params,
+      audience: NotificationAudience.STAFF,
+    });
   }
 
   async getMyNotificationSettings(userId: number) {
@@ -224,6 +240,16 @@ export class NotificationsService {
   }
 
   async getMyUnreadNotificationCount(userId: number) {
-    return notificationDeliveryService.getUnreadCount(userId);
+    return notificationDeliveryService.getUnreadCount(
+      userId,
+      NotificationAudience.CUSTOMER,
+    );
+  }
+
+  async getStaffUnreadNotificationCount(userId: number) {
+    return notificationDeliveryService.getUnreadCount(
+      userId,
+      NotificationAudience.STAFF,
+    );
   }
 }

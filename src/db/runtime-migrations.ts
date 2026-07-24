@@ -791,6 +791,32 @@ async function ensureAclRolesAndEntities() {
       )
     `),
   );
+
+  await db.execute(
+    sql.raw(`
+      ALTER TABLE "user_notification_deliveries"
+        ADD COLUMN IF NOT EXISTS "audience" varchar(20) NOT NULL DEFAULT 'customer'
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
+      UPDATE "user_notification_deliveries"
+      SET "audience" = 'staff'
+      WHERE "reference_type" IS NOT NULL
+        AND "reference_type" != 'customer_groupage'
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
+      UPDATE "user_notification_deliveries"
+      SET "audience" = 'staff'
+      WHERE "action_url" LIKE '/warehouse%'
+         OR "action_url" LIKE '/warehouse-tickets%'
+         OR "action_url" LIKE '/ongoing-groups%'
+    `),
+  );
 }
 
 async function ensurePredefinedRolePermissions() {

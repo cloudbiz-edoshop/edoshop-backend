@@ -8,12 +8,18 @@ import {
 } from "@/constants/notification-preferences.constants";
 import { getPreferenceKeyForNotificationType } from "@/constants/notification-type-preferences.constants";
 import { RecipientTypeIds } from "@/constants/recipient-types.constants";
+import { NotificationAudience } from "@/constants/notification-audience.constants";
 import db from "@/db";
 import {
   customers,
+  employees,
+  entities,
   notificationRecipients,
   notifications,
+  operations,
   orders,
+  permissions,
+  roles,
   userNotificationDeliveries,
   userNotificationPreferences,
   users,
@@ -32,6 +38,7 @@ type DeliverNotificationInput = {
   actionUrl?: string | null;
   referenceType?: string | null;
   referenceId?: number | null;
+  audience?: NotificationAudience | string;
 };
 
 export class NotificationDeliveryService {
@@ -197,10 +204,34 @@ export class NotificationDeliveryService {
       recipientTypeId === RecipientTypeIds.REJECTED_GROUPS ||
       recipientTypeId === RecipientTypeIds.REQUEST_APPROVED_CHECKOUT_DELAYING
     ) {
-      return recipientIds.length ? [...new Set(recipientIds)] : allUserIds;
+      return recipientIds.length ? [...new Set(recipientIds)] : [];
     }
 
     return allUserIds;
+  }
+
+  async listEmployeeUserIdsByPermission(
+    entityName: string,
+    operationName: string,
+  ) {
+    const rows = await db
+      .select({ userId: employees.userId })
+      .from(employees)
+      .innerJoin(roles, eq(employees.roleId, roles.id))
+      .innerJoin(permissions, eq(permissions.roleId, roles.id))
+      .innerJoin(entities, eq(permissions.entityId, entities.id))
+      .innerJoin(operations, eq(permissions.operationId, operations.id))
+      .innerJoin(users, eq(employees.userId, users.id))
+      .where(
+        and(
+          eq(employees.isDeleted, false),
+          eq(employees.isActive, true),
+          eq(entities.name, entityName),
+          sql`lower(${operations.name}) = lower(${operationName})`,
+        ),
+      );
+
+    return [...new Set(rows.map((row) => row.userId))];
   }
 
   async deliverToUser(input: DeliverNotificationInput) {
@@ -214,6 +245,7 @@ export class NotificationDeliveryService {
       actionUrl,
       referenceType,
       referenceId,
+      audience = NotificationAudience.CUSTOMER,
     } = input;
 
     const categoryKey = getPreferenceKeyForNotificationType(notificationTypeId);
@@ -244,6 +276,7 @@ export class NotificationDeliveryService {
           actionUrl: actionUrl ?? null,
           referenceType: referenceType ?? null,
           referenceId: referenceId ?? null,
+          audience,
           isActive: true,
           sentAt: new Date().toISOString(),
         })
@@ -272,6 +305,7 @@ export class NotificationDeliveryService {
             message: message.slice(0, 255),
             categoryKey,
             channel: "whatsapp",
+            audience,
             sentAt: new Date().toISOString(),
           })
           .onConflictDoNothing({
@@ -352,13 +386,28 @@ export class NotificationDeliveryService {
     );
   }
 
+  private buildAudienceCondition(audience: NotificationAudience) {
+    if (audience === NotificationAudience.STAFF) {
+      return eq(userNotificationDeliveries.audience, NotificationAudience.STAFF);
+    }
+
+    return eq(userNotificationDeliveries.audience, NotificationAudience.CUSTOMER);
+  }
+
   async listUserNotifications(params: {
     userId: number;
     page: number;
     limit: number;
     unreadOnly?: boolean;
+    audience?: NotificationAudience;
   }) {
-    const { userId, page, limit, unreadOnly } = params;
+    const {
+      userId,
+      page,
+      limit,
+      unreadOnly,
+      audience = NotificationAudience.CUSTOMER,
+    } = params;
     const offset = (page - 1) * limit;
 
     const whereClause = unreadOnly
@@ -367,11 +416,13 @@ export class NotificationDeliveryService {
           eq(userNotificationDeliveries.channel, "webapp"),
           eq(userNotificationDeliveries.isActive, true),
           eq(userNotificationDeliveries.isRead, false),
+          this.buildAudienceCondition(audience),
         )
       : and(
           eq(userNotificationDeliveries.userId, userId),
           eq(userNotificationDeliveries.channel, "webapp"),
           eq(userNotificationDeliveries.isActive, true),
+          this.buildAudienceCondition(audience),
         );
 
     const rows = await db.query.userNotificationDeliveries.findMany({
@@ -423,7 +474,10 @@ export class NotificationDeliveryService {
       );
   }
 
-  async getUnreadCount(userId: number) {
+  async getUnreadCount(
+    userId: number,
+    audience: NotificationAudience = NotificationAudience.CUSTOMER,
+  ) {
     const [{ count }] = await db
       .select({ count: sql<number>`count(*)::int` })
       .from(userNotificationDeliveries)
@@ -433,6 +487,7 @@ export class NotificationDeliveryService {
           eq(userNotificationDeliveries.channel, "webapp"),
           eq(userNotificationDeliveries.isActive, true),
           eq(userNotificationDeliveries.isRead, false),
+          this.buildAudienceCondition(audience),
         ),
       );
 

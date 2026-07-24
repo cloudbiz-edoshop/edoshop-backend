@@ -36,5 +36,14 @@ router.openapi(
   routes.getMyUnreadNotificationCount,
   handlers.getMyUnreadNotificationCount,
 );
+router.openapi(routes.getStaffNotifications, handlers.getStaffNotifications);
+router.openapi(
+  routes.markStaffNotificationRead,
+  handlers.markStaffNotificationRead,
+);
+router.openapi(
+  routes.getStaffUnreadNotificationCount,
+  handlers.getStaffUnreadNotificationCount,
+);
 
 export default router;
