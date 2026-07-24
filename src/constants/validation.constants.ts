@@ -18,6 +18,15 @@ export const constraintAndMessages = {
     REGEX: /^[a-z0-9\s]+$/i,
     INVALID_ERROR: "Invalid name format, should be like Aa-Zz or 0-9",
   },
+  ROLE_NAME: {
+    MIN_LENGTH: 2,
+    MAX_LENGTH: 50,
+    MIN_LENGTH_ERROR: "Role name must be at least 2 characters",
+    MAX_LENGTH_ERROR: "Role name must be 50 characters or less",
+    REGEX: /^[a-z0-9_]+$/i,
+    INVALID_ERROR:
+      "Invalid role name format. Use letters, numbers, and underscores (e.g. w1_tech).",
+  },
   USERNAME: {
     MIN_LENGTH: 3,
     MAX_LENGTH: 50,

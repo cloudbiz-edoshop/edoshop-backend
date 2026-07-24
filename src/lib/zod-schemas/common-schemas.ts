@@ -36,6 +36,26 @@ export const nameSchema = z
   .describe("Name");
 
 /**
+ * Role slug schema — letters, numbers, underscores (e.g. w1_tech).
+ */
+export const roleNameSchema = z
+  .string()
+  .trim()
+  .regex(
+    constraintAndMessages.ROLE_NAME.REGEX,
+    constraintAndMessages.ROLE_NAME.INVALID_ERROR,
+  )
+  .min(
+    constraintAndMessages.ROLE_NAME.MIN_LENGTH,
+    constraintAndMessages.ROLE_NAME.MIN_LENGTH_ERROR,
+  )
+  .max(
+    constraintAndMessages.ROLE_NAME.MAX_LENGTH,
+    constraintAndMessages.ROLE_NAME.MAX_LENGTH_ERROR,
+  )
+  .describe("Role name");
+
+/**
  * Description schema with standardized validation
  */
 export const descriptionSchema = z

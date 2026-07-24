@@ -2,7 +2,7 @@ import { createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
 import { roles } from "@/db/models";
-import { descriptionSchema, idSchema, nameSchema } from "@/lib/zod-schemas";
+import { descriptionSchema, idSchema, roleNameSchema } from "@/lib/zod-schemas";
 
 import { entitySchema } from "../entities/entities.schema";
 import { operationSchema } from "../operations/operations.schema";
@@ -21,7 +21,7 @@ const permissionItemSchema = z.object({
 
 // Schema for creating a new role
 export const createRoleRequestSchema = z.object({
-  name: nameSchema.describe("Role name"),
+  name: roleNameSchema.describe("Role name"),
   description: descriptionSchema.describe("Role description"),
   permissions: z
     .array(permissionItemSchema)
