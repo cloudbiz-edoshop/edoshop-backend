@@ -164,8 +164,8 @@ export class OngoingGroupRequestsService {
   private async notifyAdminsGroupReady(groupId: number, productName: string) {
     const adminUserIds =
       await notificationDeliveryService.listEmployeeUserIdsByPermission(
-        "ongoing_groups",
-        "read",
+        "ongoing_group_requests",
+        "update",
       );
 
     await Promise.all(
@@ -176,7 +176,7 @@ export class OngoingGroupRequestsService {
           message: `${productName} groupage is complete and ready for Edoshop approval.`,
           notificationTypeId: NotificationTypeIds.GROUPAGE_ALMOST_CLOSING,
           channels: ["webapp"],
-          actionUrl: `/ongoing-groups/group/${groupId}`,
+          actionUrl: `/orders/dropshipping/group/${groupId}`,
           referenceType: NOTIFICATION_REFERENCE_TYPES.ONGOING_GROUP,
           referenceId: groupId,
           audience: NotificationAudience.STAFF,
