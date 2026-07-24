@@ -9,6 +9,7 @@ import {
   jwtTokenSchema,
   otpSchema,
   nextcloudLoginIdentifierSchema,
+  nextcloudPasswordSchema,
   passwordSchema,
   phoneSchema,
   usernameSchema,
@@ -138,7 +139,7 @@ export const loginRequestSchema = z
     email: emailSchema.optional(),
     phoneNumber: phoneSchema.optional(),
     username: nextcloudLoginIdentifierSchema.optional(),
-    password: passwordSchema.describe("User password"),
+    password: z.string().min(1, "Password is required"),
   })
   .refine(
     (data) =>
@@ -149,7 +150,25 @@ export const loginRequestSchema = z
       message: "Email, phone number, or username is required",
       path: ["email", "phoneNumber", "username"],
     },
-  );
+  )
+  .superRefine((data, ctx) => {
+    if (data.username !== undefined) {
+      const result = nextcloudPasswordSchema.safeParse(data.password);
+      if (!result.success) {
+        result.error.issues.forEach((issue) => {
+          ctx.addIssue({ ...issue, path: ["password"] });
+        });
+      }
+      return;
+    }
+
+    const result = passwordSchema.safeParse(data.password);
+    if (!result.success) {
+      result.error.issues.forEach((issue) => {
+        ctx.addIssue({ ...issue, path: ["password"] });
+      });
+    }
+  });
 
 // Login request type
 export type LoginRequest = z.infer<typeof loginRequestSchema>;

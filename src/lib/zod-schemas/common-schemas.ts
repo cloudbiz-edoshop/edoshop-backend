@@ -84,9 +84,18 @@ export const usernameSchema = z
 export const nextcloudLoginIdentifierSchema = z
   .string()
   .trim()
-  .min(3, constraintAndMessages.USERNAME.MIN_LENGTH_ERROR)
-  .max(255, constraintAndMessages.USERNAME.MAX_LENGTH_ERROR)
+  .min(1, "Edoshop Drive username or email is required")
+  .max(255, constraintAndMessages.EMAIL.MAX_LENGTH_ERROR)
   .describe("Nextcloud username or email");
+
+/**
+ * Nextcloud account or App Password — no WebApp complexity rules.
+ */
+export const nextcloudPasswordSchema = z
+  .string()
+  .min(1, "Password is required")
+  .max(512, "Password is too long")
+  .describe("Nextcloud account password or App Password");
 
 /**
  * Phone number schema with standardized validation
@@ -109,6 +118,19 @@ export const passwordSchema = createPasswordSchema({
   requireNumbers: constraintAndMessages.PASSWORD.REQUIRE_NUMBERS,
   requireSpecialChars: constraintAndMessages.PASSWORD.REQUIRE_SPECIAL_CHARS,
 });
+
+/**
+ * WebApp password when provided; empty strings are treated as omitted.
+ */
+export const optionalPasswordSchema = z.preprocess(
+  (value) => {
+    if (value === "" || value === null || value === undefined) {
+      return undefined;
+    }
+    return value;
+  },
+  passwordSchema.optional(),
+);
 
 /**
  * Full name schema with standardized validation

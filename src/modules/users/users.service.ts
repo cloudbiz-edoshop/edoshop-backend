@@ -204,7 +204,7 @@ export class UsersService {
         throw new UnauthorizedError(LOGIN_ERROR_MESSAGES.NEXTCLOUD_INVALID);
       }
 
-      return this.loginWithNextcloudIdentity(identity);
+      return this.loginWithNextcloudIdentity(identity, username);
     }
 
     let user;
@@ -234,10 +234,12 @@ export class UsersService {
 
   async loginWithNextcloudIdentity(
     identity: NextcloudUserIdentity,
+    loginIdentifier?: string,
   ): Promise<LoginResponse> {
     const user = await this.userRepository.findTeamMemberByNextcloudIdentity({
       username: identity.id,
       email: identity.email ?? undefined,
+      loginIdentifier,
     });
 
     if (!user) {

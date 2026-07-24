@@ -5,7 +5,7 @@ import {
   emailSchema,
   fullNameSchema,
   idSchema,
-  passwordSchema,
+  optionalPasswordSchema,
   profilePhotoUrlSchema,
   usernameSchema,
 } from "@/lib/zod-schemas";
@@ -18,7 +18,7 @@ const baseEmployeeSchema = z.object({
   email: emailSchema,
   fullName: fullNameSchema,
   username: usernameSchema,
-  password: passwordSchema.optional(),
+  password: optionalPasswordSchema,
   profilePhotoUrl: profilePhotoUrlSchema.optional(),
   roleId: idSchema.describe("ID of the employee's role"),
   isTempRole: z.boolean().optional().describe("If the role is temporary"),

@@ -1135,6 +1135,11 @@ export class OngoingGroupRequestsService {
       );
     });
 
+    await notificationDeliveryService.deactivateNotificationsByReference({
+      referenceType: NOTIFICATION_REFERENCE_TYPES.ONGOING_GROUP,
+      referenceId: request.ongoingGroupId,
+    });
+
     const approvedRequests = await this.repository.findByOngoingGroupId(request.ongoingGroupId);
     const newlyApprovedIds = new Set(requestsToApprove.map((groupRequest) => groupRequest.id));
 
@@ -1199,6 +1204,11 @@ export class OngoingGroupRequestsService {
         trimmedReason,
         tx,
       );
+    });
+
+    await notificationDeliveryService.deactivateNotificationsByReference({
+      referenceType: NOTIFICATION_REFERENCE_TYPES.ONGOING_GROUP,
+      referenceId: request.ongoingGroupId,
     });
 
     const rejectedRequests = await Promise.all(

@@ -477,9 +477,16 @@ export class UserRepository {
   async findTeamMemberByNextcloudIdentity(identity: {
     username?: string;
     email?: string;
+    loginIdentifier?: string;
   }) {
-    const normalizedUsername = identity.username?.trim().toLowerCase();
-    const normalizedEmail = identity.email?.trim().toLowerCase();
+    const normalizeIdentityValue = (value?: string) =>
+      value?.trim().toLowerCase() ?? "";
+
+    const normalizedUsername = normalizeIdentityValue(identity.username);
+    const normalizedEmail = normalizeIdentityValue(identity.email);
+    const normalizedLoginIdentifier = normalizeIdentityValue(
+      identity.loginIdentifier,
+    );
 
     const candidates = await db.query.users.findMany({
       where: and(eq(users.isDeleted, false)),
@@ -497,14 +504,21 @@ export class UserRepository {
     });
 
     const matchedUser = candidates.find((user) => {
+      const dbUsername = normalizeIdentityValue(user.username);
+      const dbEmail = normalizeIdentityValue(String(user.email || ""));
+
       const usernameMatches = normalizedUsername
-        ? user.username.trim().toLowerCase() === normalizedUsername
+        ? dbUsername === normalizedUsername
         : false;
       const emailMatches = normalizedEmail
-        ? String(user.email || "").trim().toLowerCase() === normalizedEmail
+        ? dbEmail === normalizedEmail
+        : false;
+      const loginIdentifierMatches = normalizedLoginIdentifier
+        ? dbUsername === normalizedLoginIdentifier
+          || dbEmail === normalizedLoginIdentifier
         : false;
 
-      return usernameMatches || emailMatches;
+      return usernameMatches || emailMatches || loginIdentifierMatches;
     });
 
     if (!matchedUser) {
