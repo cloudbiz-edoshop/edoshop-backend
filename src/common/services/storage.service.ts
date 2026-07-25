@@ -1,8 +1,30 @@
 import { Buffer } from "node:buffer";
+import { Agent as HttpAgent } from "node:http";
+import { Agent as HttpsAgent } from "node:https";
 import { Client } from "minio";
 
 import env from "@/config/env.config";
 import { AppError } from "@/core/errors";
+
+const MINIO_REQUEST_TIMEOUT_MS = 15_000;
+
+function withTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new AppError(`${label} timed out after ${MINIO_REQUEST_TIMEOUT_MS / 1000}s`, 503));
+    }, MINIO_REQUEST_TIMEOUT_MS);
+
+    promise
+      .then((value) => {
+        clearTimeout(timer);
+        resolve(value);
+      })
+      .catch((error) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+  });
+}
 
 export interface FileInfo {
   id: number;
@@ -18,12 +40,17 @@ export class StorageService {
   private readonly bucketName: string;
 
   constructor() {
+    const transportAgent = env.MINIO_USE_SSL
+      ? new HttpsAgent({ timeout: MINIO_REQUEST_TIMEOUT_MS })
+      : new HttpAgent({ timeout: MINIO_REQUEST_TIMEOUT_MS });
+
     this.client = new Client({
       endPoint: env.MINIO_ENDPOINT,
       port: env.MINIO_PORT,
       useSSL: env.MINIO_USE_SSL,
       accessKey: env.MINIO_ACCESS_KEY,
       secretKey: env.MINIO_SECRET_KEY,
+      transportAgent,
     });
     this.bucketName = env.MINIO_BUCKET_NAME;
     void this.initBucket();
@@ -77,13 +104,19 @@ export class StorageService {
   async uploadFile(file: File, fileName: string): Promise<string> {
     try {
       const buffer = Buffer.from(await file.arrayBuffer());
-      await this.client.putObject(this.bucketName, fileName, buffer, file.size, {
-        "Content-Type": file.type,
-      });
+      await withTimeout(
+        this.client.putObject(this.bucketName, fileName, buffer, file.size, {
+          "Content-Type": file.type,
+        }),
+        "File upload",
+      );
 
       return this.getPublicUrl(fileName);
     } catch (error) {
       console.error("Upload error:", error);
+      if (error instanceof AppError) {
+        throw error;
+      }
       throw new AppError("Failed to upload file", 500);
     }
   }
