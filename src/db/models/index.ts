@@ -121,6 +121,14 @@ export { default as packageItemsHistory, packageItemsHistoryRelations } from "./
 export { default as packageStatuses, packageStatusesRelations } from "./package-statuses";
 export { default as packages, packagesRelations } from "./packages";
 export {
+  default as groupPackages,
+  groupPackageEvents,
+  groupPackageMembers,
+  groupPackageEventsRelations,
+  groupPackageMembersRelations,
+  groupPackagesRelations,
+} from "./group-packages";
+export {
   default as paymentMethodTypes,
   paymentMethodTypesRelations,
 } from "./payment-method-types";

@@ -12,6 +12,7 @@ import nextDirectOrderVariantCode from "@/db/functions/next-direct-order-variant
 import nextDropshippingProductCode from "@/db/functions/next-dropshipping-product-code";
 import nextDropshippingVariantCode from "@/db/functions/next-dropshipping-variant-code";
 import nextItemCode from "@/db/functions/next-item-code";
+import nextGroupPackageCode from "@/db/functions/next-group-package-code";
 import nextPackageCode from "@/db/functions/next-package-code";
 import nextRetailerCode from "@/db/functions/next-retailer-code";
 import nextSeriesCode from "@/db/functions/next-series-code";
@@ -36,6 +37,7 @@ await db.execute(sql.raw(nextBundleCode));
 await db.execute(sql.raw(nextSeriesCode));
 await db.execute(sql.raw(nextItemCode));
 await db.execute(sql.raw(nextPackageCode));
+await db.execute(sql.raw(nextGroupPackageCode));
 await db.execute(sql.raw(nextDirectOrderProductCode));
 await db.execute(sql.raw(nextDropshippingProductCode));
 await db.execute(sql.raw(nextDirectOrderVariantCode));

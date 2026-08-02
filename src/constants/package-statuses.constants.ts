@@ -8,6 +8,7 @@ export enum PACKAGE_STATUSES {
   DELIVERED = "Delivered",
   RETURNED = "Returned",
   CANCELLED = "Cancelled",
+  GROUPED = "Grouped",
 
 }
 
@@ -21,6 +22,7 @@ export const PackageStatusIds = {
   DELIVERED: 7,
   RETURNED: 8,
   CANCELLED: 9,
+  GROUPED: 10,
 
 };
 
@@ -38,6 +40,7 @@ export const PACKAGE_STATUSES_DESCRIPTIONS: Record<PACKAGE_STATUSES, string> = {
   [PACKAGE_STATUSES.DELIVERED]: "Package has been delivered to the customer.",
   [PACKAGE_STATUSES.RETURNED]: "Package was returned by the customer or carrier.",
   [PACKAGE_STATUSES.CANCELLED]: "Package shipment was cancelled.",
+  [PACKAGE_STATUSES.GROUPED]: "Package is part of a group package (GPKG).",
 
 };
 
@@ -51,4 +54,5 @@ export const PackageStatusIdToEnum: Record<number, PACKAGE_STATUSES> = {
   7: PACKAGE_STATUSES.DELIVERED,
   8: PACKAGE_STATUSES.RETURNED,
   9: PACKAGE_STATUSES.CANCELLED,
+  10: PACKAGE_STATUSES.GROUPED,
 };

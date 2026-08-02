@@ -24,6 +24,7 @@ import notifications from "@/modules/notifications/notifications.index";
 import ongoingGroups from "@/modules/ongoing-groups/ongoing-groups.index";
 import operations from "@/modules/operations/operations.index";
 import orders from "@/modules/orders/orders.index";
+import groupPackages from "@/modules/group-packages/group-packages.index";
 import packages from "@/modules/packages/packages.index";
 import paymentMethods from "@/modules/payment-methods/payment-methods.index";
 import products from "@/modules/products/products.index";
@@ -120,6 +121,7 @@ const routes = [
   orders,
   trackingBundles,
   packages,
+  groupPackages,
   stripe,
   campay,
   uploads,

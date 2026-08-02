@@ -92,6 +92,12 @@ const MIGRATION_CHECKS: Record<string, string> = {
       WHERE table_schema = 'public' AND table_name = 'delivery_plans'
     ) AS ok
   `,
+  "0018_group_packages": `
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_name = 'group_packages'
+    ) AS ok
+  `,
 };
 
 type ExistsRow = { ok: boolean };

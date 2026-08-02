@@ -17,6 +17,8 @@ import { EntriesRepository } from "../entries/entries.repository";
 import { OrdersRepository } from "../orders/orders.repository";
 import { WarehouseRepository } from "../warehouses/warehouses.repository";
 import { PackagesRepository } from "./packages.repository";
+import GroupPackagesService from "../group-packages/group-packages.service";
+import { getPaginationValues } from "@/lib/searching-sorting";
 
 export class PackagesService {
   private readonly packagesRepository: PackagesRepository;
@@ -258,30 +260,26 @@ export class PackagesService {
   }
 
   async getPackageManagementW2(params: CommonQueryParams) {
-    const result = await this.packagesRepository.getPackageManagementW2(params);
+    const groupPackagesService = new GroupPackagesService();
+    const allRows = await groupPackagesService.buildW2ManagementRows(params.search);
+    const { limit: limitVal, offset } = getPaginationValues(params.page, params.limit);
+
+    const sortedRows = [...allRows].sort((a, b) => {
+      const sortField = params.sortBy === "packageCode"
+        ? (row) => row.groupPackageCode ?? row.packageCode ?? ""
+        : (row) => row.receivedAt ?? "";
+      const aVal = sortField(a);
+      const bVal = sortField(b);
+      if (params.sortOrder === "asc") {
+        return String(aVal).localeCompare(String(bVal));
+      }
+      return String(bVal).localeCompare(String(aVal));
+    });
 
     return {
-      ...result,
-      data: result.data.map(({ packageItems: pkgItems, ...r }) => {
-        const addresses = r.entry?.customer?.user?.addresses ?? [];
-        const addr = addresses.find((a) => a.isDefault) || addresses[0];
-        const destination = addr
-          ? [addr.streetAddress, addr.city?.name, addr.country?.name].filter(Boolean).join(", ") || (r.address ?? "Unknown")
-          : (r.address ?? "Unknown");
-
-        return {
-          id: r.id,
-          packageId: r.id,
-          packageCode: r.packageCode,
-          binLocation: r.binLocationAtReceived ?? r.binLocation ?? "Unknown",
-          customerCode: r.entry?.customer?.customerCode || "Unknown",
-          customerId: r.entry.customerId || null,
-          destination: r.packageDestinationAtReceived ?? destination,
-          packageWeight: r.packageWeightAtReceived ?? r.entry.weight.toString(),
-          packagingStatus: r.packageStatus.name,
-          receivedAt: r.receivedAt,
-        };
-      }),
+      data: sortedRows.slice(offset, offset + limitVal),
+      total: sortedRows.length,
+      searchableFields: ["packageCode", "groupPackageCode"],
     };
   }
 
