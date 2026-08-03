@@ -42,6 +42,9 @@ export class GroupPackagesRepository {
       groupPackageCode: string;
       warehouseId: number;
       destinationArea: string;
+      packageWeight?: string;
+      binLocation?: string;
+      customerCode?: string;
       createdBy: number;
       updatedBy: number;
     },

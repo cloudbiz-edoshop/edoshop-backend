@@ -81,6 +81,15 @@ export async function ensureRuntimeMigrations() {
   await db.execute(sql.raw(nextGroupPackageCode));
 
   await db.execute(
+    sql.raw(`
+      ALTER TABLE "group_packages"
+      ADD COLUMN IF NOT EXISTS "package_weight" numeric(10, 2),
+      ADD COLUMN IF NOT EXISTS "bin_location" varchar(255),
+      ADD COLUMN IF NOT EXISTS "customer_code" varchar(64)
+    `),
+  );
+
+  await db.execute(
     sql.raw(
       `ALTER TABLE "faqs" ADD COLUMN IF NOT EXISTS "store_id" integer NOT NULL DEFAULT 2`,
     ),

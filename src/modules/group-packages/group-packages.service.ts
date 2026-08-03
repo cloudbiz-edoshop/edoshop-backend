@@ -33,6 +33,9 @@ export class GroupPackagesService {
       groupPackageCode: row.groupPackageCode,
       warehouseId: row.warehouseId,
       destinationArea: row.destinationArea,
+      packageWeight: row.packageWeight?.toString() ?? null,
+      binLocation: row.binLocation ?? null,
+      customerCode: row.customerCode ?? null,
       status: row.status,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
@@ -68,6 +71,9 @@ export class GroupPackagesService {
         groupPackageCode: group.groupPackageCode,
         warehouseId: group.warehouseId,
         destinationArea: group.destinationArea,
+        packageWeight: group.packageWeight?.toString() ?? null,
+        binLocation: group.binLocation ?? null,
+        customerCode: group.customerCode ?? null,
         status: group.status,
         createdAt: group.createdAt,
         updatedAt: group.updatedAt,
@@ -94,7 +100,10 @@ export class GroupPackagesService {
 
   async create(
     data: {
-      destinationArea: string;
+      destinationArea?: string;
+      packageWeight: number;
+      binLocation: string;
+      customerCode: string;
       packageIds?: number[];
       childGroupPackageIds?: number[];
     },
@@ -107,12 +116,18 @@ export class GroupPackagesService {
       throw new ValidationError("Add at least one package or existing group package");
     }
 
+    const destinationArea = data.destinationArea?.trim()
+      || await this.resolveDestinationArea(packageIds, childGroupPackageIds);
+
     return db.transaction(async (tx) => {
       const code = await this.repository.nextGroupPackageCode(tx);
       const group = await this.repository.createGroupPackage(tx, {
         groupPackageCode: code,
         warehouseId: WarehouseIds.WAREHOUSE_2,
-        destinationArea: data.destinationArea.trim(),
+        destinationArea,
+        packageWeight: data.packageWeight.toFixed(2),
+        binLocation: data.binLocation.trim(),
+        customerCode: data.customerCode.trim(),
         createdBy: userId,
         updatedBy: userId,
       });
@@ -120,15 +135,36 @@ export class GroupPackagesService {
       await this.repository.recordEvent(tx, {
         groupPackageId: group.id,
         action: GROUP_PACKAGE_EVENT_ACTION.CREATED,
-        details: `Created ${code} for destination ${data.destinationArea}`,
+        details: `Created ${code} for destination ${destinationArea}`,
         createdBy: userId,
       });
 
-      await this.addMembersInternal(tx, group.id, packageIds, childGroupPackageIds, userId, data.destinationArea.trim());
+      await this.addMembersInternal(tx, group.id, packageIds, childGroupPackageIds, userId, destinationArea);
 
       const created = await this.repository.getGroupPackageById(group.id);
       return this.mapGroup(created!);
     });
+  }
+
+  private async resolveDestinationArea(
+    packageIds: number[],
+    childGroupPackageIds: number[],
+  ) {
+    if (packageIds.length) {
+      const [pkg] = await this.repository.getPackagesByIds([packageIds[0]!]);
+      if (pkg?.packageDestinationAtReceived) {
+        return pkg.packageDestinationAtReceived;
+      }
+    }
+
+    if (childGroupPackageIds.length) {
+      const [childGroup] = await this.repository.getGroupsByIds([childGroupPackageIds[0]!]);
+      if (childGroup?.destinationArea) {
+        return childGroup.destinationArea;
+      }
+    }
+
+    throw new ValidationError("Unable to determine destination area from selected packages or groups");
   }
 
   async addMembers(
@@ -307,6 +343,8 @@ export class GroupPackagesService {
       packageCode: row.packageCode,
       customerCode: row.entry?.customer?.customerCode ?? "Unknown",
       destination: row.packageDestinationAtReceived ?? "Unknown",
+      packageWeight: row.packageWeightAtReceived?.toString() ?? row.entry?.weight?.toString() ?? "0",
+      binLocation: row.binLocationAtReceived ?? row.binLocation ?? "Unknown",
       receivedAt: row.receivedAt,
     }));
   }
@@ -317,6 +355,9 @@ export class GroupPackagesService {
       id: row.id,
       groupPackageCode: row.groupPackageCode,
       destinationArea: row.destinationArea,
+      packageWeight: row.packageWeight?.toString() ?? null,
+      binLocation: row.binLocation ?? null,
+      customerCode: row.customerCode ?? null,
       status: row.status,
     }));
   }
@@ -373,12 +414,14 @@ export class GroupPackagesService {
     const contents = await this.collectGroupContents(groupPackageId);
     const memberSummary = contents.packageCodes.slice(0, 6).join(" | ")
       || group.groupPackageCode;
+    const totalWeight = group.packageWeight?.toString()
+      || contents.totalWeight.toFixed(2);
 
     return generateGroupLabelPdf({
       groupPackageCode: group.groupPackageCode,
       destinationArea: group.destinationArea,
       memberSummary,
-      totalWeight: contents.totalWeight > 0 ? `${contents.totalWeight.toFixed(2)} kg` : "N/A",
+      totalWeight: totalWeight ? `${totalWeight} kg` : "N/A",
       memberCount: contents.packageIds.length,
     });
   }
@@ -550,9 +593,9 @@ export class GroupPackagesService {
         packageCodes,
         customerCode: customerCodes[0] ?? "—",
         customerCodes,
-        binLocation: firstPackageMember?.package?.binLocationAtReceived ?? "—",
+        binLocation: group.binLocation ?? firstPackageMember?.package?.binLocationAtReceived ?? "—",
         destination: group.destinationArea,
-        packageWeight: "—",
+        packageWeight: group.packageWeight?.toString() ?? "—",
         packagingStatus: "Grouped",
         receivedAt: firstPackageMember?.package?.receivedAt ?? group.createdAt,
       };

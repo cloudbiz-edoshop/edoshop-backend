@@ -23,6 +23,9 @@ export const groupPackageResponseSchema = z.object({
   groupPackageCode: z.string(),
   warehouseId: z.number(),
   destinationArea: z.string(),
+  packageWeight: z.string().nullable().optional(),
+  binLocation: z.string().nullable().optional(),
+  customerCode: z.string().nullable().optional(),
   status: z.string(),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -31,7 +34,10 @@ export const groupPackageResponseSchema = z.object({
 });
 
 export const createGroupPackageRequestSchema = z.object({
-  destinationArea: z.string().trim().min(1),
+  destinationArea: z.string().trim().min(1).optional(),
+  packageWeight: z.coerce.number().positive(),
+  binLocation: z.string().trim().min(1),
+  customerCode: z.string().trim().min(1),
   packageIds: z.array(z.number().int().positive()).optional(),
   childGroupPackageIds: z.array(z.number().int().positive()).optional(),
 });

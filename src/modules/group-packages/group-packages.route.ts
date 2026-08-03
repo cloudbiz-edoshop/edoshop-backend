@@ -156,6 +156,8 @@ export const listAvailablePackages = createRoute({
           packageCode: z.string(),
           customerCode: z.string(),
           destination: z.string(),
+          packageWeight: z.string(),
+          binLocation: z.string(),
           receivedAt: z.string().nullable(),
         })),
         "Available packages fetched successfully",

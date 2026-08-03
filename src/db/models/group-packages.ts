@@ -2,6 +2,7 @@ import type { z } from "zod";
 
 import { relations } from "drizzle-orm";
 import {
+  decimal,
   integer,
   pgTable,
   serial,
@@ -20,6 +21,9 @@ export const groupPackages = pgTable("group_packages", {
   groupPackageCode: varchar({ length: 64 }).unique().notNull(),
   warehouseId: integer().notNull().references(() => warehouses.id),
   destinationArea: varchar({ length: 255 }).notNull(),
+  packageWeight: decimal({ precision: 10, scale: 2 }),
+  binLocation: varchar({ length: 255 }),
+  customerCode: varchar({ length: 64 }),
   status: varchar({ length: 32 }).notNull().default("Active"),
   createdAt: timestamp({ mode: "string" }).notNull().defaultNow(),
   updatedAt: timestamp({ mode: "string" }).notNull().defaultNow(),
