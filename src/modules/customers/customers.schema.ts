@@ -7,6 +7,7 @@ import {
   emailSchema,
   idSchema,
   nameSchema,
+  passwordSchema,
   phoneSchema,
   streetAddressSchema,
 } from "@/lib/zod-schemas/common-schemas";
@@ -90,3 +91,19 @@ export const listCustomersResponseSchema = z.array(getCustomerResponseSchema);
 
 // List customers response type
 export type ListCustomersResponse = z.infer<typeof listCustomersResponseSchema>;
+
+export const resetCustomerPasswordRequestSchema = z.object({
+  password: passwordSchema.describe("New customer password"),
+});
+
+export type ResetCustomerPasswordRequest = z.infer<
+  typeof resetCustomerPasswordRequestSchema
+>;
+
+export const resetCustomerPasswordResponseSchema = z.object({
+  success: z.literal(true),
+});
+
+export type ResetCustomerPasswordResponse = z.infer<
+  typeof resetCustomerPasswordResponseSchema
+>;

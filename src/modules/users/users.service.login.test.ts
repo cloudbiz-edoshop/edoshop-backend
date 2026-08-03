@@ -59,9 +59,8 @@ vi.mock("@/core/middlewares/jwt", () => ({
 }));
 
 vi.mock("argon2", () => ({
-  default: {
-    verify: vi.fn(async () => true),
-  },
+  verify: vi.fn(async () => true),
+  hash: vi.fn(async (value: string) => value),
 }));
 
 import { UsersService } from "@/modules/users/users.service";
@@ -145,5 +144,23 @@ describe("UsersService.login admin panel membership", () => {
     });
 
     expect(mockIsAdminPanelTeamMember).toHaveBeenCalledWith(3);
+  });
+
+  it("allows phone login for storefront customers without admin panel membership", async () => {
+    mockFindByPhoneNumber.mockResolvedValue({
+      id: 9,
+      username: "customer-9",
+      password: "hashed-password",
+    });
+
+    const service = new UsersService();
+    const result = await service.login({
+      phoneNumber: "+237600000000",
+      password: "Abcd1234!",
+    });
+
+    expect(mockIsAdminPanelTeamMember).not.toHaveBeenCalled();
+    expect(result.accessToken).toBe("access-token");
+    expect(result.user.id).toBe(9);
   });
 });

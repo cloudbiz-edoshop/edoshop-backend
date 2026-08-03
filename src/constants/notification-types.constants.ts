@@ -33,6 +33,7 @@ export enum NotificationType {
   WELCOME_TO_EDOSHOP = "welcome_to_edoshop",
   WARNING = "warning",
   ACCOUNT_CANCELED = "account_canceled",
+  PACKAGING_VIDEO_READY = "packaging_video_ready",
 }
 
 export const NotificationTypeIds = {
@@ -50,6 +51,7 @@ export const NotificationTypeIds = {
   WELCOME_TO_EDOSHOP: 12,
   WARNING: 13,
   ACCOUNT_CANCELED: 14,
+  PACKAGING_VIDEO_READY: 15,
 } as const;
 
 /**
@@ -76,4 +78,5 @@ export const NOTIFICATION_TYPE_DESCRIPTIONS: Record<NotificationType, string> =
     [NotificationType.WELCOME_TO_EDOSHOP]: "Welcome to Edoshop",
     [NotificationType.WARNING]: "Warning",
     [NotificationType.ACCOUNT_CANCELED]: "Account Canceled",
+    [NotificationType.PACKAGING_VIDEO_READY]: "Packaging Video Ready",
   };

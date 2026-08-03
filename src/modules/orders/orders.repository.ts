@@ -46,6 +46,7 @@ import {
 import {
   FulfillmentMethod,
 } from "@/constants/fulfillment.constants";
+import { PackagingVideosRepository } from "../packages/packaging-videos.repository";
 import { deliveryPlansService } from "@/modules/delivery-plans/delivery-plans.service";
 import {
   createFilterConditions,
@@ -1300,6 +1301,28 @@ export class OrdersRepository {
       steps: trackingDetails.steps,
       manufacturerToStoreSteps: trackingDetails.manufacturerToStoreSteps,
       storeToCustomerSteps: trackingDetails.storeToCustomerSteps,
+      packagingVideos: await new PackagingVideosRepository().getVideosForOrder(order.id).then((videos) => {
+        const uniqueByPackage = new Map<number, typeof videos[number]>();
+        for (const video of videos) {
+          uniqueByPackage.set(video.packageId, video);
+        }
+        return [...uniqueByPackage.values()].map((video) => ({
+          id: video.id,
+          packageId: video.packageId,
+          packageCode: video.packageCode,
+          videoUrl: video.videoUrl,
+          durationSeconds: video.durationSeconds,
+          recordedAt: video.recordedAt,
+          customerConfirmedAt: video.customerConfirmedAt,
+          customerDisputeMessage: video.customerDisputeMessage,
+          customerRespondedAt: video.customerRespondedAt,
+          status: video.customerDisputeMessage
+            ? "disputed" as const
+            : video.customerConfirmedAt
+              ? "confirmed" as const
+              : "pending_review" as const,
+        }));
+      }),
     };
   }
 

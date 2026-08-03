@@ -13,6 +13,7 @@ import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 
 import { entries } from "./entries";
 import { packageItems } from "./package-items";
+import { packagePackagingVideos } from "./package-packaging-videos";
 import { packageStatuses } from "./package-statuses";
 import { shippingLabels } from "./shipping-labels";
 import { users } from "./users";
@@ -58,6 +59,10 @@ export const packagesRelations = relations(packages, ({ one, many }) => ({
     references: [packageStatuses.id],
   }),
   packageItems: many(packageItems),
+  packagingVideo: one(packagePackagingVideos, {
+    fields: [packages.id],
+    references: [packagePackagingVideos.packageId],
+  }),
   shippingLabel: one(shippingLabels, {
     fields: [packages.id],
     references: [shippingLabels.packageId],

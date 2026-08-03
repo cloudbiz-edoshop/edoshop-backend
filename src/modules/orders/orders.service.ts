@@ -10,6 +10,7 @@ import {
   DIRECT_ORDER_PICKUP_FEE_XAF,
 } from "@/constants/fulfillment.constants";
 import { NotFoundError, ValidationError } from "@/core/errors";
+import { PackagingVideosService } from "../packages/packaging-videos.service";
 import campayConfig from "@/config/campay.config";
 import { campayService, normalizeCameroonPhone } from "@/modules/campay/campay.service";
 import { deliveryPlansService } from "@/modules/delivery-plans/delivery-plans.service";
@@ -264,6 +265,20 @@ export class OrdersService {
       throw new NotFoundError("Order not found");
     }
     return tracking;
+  }
+
+  async respondToPackagingVideo(
+    userId: number,
+    videoId: number,
+    payload: { confirmed: boolean; disputeMessage?: string },
+  ) {
+    const service = new PackagingVideosService();
+    return service.respondToPackagingVideo({
+      userId,
+      videoId,
+      confirmed: payload.confirmed,
+      disputeMessage: payload.disputeMessage,
+    });
   }
 
   async requestPostCheckoutDelivery(

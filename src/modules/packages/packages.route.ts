@@ -605,6 +605,86 @@ export const getPackageInfoForShippingLabel = createRoute({
   },
 });
 
+export const getPackagingVideo = createRoute({
+  path: "/packages/{packageId}/packaging-video",
+  method: "get",
+  tags,
+  middleware: acl(EntityType.WAREHOUSE_1, OperationType.READ),
+  summary: "Get packaging video for a package",
+  description: "Retrieve the recorded packaging video for a warehouse package",
+  request: {
+    headers: jwtHeaderSchema,
+    params: schemas.printLabelParamsSchema,
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(
+        schemas.packagingVideoResponseSchema.nullable(),
+        "Packaging video retrieved successfully",
+      ),
+      "Packaging video retrieved successfully",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.NOT_FOUND,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      schemas.printLabelParamsSchema,
+    ),
+  },
+});
+
+export const uploadPackagingVideo = createRoute({
+  path: "/packages/{packageId}/packaging-video",
+  method: "post",
+  tags,
+  middleware: acl(EntityType.WAREHOUSE_1, OperationType.UPDATE),
+  summary: "Upload packaging video",
+  description: "Upload or replace the packaging video for a package before label printing",
+  request: {
+    headers: jwtHeaderSchema,
+    params: schemas.printLabelParamsSchema,
+    body: {
+      content: {
+        "multipart/form-data": {
+          schema: {
+            type: "object",
+            properties: {
+              video: {
+                type: "string",
+                format: "binary",
+              },
+              durationSeconds: {
+                type: "string",
+              },
+            },
+            required: ["video"],
+          },
+        },
+      },
+    },
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(
+        schemas.packagingVideoResponseSchema,
+        "Packaging video uploaded successfully",
+      ),
+      "Packaging video uploaded successfully",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.BAD_REQUEST,
+        HttpStatusCodes.NOT_FOUND,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      schemas.printLabelParamsSchema,
+    ),
+  },
+});
+
 export type CreatePackageRoute = typeof createPackage;
 export type EditPackageRoute = typeof editPackage;
 export type CreateShippingLabelRoute = typeof createShippingLabel;
@@ -615,6 +695,8 @@ export type GetPackageInfoForShippingLabelRoute =
   typeof getPackageInfoForShippingLabel;
 export type CreatePackageWithItemsRoute = typeof createPackageWithItems;
 export type PrintShippingLabelRoute = typeof printShippingLabel;
+export type GetPackagingVideoRoute = typeof getPackagingVideo;
+export type UploadPackagingVideoRoute = typeof uploadPackagingVideo;
 export type ListShippingLabelsRoute = typeof listShippingLabels;
 export type ReceiveAPackagesFromW1Route = typeof receiveAPackageFromW1;
 export type EditReceivedPackageFromW1Route = typeof editReceivedPackageFromW1;

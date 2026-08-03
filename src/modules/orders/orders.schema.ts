@@ -229,6 +229,22 @@ export const customerOrderTrackingSchema = z.object({
     )
     .optional(),
   trackingHistory: z.array(customerOrderTrackingHistorySchema).optional(),
+  packagingVideos: z
+    .array(
+      z.object({
+        id: z.number(),
+        packageId: z.number(),
+        packageCode: z.string(),
+        videoUrl: z.string(),
+        durationSeconds: z.number().nullable().optional(),
+        recordedAt: z.string(),
+        customerConfirmedAt: z.string().nullable().optional(),
+        customerDisputeMessage: z.string().nullable().optional(),
+        customerRespondedAt: z.string().nullable().optional(),
+        status: z.enum(["pending_review", "confirmed", "disputed"]),
+      }),
+    )
+    .optional(),
 });
 
 export type CheckoutDirectOrderResponse = z.infer<

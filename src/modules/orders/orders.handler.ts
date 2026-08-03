@@ -5,6 +5,7 @@ import type {
   GetFulfillmentOptionsRoute,
   GetMyOrderTrackingRoute,
   GetMyOrdersRoute,
+  RespondToPackagingVideoRoute,
   GetOrderDetailsForACustomerRoute,
   GetOrdersToFulfillRoute,
   ListDirectOrderTrackingRoute,
@@ -251,6 +252,25 @@ export const getMyOrderTracking: AppRouteHandler<
 
   return c.json(
     successResponse(result, "Order tracking retrieved successfully"),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const respondToPackagingVideo: AppRouteHandler<
+  RespondToPackagingVideoRoute
+> = async (c) => {
+  const { videoId } = c.req.valid("param");
+  const payload = c.req.valid("json");
+  const accessTokenPayload = c.get("accessTokenPayload");
+
+  const result = await ordersService.respondToPackagingVideo(
+    accessTokenPayload.userId,
+    Number(videoId),
+    payload,
+  );
+
+  return c.json(
+    successResponse(result, "Packaging video response saved"),
     HttpStatusCodes.OK,
   );
 };

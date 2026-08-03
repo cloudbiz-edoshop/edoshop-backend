@@ -12,6 +12,7 @@ router.openapi(routes.getAllCustomerIds, handlers.getAllCustomerIds);
 router.openapi(routes.getAllCustomerNames, handlers.getAllCustomerNames);
 router.openapi(routes.getOne, handlers.getOne);
 router.openapi(routes.patch, handlers.patch);
+router.openapi(routes.resetPassword, handlers.resetPassword);
 router.openapi(routes.remove, handlers.remove);
 router.openapi(routes.removeSelected, handlers.removeSelected);
 

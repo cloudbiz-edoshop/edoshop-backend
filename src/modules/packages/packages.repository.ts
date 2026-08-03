@@ -393,6 +393,11 @@ export class PackagesRepository {
             description: true,
           },
         },
+        packagingVideo: {
+          columns: {
+            id: true,
+          },
+        },
         packageItems: {
           columns: {},
           with: {

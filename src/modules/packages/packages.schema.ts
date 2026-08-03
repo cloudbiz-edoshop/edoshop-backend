@@ -63,6 +63,7 @@ export const getPackageManagementW1Schema = z.array(
     registeredOn: z.string(),
     description: z.string(),
     hasShippingLabel: z.boolean(),
+    hasPackagingVideo: z.boolean(),
   }),
 );
 
@@ -318,3 +319,21 @@ export const getPackageInfoForShippingLabelResponseSchema = z.object({
 export type GetPackageInfoForShippingLabelResponse = z.infer<
   typeof getPackageInfoForShippingLabelResponseSchema
 >;
+
+export const packagingVideoResponseSchema = z.object({
+  id: z.number(),
+  packageId: z.number(),
+  packageCode: z.string().optional(),
+  videoUrl: z.string(),
+  durationSeconds: z.number().nullable().optional(),
+  recordedAt: z.string(),
+  customerConfirmedAt: z.string().nullable().optional(),
+  customerDisputeMessage: z.string().nullable().optional(),
+  customerRespondedAt: z.string().nullable().optional(),
+  status: z.enum(["pending_review", "confirmed", "disputed"]),
+});
+
+export const packagingVideoCustomerResponseSchema = z.object({
+  confirmed: z.boolean(),
+  disputeMessage: z.string().trim().optional(),
+});

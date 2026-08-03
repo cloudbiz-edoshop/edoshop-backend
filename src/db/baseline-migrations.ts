@@ -98,6 +98,18 @@ const MIGRATION_CHECKS: Record<string, string> = {
       WHERE table_schema = 'public' AND table_name = 'group_packages'
     ) AS ok
   `,
+  "0019_admin_panel_access_logs": `
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_name = 'admin_panel_access_logs'
+    ) AS ok
+  `,
+  "0020_package_packaging_videos": `
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_name = 'package_packaging_videos'
+    ) AS ok
+  `,
 };
 
 type ExistsRow = { ok: boolean };

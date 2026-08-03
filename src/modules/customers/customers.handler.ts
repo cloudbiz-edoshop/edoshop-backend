@@ -9,6 +9,7 @@ import type {
   PublicSignupRoute,
   RemoveRoute,
   RemoveSelectedRoute,
+  ResetPasswordRoute,
 } from "./customers.route";
 
 import type {
@@ -165,4 +166,16 @@ export const getAllCustomerNames: AppRouteHandler<
 > = async (c) => {
   const names = await customersService.getAllCustomerNames();
   return c.json({ names });
+};
+
+export const resetPassword: AppRouteHandler<ResetPasswordRoute> = async (c) => {
+  const { id } = c.req.valid("param");
+  const { password } = c.req.valid("json");
+
+  const result = await customersService.resetCustomerPassword(id, password);
+
+  return c.json(
+    successResponse(result, "Customer password reset successfully"),
+    HttpStatusCodes.OK,
+  );
 };

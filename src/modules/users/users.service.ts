@@ -226,11 +226,16 @@ export class UsersService {
       user = await this.userRepository.findByPhoneNumber(phoneNumber);
     }
 
+    const invalidCredentialsMessage = phoneNumber
+      ? LOGIN_ERROR_MESSAGES.PHONE_INVALID
+      : LOGIN_ERROR_MESSAGES.LOCAL_INVALID;
+
     if (!user) {
-      throw new UnauthorizedError(LOGIN_ERROR_MESSAGES.LOCAL_INVALID);
+      throw new UnauthorizedError(invalidCredentialsMessage);
     }
 
-    if (!(await this.userRepository.isAdminPanelTeamMember(user.id))) {
+    // Phone login is used by storefront customers; email login is admin-panel only.
+    if (email && !(await this.userRepository.isAdminPanelTeamMember(user.id))) {
       throw new UnauthorizedError(LOGIN_ERROR_MESSAGES.NOT_ADMIN_PANEL_MEMBER);
     }
 
@@ -241,7 +246,7 @@ export class UsersService {
     const passwordValid = await argon2.verify(user.password, password);
 
     if (!passwordValid) {
-      throw new UnauthorizedError(LOGIN_ERROR_MESSAGES.LOCAL_INVALID);
+      throw new UnauthorizedError(invalidCredentialsMessage);
     }
 
     return this.buildLoginResponse(user);

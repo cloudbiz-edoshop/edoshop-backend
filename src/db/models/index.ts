@@ -1,5 +1,9 @@
 export { default as aboutUs, aboutUsRelations } from "./about-us";
 export {
+  default as adminPanelAccessLogs,
+  adminPanelAccessLogsRelations,
+} from "./admin-panel-access-logs";
+export {
   default as addressTypes,
   addressTypesRelations,
 } from "./address-types";
@@ -118,6 +122,10 @@ export { default as orderTypes, orderTypesRelations } from "./order-types";
 export { default as orders, ordersRelations } from "./orders";
 export { default as packageItems, packageItemsRelations } from "./package-items";
 export { default as packageItemsHistory, packageItemsHistoryRelations } from "./package-items-history";
+export {
+  default as packagePackagingVideos,
+  packagePackagingVideosRelations,
+} from "./package-packaging-videos";
 export { default as packageStatuses, packageStatusesRelations } from "./package-statuses";
 export { default as packages, packagesRelations } from "./packages";
 export {

@@ -113,6 +113,20 @@
       "when": 1778454700215,
       "tag": "0018_group_packages",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1778454700216,
+      "tag": "0019_admin_panel_access_logs",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1778454700217,
+      "tag": "0020_package_packaging_videos",
+      "breakpoints": true
     }
   ]
 }

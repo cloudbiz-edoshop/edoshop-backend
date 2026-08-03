@@ -23,6 +23,8 @@ import {
   listCustomersResponseSchema,
   publicCustomerSignupRequestSchema,
   publicCustomerSignupResponseSchema,
+  resetCustomerPasswordRequestSchema,
+  resetCustomerPasswordResponseSchema,
   updateCustomerRequestSchema,
 } from "./customers.schema";
 
@@ -362,6 +364,47 @@ export const getAllCustomerNames = createRoute({
   },
 });
 
+export const resetPassword = createRoute({
+  path: "/customers/{id}/reset-password",
+  method: "post",
+  tags,
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.CUSTOMERS, operation: OperationType.UPDATE },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    params: idParams,
+    body: jsonContentRequired(
+      resetCustomerPasswordRequestSchema,
+      "Reset Customer Password",
+    ),
+  },
+  summary: "Reset a customer password",
+  description:
+    "Allows the Edoshop team to set a new password for a customer account",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(
+        resetCustomerPasswordResponseSchema,
+        "Customer password reset successfully",
+      ),
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNPROCESSABLE_ENTITY,
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.FORBIDDEN,
+        HttpStatusCodes.NOT_FOUND,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      idParams,
+    ),
+  },
+});
+
 export type ListRoute = typeof list;
 export type CreateRoute = typeof create;
 export type PublicSignupRoute = typeof publicSignup;
@@ -372,3 +415,4 @@ export type GetAllCustomerNamesRoute = typeof getAllCustomerNames;
 export type GetOneRoute = typeof getOne;
 export type PatchRoute = typeof patch;
 export type RemoveRoute = typeof remove;
+export type ResetPasswordRoute = typeof resetPassword;

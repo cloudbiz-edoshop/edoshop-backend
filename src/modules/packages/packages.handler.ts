@@ -10,11 +10,13 @@ import type {
   GetPackageInfoForShippingLabelRoute,
   GetPackageManagementW1Route,
   GetPackageManagementW2Route,
+  GetPackagingVideoRoute,
   GetPackedPackagesThatAreBeingReceived,
   GetShippingPriorityCodesRoute,
   GetShippingTypesRoute,
   ListShippingLabelsRoute,
   PrintShippingLabelRoute,
+  UploadPackagingVideoRoute,
   ReceiveAPackagesFromW1Route,
   ReceivedPackageDispatchManagementRoute,
   UpdateReceivedPackageStatusRoute,
@@ -23,13 +25,16 @@ import type {
 import type { AppRouteHandler } from "@/lib/types";
 
 import { PackageStatusIdToEnum } from "@/constants/package-statuses.constants";
+import { AppError } from "@/core/errors";
 
 import { successResponse, successResponseWithPagination } from "@/lib/api-response";
 import * as HttpStatusCodes from "@/lib/http-status-codes";
 import { createPagination } from "@/lib/searching-sorting";
 import { PackagesService } from "./packages.service";
+import { PackagingVideosService } from "./packaging-videos.service";
 
 const packagesService = new PackagesService();
+const packagingVideosService = new PackagingVideosService();
 
 export const createPackage: AppRouteHandler<CreatePackageRoute> = async (c) => {
   const data = c.req.valid("json");
@@ -145,6 +150,58 @@ export const printShippingLabel: AppRouteHandler<PrintShippingLabelRoute> = asyn
     "Content-Type": "application/pdf",
     "Content-Disposition": `attachment; filename="label-${packageId}.pdf"`,
   });
+};
+
+const isUploadedFile = (value: FormDataEntryValue): value is File => (
+  typeof value === "object"
+  && value !== null
+  && "arrayBuffer" in value
+  && "name" in value
+  && "type" in value
+);
+
+export const getPackagingVideo: AppRouteHandler<GetPackagingVideoRoute> = async (c) => {
+  const { packageId } = c.req.valid("param");
+  const result = await packagingVideosService.getByPackageId(Number(packageId));
+
+  return c.json(
+    successResponse(result, "Packaging video retrieved successfully"),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const uploadPackagingVideo: AppRouteHandler<UploadPackagingVideoRoute> = async (c) => {
+  const { packageId } = c.req.valid("param");
+  const jwtPayload = c.get("accessTokenPayload");
+  const formData = await c.req.formData();
+
+  let videoFile: File | null = null;
+  let durationSeconds: number | null = null;
+
+  for (const [key, value] of formData.entries()) {
+    if (key === "video" && isUploadedFile(value)) {
+      videoFile = value;
+    } else if (key === "durationSeconds" && typeof value === "string") {
+      const parsed = Number.parseInt(value, 10);
+      durationSeconds = Number.isFinite(parsed) ? parsed : null;
+    }
+  }
+
+  if (!videoFile) {
+    throw new AppError("No video file uploaded", HttpStatusCodes.BAD_REQUEST);
+  }
+
+  const result = await packagingVideosService.uploadPackagingVideo({
+    packageId: Number(packageId),
+    file: videoFile,
+    durationSeconds,
+    recordedBy: jwtPayload.userId,
+  });
+
+  return c.json(
+    successResponse(result, "Packaging video uploaded successfully"),
+    HttpStatusCodes.OK,
+  );
 };
 
 export const listShippingLabels: AppRouteHandler<ListShippingLabelsRoute> = async (c) => {

@@ -524,4 +524,33 @@ export class CustomersService {
   async getAllCustomerNames(): Promise<string[]> {
     return this.customerRepository.getAllCustomerNames();
   }
+
+  /**
+   * Reset a customer's password (admin-initiated)
+   *
+   * @param customerId - Customer ID
+   * @param password - New plain-text password
+   * @returns Success confirmation
+   */
+  async resetCustomerPassword(
+    customerId: number,
+    password: string,
+  ): Promise<{ success: true }> {
+    const customer = await this.customerRepository.findById(customerId);
+    if (!customer) {
+      throw new NotFoundError(`Customer with ID ${customerId} not found`);
+    }
+
+    const user = await this.userRepository.findById(customer.userId);
+    if (!user) {
+      throw new NotFoundError(`User for customer ${customerId} not found`);
+    }
+
+    const passwordHash = await argon2.hash(password);
+    await db.transaction(async (tx) => {
+      await this.userRepository.updatePassword(tx, customer.userId, passwordHash);
+    });
+
+    return { success: true };
+  }
 }

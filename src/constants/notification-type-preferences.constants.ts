@@ -30,6 +30,8 @@ export const NOTIFICATION_TYPE_PREFERENCE_MAP: Record<
   [NotificationTypeIds.WARNING]: NotificationPreferenceKey.ACCOUNT_WARNING,
   [NotificationTypeIds.ACCOUNT_CANCELED]:
     NotificationPreferenceKey.ACCOUNT_WARNING,
+  [NotificationTypeIds.PACKAGING_VIDEO_READY]:
+    NotificationPreferenceKey.DELIVERY_TRACKING,
 };
 
 export const getPreferenceKeyForNotificationType = (

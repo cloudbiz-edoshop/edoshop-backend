@@ -454,7 +454,61 @@ export const getMyOrderTracking = createRoute({
   },
 });
 
+export const respondToPackagingVideo = createRoute({
+  path: "/orders/me/packaging-videos/{videoId}/response",
+  method: "post",
+  tags,
+  middleware: [jwtMiddleware()] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    params: z.object({
+      videoId: z.string().openapi({
+        param: { name: "videoId", in: "path", required: true },
+      }),
+    }),
+    body: jsonContentRequired(
+      z.object({
+        confirmed: z.boolean(),
+        disputeMessage: z.string().trim().optional(),
+      }),
+      "Packaging video response",
+    ),
+  },
+  summary: "Confirm or dispute a packaging video",
+  description: "Customer confirms packaging or reports missing items",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(
+        z.object({
+          id: z.number(),
+          packageId: z.number(),
+          packageCode: z.string().optional(),
+          videoUrl: z.string(),
+          durationSeconds: z.number().nullable().optional(),
+          recordedAt: z.string(),
+          customerConfirmedAt: z.string().nullable().optional(),
+          customerDisputeMessage: z.string().nullable().optional(),
+          customerRespondedAt: z.string().nullable().optional(),
+          status: z.enum(["pending_review", "confirmed", "disputed"]),
+        }),
+        "Packaging video response saved",
+      ),
+      "Packaging video response saved",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.BAD_REQUEST,
+        HttpStatusCodes.NOT_FOUND,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      z.object({ videoId: z.string() }),
+    ),
+  },
+});
+
 export type GetFulfillmentOptionsRoute = typeof getFulfillmentOptions;
 export type CalculateDeliveryFeeRoute = typeof calculateDeliveryFee;
 export type GetMyOrdersRoute = typeof getMyOrders;
 export type GetMyOrderTrackingRoute = typeof getMyOrderTracking;
+export type RespondToPackagingVideoRoute = typeof respondToPackagingVideo;

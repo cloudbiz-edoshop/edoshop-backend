@@ -15,6 +15,7 @@ router.openapi(routes.getFulfillmentOptions, handlers.getFulfillmentOptions);
 router.openapi(routes.calculateDeliveryFee, handlers.calculateDeliveryFee);
 router.openapi(routes.getMyOrders, handlers.getMyOrders);
 router.openapi(routes.getMyOrderTracking, handlers.getMyOrderTracking);
+router.openapi(routes.respondToPackagingVideo, handlers.respondToPackagingVideo);
 router.openapi(routes.requestPostCheckoutDelivery, handlers.requestPostCheckoutDelivery);
 
 export default router;

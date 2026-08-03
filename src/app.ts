@@ -3,6 +3,7 @@ import { authRateLimiter, rateLimiter } from "@/core/middlewares";
 import configureOpenAPI from "@/lib/configure-open-api";
 import createApp from "@/lib/create-app";
 import aboutUs from "@/modules/about-us/about-us.index";
+import adminAccessLogs from "@/modules/admin-access-logs/admin-access-logs.index";
 import addresses from "@/modules/addresses/addresses.index";
 import attributes from "@/modules/attributes/attributes.index";
 import banners from "@/modules/banners/banners.index";
@@ -81,6 +82,7 @@ if (appConfig.isProduction) {
 const routes = [
   users,
   nextcloudAuth,
+  adminAccessLogs,
   employees,
   suppliers,
   customers,

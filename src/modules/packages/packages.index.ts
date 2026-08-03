@@ -10,6 +10,8 @@ router.openapi(routes.getPackageInfoForShippingLabel, handlers.getPackageInfoFor
 router.openapi(routes.createShippingLabel, handlers.createShippingLabel);
 router.openapi(routes.editShippingLabel, handlers.editShippingLabel);
 router.openapi(routes.printShippingLabel, handlers.printShippingLabel);
+router.openapi(routes.getPackagingVideo, handlers.getPackagingVideo);
+router.openapi(routes.uploadPackagingVideo, handlers.uploadPackagingVideo);
 router.openapi(routes.getPackageManagementW1, handlers.getPackageManagementW1);
 router.openapi(routes.getPackageManagementW2, handlers.getPackageManagementW2);
 router.openapi(routes.createPackageWithItems, handlers.createPackageWithItems);

@@ -18,7 +18,6 @@ import * as HttpStatusPhrases from "@/lib/http-status-phrases";
 import { jsonContent } from "@/lib/openapi/helpers";
 import { createErrorResponseSchema } from "@/lib/openapi/schemas";
 import { JWTAccessTokenPayloadSchema } from "@/lib/types";
-
 // JWT Secret management with rotation support
 const JWT_SECRETS = {
   current: env.JWT_SECRET,
@@ -152,11 +151,11 @@ export const jwtMiddleware = (): MiddlewareHandler => {
 
       const decoded = await verifyJwtToken<JWTAccessTokenPayload>(token);
       JWTAccessTokenPayloadSchema.parse(decoded);
-      // check if user exists in db
+      // check if user exists in db and is still active
       const user = await db.query.users.findFirst({
         where: eq(users.id, decoded.userId),
       });
-      if (!user) {
+      if (!user || user.isDeleted || !user.isActive) {
         throw new HTTPException(HttpStatusCodes.UNAUTHORIZED, {
           message: "Unauthorized - User not found",
         });

@@ -25,8 +25,11 @@ import type {
 import { getConnInfo } from "@hono/node-server/conninfo";
 
 import { STANDARD_MESSAGES } from "@/constants";
+import { ADMIN_ACCESS_AUTH_METHODS } from "@/constants/admin-access-log.constants";
+import { UnauthorizedError } from "@/core/errors";
 import { successResponse } from "@/lib/api-response";
 import * as HttpStatusCodes from "@/lib/http-status-codes";
+import { adminAccessLogsService } from "@/modules/admin-access-logs/admin-access-logs.service";
 import { PermissionsService } from "@/modules/permissions/permissions.service";
 import { UsersService } from "@/modules/users/users.service";
 
@@ -36,28 +39,57 @@ const permissionsService = new PermissionsService();
 
 export const login: AppRouteHandler<LoginRoute> = async (c) => {
   const { email, phoneNumber, username, password } = c.req.valid("json");
-
-  const result = await usersService.login({
-    email,
-    phoneNumber,
-    username,
-    password,
-  });
-  const accessProfile = await permissionsService.getUserAccessProfile(
-    result.user.id,
-  );
-
-  const response: LoginResponse = {
-    accessToken: result.accessToken,
-    refreshToken: result.refreshToken,
-    user: result.user,
-    accessProfile,
+  const authMethod = username
+    ? ADMIN_ACCESS_AUTH_METHODS.NEXTCLOUD_APP_PASSWORD
+    : ADMIN_ACCESS_AUTH_METHODS.LOCAL_PASSWORD;
+  const loginIdentifier = username || email || phoneNumber || null;
+  const logContext = {
+    authMethod,
+    ipAddress: c.var.ipAddress,
+    userAgent: c.var.userAgent,
+    loginIdentifier,
   };
 
-  return c.json(
-    successResponse(response, STANDARD_MESSAGES.AUTH.LOGIN_SUCCESS),
-    HttpStatusCodes.OK,
-  );
+  try {
+    const result = await usersService.login({
+      email,
+      phoneNumber,
+      username,
+      password,
+    });
+
+    await adminAccessLogsService.recordAttempt({
+      ...logContext,
+      userId: result.user.id,
+      success: true,
+    });
+
+    const accessProfile = await permissionsService.getUserAccessProfile(
+      result.user.id,
+    );
+
+    const response: LoginResponse = {
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+      user: result.user,
+      accessProfile,
+    };
+
+    return c.json(
+      successResponse(response, STANDARD_MESSAGES.AUTH.LOGIN_SUCCESS),
+      HttpStatusCodes.OK,
+    );
+  } catch (error) {
+    await adminAccessLogsService.recordAttempt({
+      ...logContext,
+      success: false,
+      failureReason:
+        error instanceof UnauthorizedError || error instanceof Error
+          ? error.message
+          : "Login failed",
+    });
+    throw error;
+  }
 };
 
 export const getCurrentUser: AppRouteHandler<GetCurrentUserRoute> = async (

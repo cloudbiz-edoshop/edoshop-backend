@@ -1,6 +1,7 @@
 import type { Context } from "hono";
 
 import env from "@/config/env.config";
+import { ADMIN_ACCESS_AUTH_METHODS } from "@/constants/admin-access-log.constants";
 import { UnauthorizedError } from "@/core/errors";
 import {
   buildNextcloudAuthorizeUrl,
@@ -11,6 +12,7 @@ import {
   hashOAuthState,
   isNextcloudOAuthConfigured,
 } from "@/lib/nextcloud-auth";
+import { adminAccessLogsService } from "@/modules/admin-access-logs/admin-access-logs.service";
 import { PermissionsService } from "@/modules/permissions/permissions.service";
 import { UsersService } from "@/modules/users/users.service";
 
@@ -73,6 +75,15 @@ export async function completeNextcloudOAuth(c: Context) {
     const identity = await fetchNextcloudUserIdentity(tokenPayload.access_token);
     const loginResult = await usersService.loginWithNextcloudIdentity(identity);
 
+    await adminAccessLogsService.recordAttempt({
+      userId: loginResult.user.id,
+      loginIdentifier: identity.email ?? identity.id,
+      authMethod: ADMIN_ACCESS_AUTH_METHODS.NEXTCLOUD_OAUTH,
+      ipAddress: c.var.ipAddress,
+      userAgent: c.var.userAgent,
+      success: true,
+    });
+
     const params = new URLSearchParams({
       accessToken: loginResult.accessToken,
       refreshToken: loginResult.refreshToken,
@@ -84,6 +95,15 @@ export async function completeNextcloudOAuth(c: Context) {
       cause instanceof UnauthorizedError
         ? cause.message
         : "nextcloud_login_failed";
+
+    await adminAccessLogsService.recordAttempt({
+      loginIdentifier: c.req.query("state") ?? null,
+      authMethod: ADMIN_ACCESS_AUTH_METHODS.NEXTCLOUD_OAUTH,
+      ipAddress: c.var.ipAddress,
+      userAgent: c.var.userAgent,
+      success: false,
+      failureReason: message,
+    });
 
     return c.redirect(
       `${getAdminPanelUrl()}/login?error=${encodeURIComponent(message)}`,

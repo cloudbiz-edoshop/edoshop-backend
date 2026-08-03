@@ -18,6 +18,7 @@ import { OrdersRepository } from "../orders/orders.repository";
 import { WarehouseRepository } from "../warehouses/warehouses.repository";
 import { PackagesRepository } from "./packages.repository";
 import GroupPackagesService from "../group-packages/group-packages.service";
+import { PackagingVideosService } from "./packaging-videos.service";
 import { getPaginationValues } from "@/lib/searching-sorting";
 
 export class PackagesService {
@@ -26,6 +27,7 @@ export class PackagesService {
   private readonly entriesRepository: EntriesRepository;
   private readonly customersRepository: CustomersRepository;
   private readonly warehouseRepository: WarehouseRepository;
+  private readonly packagingVideosService = new PackagingVideosService();
 
   constructor() {
     this.packagesRepository = new PackagesRepository();
@@ -125,6 +127,8 @@ export class PackagesService {
     if (!pkg) {
       throw new NotFoundError("Package not found");
     }
+
+    await this.packagingVideosService.assertPackagingVideoRecorded(data.packageId);
 
     const existingLabel = await this.packagesRepository.getShippingLabelByPackageId(data.packageId);
     if (existingLabel) {
@@ -254,6 +258,7 @@ export class PackagesService {
           registeredOn: r.createdAt,
           description: r.entry.description || "N/A",
           hasShippingLabel: r.hasShippingLabel === 1,
+          hasPackagingVideo: Boolean(r.packagingVideo?.id),
         };
       }),
     };
@@ -483,6 +488,8 @@ export class PackagesService {
   }
 
   async generateLabelPdf(packageId: number): Promise<Buffer> {
+    await this.packagingVideosService.assertPackagingVideoRecorded(packageId);
+
     // ── 1. Fetch package data ─────────────────────────────────────────────
     const data = await this.packagesRepository.getFullLabelData(packageId);
     if (!data)

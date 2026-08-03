@@ -12,6 +12,7 @@ import { db } from "@/db";
 import { refreshTokens } from "@/db/models";
 import { resetTokens } from "@/db/models/reset-tokens";
 import users from "@/db/models/users";
+import { isAdminPanelTeamMemberUser } from "@/lib/admin-panel-membership";
 /**
  * Repository for user-related database operations
  */
@@ -467,11 +468,7 @@ export class UserRepository {
       return false;
     }
 
-    if (user.isAdmin) {
-      return true;
-    }
-
-    return Boolean(user.employee && !user.employee.isDeleted);
+    return isAdminPanelTeamMemberUser(user);
   }
 
   async findTeamMemberByNextcloudIdentity(identity: {
@@ -525,9 +522,7 @@ export class UserRepository {
       return null;
     }
 
-    const isTeamMember =
-      matchedUser.isAdmin ||
-      Boolean(matchedUser.employee && !matchedUser.employee.isDeleted);
+    const isTeamMember = isAdminPanelTeamMemberUser(matchedUser);
 
     return isTeamMember ? matchedUser : null;
   }
