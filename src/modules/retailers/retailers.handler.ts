@@ -22,14 +22,28 @@ import {
 
 import * as HttpStatusCodes from "@/lib/http-status-codes";
 import { createPagination } from "@/lib/searching-sorting";
+import {
+  assertCanManageCustomerContact,
+  redactCustomerContact,
+  redactCustomerContactList,
+} from "@/lib/customer-contact-privacy";
 
+import { PermissionsService } from "../permissions/permissions.service";
 import { RetailersService } from "./retailers.service";
 
 const retailersService = new RetailersService();
+const permissionsService = new PermissionsService();
+
+async function canViewCustomerContact(userId: number) {
+  const accessProfile = await permissionsService.getUserAccessProfile(userId);
+  return accessProfile.isSuperAdmin;
+}
 
 export const list: AppRouteHandler<ListRoute> = async (c) => {
   const queryParams = c.req.valid("query");
   const { search, page, limit, sortBy, sortOrder, filters } = queryParams;
+  const payload = c.get("accessTokenPayload");
+  const allowContact = await canViewCustomerContact(payload.userId);
 
   // Use retailer service for listing Retailers
   const result = await retailersService.listRetailers({
@@ -42,7 +56,10 @@ export const list: AppRouteHandler<ListRoute> = async (c) => {
   });
 
   const pagination = createPagination(result.total, page, limit);
-  const retailersList: ListRetailersResponse = result.data;
+  const retailersList: ListRetailersResponse = redactCustomerContactList(
+    result.data,
+    allowContact,
+  );
   const searchableFields: string[] = result.searchableFields;
 
   // Format response with pagination metadata
@@ -56,10 +73,12 @@ export const list: AppRouteHandler<ListRoute> = async (c) => {
 };
 
 export const create: AppRouteHandler<CreateRoute> = async (c) => {
-  const { fullName, email, phone, countryId, cityId, address, shop, status } =
-    c.req.valid("json");
+  const body = c.req.valid("json");
+  const { fullName, email, phone, countryId, cityId, address, shop, status } = body;
 
   const payload = c.get("accessTokenPayload");
+  const allowContact = await canViewCustomerContact(payload.userId);
+  assertCanManageCustomerContact(allowContact, body);
   const createdBy = payload.userId;
 
   const result = await retailersService.createRetailer({
@@ -74,7 +93,7 @@ export const create: AppRouteHandler<CreateRoute> = async (c) => {
     createdBy,
   });
 
-  const response: CreateRetailerResponse = result;
+  const response: CreateRetailerResponse = redactCustomerContact(result, allowContact);
 
   return c.json(
     successResponse(response, "Retailer created successfully"),
@@ -112,8 +131,13 @@ export const getCurrentRetailer: AppRouteHandler<
 
 export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
   const { id } = c.req.valid("param");
+  const payload = c.get("accessTokenPayload");
+  const allowContact = await canViewCustomerContact(payload.userId);
   const retailer = await retailersService.getRetailerById(id);
-  const typedResponse: GetRetailerResponse = retailer;
+  const typedResponse: GetRetailerResponse = redactCustomerContact(
+    retailer,
+    allowContact,
+  );
   const response = successResponse(
     typedResponse,
     STANDARD_MESSAGES.SUCCESS.FETCHED,
@@ -125,6 +149,8 @@ export const patch: AppRouteHandler<PatchRoute> = async (c) => {
   const { id } = c.req.valid("param");
   const updateData = c.req.valid("json");
   const payload = c.get("accessTokenPayload");
+  const allowContact = await canViewCustomerContact(payload.userId);
+  assertCanManageCustomerContact(allowContact, updateData);
   const updatedBy = payload.userId;
   const data = {
     ...updateData,
@@ -135,7 +161,7 @@ export const patch: AppRouteHandler<PatchRoute> = async (c) => {
   const updatedRetailer = await retailersService.updateRetailer(data);
 
   const response = successResponse(
-    updatedRetailer,
+    redactCustomerContact(updatedRetailer, allowContact),
     "Retailer updated successfully",
   );
   return c.json(response, HttpStatusCodes.OK);

@@ -26,14 +26,28 @@ import {
 
 import * as HttpStatusCodes from "@/lib/http-status-codes";
 import { createPagination } from "@/lib/searching-sorting";
+import {
+  assertCanManageCustomerContact,
+  redactCustomerContact,
+  redactCustomerContactList,
+} from "@/lib/customer-contact-privacy";
 
+import { PermissionsService } from "../permissions/permissions.service";
 import { CustomersService } from "./customers.service";
 
 const customersService = new CustomersService();
+const permissionsService = new PermissionsService();
+
+async function canViewCustomerContact(userId: number) {
+  const accessProfile = await permissionsService.getUserAccessProfile(userId);
+  return accessProfile.isSuperAdmin;
+}
 
 export const list: AppRouteHandler<ListRoute> = async (c) => {
   const queryParams = c.req.valid("query");
   const { search, page, limit, sortBy, sortOrder, filters } = queryParams;
+  const payload = c.get("accessTokenPayload");
+  const allowContact = await canViewCustomerContact(payload.userId);
 
   // Use supplier service for listing Customers
   const result = await customersService.listCustomers({
@@ -46,7 +60,10 @@ export const list: AppRouteHandler<ListRoute> = async (c) => {
   });
 
   const pagination = createPagination(result.total, page, limit);
-  const customersList: ListCustomersResponse = result.data;
+  const customersList: ListCustomersResponse = redactCustomerContactList(
+    result.data,
+    allowContact,
+  );
   const searchableFields: string[] = result.searchableFields;
 
   // Format response with pagination metadata
@@ -60,10 +77,12 @@ export const list: AppRouteHandler<ListRoute> = async (c) => {
 };
 
 export const create: AppRouteHandler<CreateRoute> = async (c) => {
-  const { fullName, email, phoneNumber, countryId, address, accountType } =
-    c.req.valid("json");
+  const body = c.req.valid("json");
+  const { fullName, email, phoneNumber, countryId, address, accountType } = body;
 
   const payload = c.get("accessTokenPayload");
+  const allowContact = await canViewCustomerContact(payload.userId);
+  assertCanManageCustomerContact(allowContact, body);
   const createdBy = payload.userId;
 
   const result = await customersService.createCustomer({
@@ -76,7 +95,7 @@ export const create: AppRouteHandler<CreateRoute> = async (c) => {
     createdBy,
   });
 
-  const response: CreateCustomerResponse = result;
+  const response: CreateCustomerResponse = redactCustomerContact(result, allowContact);
 
   return c.json(
     successResponse(response, STANDARD_MESSAGES.AUTH.CUSTOMER_CREATED),
@@ -96,8 +115,13 @@ export const publicSignup: AppRouteHandler<PublicSignupRoute> = async (c) => {
 
 export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
   const { id } = c.req.valid("param");
+  const payload = c.get("accessTokenPayload");
+  const allowContact = await canViewCustomerContact(payload.userId);
   const customer = await customersService.getCustomerById(id);
-  const typedResponse: GetCustomerResponse = customer;
+  const typedResponse: GetCustomerResponse = redactCustomerContact(
+    customer,
+    allowContact,
+  );
   const response = successResponse(
     typedResponse,
     STANDARD_MESSAGES.SUCCESS.FETCHED,
@@ -109,6 +133,8 @@ export const patch: AppRouteHandler<PatchRoute> = async (c) => {
   const { id } = c.req.valid("param");
   const updateData = c.req.valid("json");
   const payload = c.get("accessTokenPayload");
+  const allowContact = await canViewCustomerContact(payload.userId);
+  assertCanManageCustomerContact(allowContact, updateData);
   const updatedBy = payload.userId;
   const data = {
     ...updateData,
@@ -119,7 +145,7 @@ export const patch: AppRouteHandler<PatchRoute> = async (c) => {
   const updatedCustomer = await customersService.updateCustomer(data);
 
   const response = successResponse(
-    updatedCustomer,
+    redactCustomerContact(updatedCustomer, allowContact),
     "Customer updated successfully",
   );
   return c.json(response, HttpStatusCodes.OK);
