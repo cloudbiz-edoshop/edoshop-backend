@@ -460,3 +460,19 @@ export const subscribeNewsletter = async (c: any) => {
     HttpStatusCodes.OK,
   );
 };
+
+export const createReview = async (c: any) => {
+  const body = c.req.valid("json");
+  await reviewsService.createGuestReview(body);
+
+  return c.json(
+    successResponse(
+      {
+        submitted: true,
+        message: "Review submitted successfully and is pending approval.",
+      },
+      "Review submitted successfully",
+    ),
+    HttpStatusCodes.CREATED,
+  );
+};

@@ -117,8 +117,8 @@ export class ReviewsRepository {
       itemsRejected?: number;
       reviewDate: string;
       approvedDate?: string;
-      createdBy: number;
-      updatedBy: number;
+      createdBy?: number | null;
+      updatedBy?: number | null;
     },
   ) {
     const [result] = await tx.insert(reviews).values(reviewData).returning();

@@ -154,3 +154,16 @@ export const subscribeNewsletterResponseSchema = z.object({
   subscribed: z.boolean(),
   email: z.string().email(),
 });
+
+export const publicCreateReviewRequestSchema = z.object({
+  productId: z.number().int().positive(),
+  fullName: z.string().trim().min(1).max(120),
+  email: z.string().email(),
+  review: z.string().trim().min(1).max(900),
+  rating: z.number().min(1).max(5),
+});
+
+export const publicCreateReviewResponseSchema = z.object({
+  submitted: z.boolean(),
+  message: z.string(),
+});

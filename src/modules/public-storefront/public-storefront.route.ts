@@ -20,6 +20,8 @@ import {
   publicReviewSchema,
   subscribeNewsletterRequestSchema,
   subscribeNewsletterResponseSchema,
+  publicCreateReviewRequestSchema,
+  publicCreateReviewResponseSchema,
 } from "./public-storefront.schema";
 
 const tags = ["Public Storefront"];
@@ -125,6 +127,25 @@ export const subscribeNewsletter = createRoute({
   },
 });
 
+export const createReview = createRoute({
+  path: "/public/reviews",
+  method: "post",
+  tags,
+  summary: "Submit a storefront product review",
+  request: {
+    body: jsonContentRequired(
+      publicCreateReviewRequestSchema,
+      "Public product review submission",
+    ),
+  },
+  responses: {
+    [HttpStatusCodes.CREATED]: jsonContent(
+      createSuccessResponseSchema(publicCreateReviewResponseSchema),
+      "Review submitted for approval",
+    ),
+  },
+});
+
 export type ListBannersRoute = typeof listBanners;
 export type ListFaqsRoute = typeof listFaqs;
 export type ListFiltersRoute = typeof listFilters;
@@ -137,3 +158,4 @@ export type ListCustomersRoute = typeof listCustomers;
 export type ListRetailersRoute = typeof listRetailers;
 export type ListPaymentMethodsRoute = typeof listPaymentMethods;
 export type SubscribeNewsletterRoute = typeof subscribeNewsletter;
+export type CreateReviewRoute = typeof createReview;

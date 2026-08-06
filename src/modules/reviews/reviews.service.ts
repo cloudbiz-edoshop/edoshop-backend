@@ -4,6 +4,7 @@ import type {
 } from "./reviews.schema";
 
 import { and, eq } from "drizzle-orm";
+import { ReviewStatusIds } from "@/constants/review-statuses.constants";
 import { ConflictError, NotFoundError } from "@/core/errors";
 import db from "@/db";
 
@@ -56,6 +57,32 @@ export class ReviewsService {
     }
 
     return reviewWithRelations;
+  }
+
+  async createGuestReview(data: {
+    productId: number;
+    review: string;
+    rating: number;
+    fullName: string;
+    email: string;
+  }) {
+    const rating = Math.min(Math.max(data.rating ?? 0, 1), 5);
+    const attribution = `— ${data.fullName} (${data.email})`;
+    const reviewText = `${data.review.trim()}\n\n${attribution}`.slice(0, 1000);
+
+    const review = await db.transaction(async (tx) => {
+      return this.reviewsRepository.create(tx, {
+        productId: data.productId,
+        review: reviewText,
+        rating,
+        statusId: ReviewStatusIds.PENDING,
+        reviewDate: todayDate(),
+        createdBy: null,
+        updatedBy: null,
+      });
+    });
+
+    return review;
   }
 
   async listReviews(params: {
