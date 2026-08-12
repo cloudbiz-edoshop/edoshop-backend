@@ -10,6 +10,7 @@ import banners from "@/modules/banners/banners.index";
 import categories from "@/modules/categories/categories.index";
 import colors from "@/modules/colors/colors.index";
 import customers from "@/modules/customers/customers.index";
+import dashboard from "@/modules/dashboard/dashboard.index";
 import deliveryPlans from "@/modules/delivery-plans/delivery-plans.index";
 import discounts from "@/modules/discounts/discounts.index";
 import employees from "@/modules/employees/employees.index";
@@ -86,6 +87,7 @@ const routes = [
   employees,
   suppliers,
   customers,
+  dashboard,
   retailers,
   roles,
   operations,
