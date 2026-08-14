@@ -25,6 +25,10 @@ const supportMessageSchema = z.object({
   sender: z.enum(["customer", "support"]),
   text: z.string(),
   createdAt: z.string(),
+  customerFirstName: z.string().optional(),
+  customerId: z.string().optional(),
+  visitorId: z.string().optional(),
+  threadId: z.string().optional(),
 });
 
 const supportThreadSchema = z.object({
@@ -36,11 +40,16 @@ const supportThreadSchema = z.object({
   isEscalated: z.boolean(),
   waitingForHuman: z.boolean(),
   unreadCustomerCount: z.number().int().nonnegative(),
+  customerFirstName: z.string().nullable().optional(),
 });
 
 const createCustomerSupportMessageSchema = z.object({
   sender: z.literal("customer"),
   text: z.string().min(1).max(2000),
+  customerFirstName: z.string().trim().min(1).max(100).optional(),
+  customerId: z.union([z.string(), z.number()]).optional(),
+  visitorId: z.string().optional(),
+  threadId: z.string().optional(),
 });
 
 const createAdminSupportMessageSchema = z.object({
@@ -50,6 +59,10 @@ const createAdminSupportMessageSchema = z.object({
 
 type SupportMessage = z.infer<typeof supportMessageSchema>;
 type SupportThreadSummary = z.infer<typeof supportThreadSchema>;
+type SupportMessageMetadata = Pick<
+  SupportMessage,
+  "customerFirstName" | "customerId" | "visitorId" | "threadId"
+>;
 type SupportProductCard = {
   id: number | string;
   title: string;
@@ -260,6 +273,10 @@ const buildSupportThreads = (
         waitingForHuman: escalatedThreads.has(threadId),
         unreadCustomerCount: message.sender === "customer" ? 1 : 0,
         latestMessageText: message.text,
+        customerFirstName:
+          message.sender === "customer"
+            ? message.customerFirstName ?? null
+            : null,
       });
       return;
     }
@@ -275,6 +292,9 @@ const buildSupportThreads = (
       existing.latestCustomerMessagePreview = cleanedText;
       existing.latestCustomerMessageAt = latestAt;
       existing.unreadCustomerCount += 1;
+      if (message.customerFirstName) {
+        existing.customerFirstName = message.customerFirstName;
+      }
     }
 
     existing.isEscalated = escalatedThreads.has(threadId);
@@ -1054,12 +1074,30 @@ const createAiReply = async (
 const createMessage = (
   sender: "customer" | "support",
   text: string,
-): SupportMessage => ({
-  id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-  sender,
-  text: text.trim(),
-  createdAt: new Date().toISOString(),
-});
+  metadata: SupportMessageMetadata = {},
+): SupportMessage => {
+  const message: SupportMessage = {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    sender,
+    text: text.trim(),
+    createdAt: new Date().toISOString(),
+  };
+
+  if (metadata.customerFirstName?.trim()) {
+    message.customerFirstName = metadata.customerFirstName.trim();
+  }
+  if (metadata.customerId?.trim()) {
+    message.customerId = metadata.customerId.trim();
+  }
+  if (metadata.visitorId?.trim()) {
+    message.visitorId = metadata.visitorId.trim();
+  }
+  if (metadata.threadId?.trim()) {
+    message.threadId = metadata.threadId.trim();
+  }
+
+  return message;
+};
 
 // Temporary live support thread for local testing until chat persistence is finalized.
 const escalatedThreads = new Set<string>();
@@ -1245,7 +1283,13 @@ router.openapi(createAdminMessageRoute, (async (c) => {
 
 router.openapi(createMessageRoute, (async (c) => {
   const data = c.req.valid("json");
-  const message = createMessage("customer", data.text);
+  const message = createMessage("customer", data.text, {
+    customerFirstName: data.customerFirstName,
+    customerId:
+      data.customerId != null ? String(data.customerId) : undefined,
+    visitorId: data.visitorId,
+    threadId: data.threadId,
+  });
   const threadId = getThreadIdFromText(message.text);
 
   messages.push(message);
