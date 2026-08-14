@@ -25,7 +25,8 @@
     "users:remove-nabeel": "tsx src/scripts/remove-nabeel-admin-logins.ts",
     "rayons:repair-bins": "tsx src/scripts/repair-rayon-bin-layouts.ts",
     "rayons:normalize-rows": "tsx src/scripts/normalize-rayon-bin-rows.ts",
-    "products:backfill-xs-sizes": "tsx src/scripts/backfill-missing-product-sizes.ts"
+    "products:backfill-xs-sizes": "tsx src/scripts/backfill-missing-product-sizes.ts",
+    "products:import-warehouse-xlsx": "tsx src/scripts/import-warehouse-stock-xlsx.ts"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^8.5.0",
@@ -58,6 +59,7 @@
     "drizzle-kit": "^0.31.10",
     "typescript": "^5.9.3",
     "vite-tsconfig-paths": "^6.1.1",
-    "vitest": "^4.1.5"
+    "vitest": "^4.1.5",
+    "xlsx": "^0.18.5"
   }
 }

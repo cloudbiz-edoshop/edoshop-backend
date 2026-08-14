@@ -24,6 +24,22 @@ const isUploadedFile = (value: FormDataEntryValue): value is File => (
   && "type" in value
 );
 
+const getFormString = (formData: FormData, key: string) => {
+  const value = formData.get(key);
+  return typeof value === "string" ? value.trim() : "";
+};
+
+const buildStoredFileName = (
+  file: File,
+  productId: string,
+  index: number,
+  startIndex: number,
+) => {
+  const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
+  const sequence = startIndex + index + 1;
+  return `${productId}-${sequence}.${extension}`;
+};
+
 export const getPresignedUrl: AppRouteHandler<PresignedUrlRoute> = async (c) => {
   const { fileName } = c.req.valid("json");
 
@@ -67,15 +83,23 @@ export const uploadFiles: AppRouteHandler<UploadFilesRoute> = async (c) => {
     throw new AppError("Maximum 10 files allowed per upload", HttpStatus.BAD_REQUEST);
   }
 
+  const productId = getFormString(formData, "productId");
+  const imageStartIndex = Number.parseInt(getFormString(formData, "imageStartIndex") || "0", 10);
+  const normalizedStartIndex = Number.isFinite(imageStartIndex) && imageStartIndex >= 0
+    ? imageStartIndex
+    : 0;
+
   const uploads: Array<{ url: string; fileName: string }> = [];
   const failed: Array<{ fileName: string; error: string }> = [];
 
   // Upload each file
-  for (const file of fileList) {
+  for (const [index, file] of fileList.entries()) {
     try {
       const extension = file.name.split(".").pop();
       const nameWithoutExtension = file.name.substring(0, file.name.lastIndexOf(".")) || file.name;
-      const fileName = `${nameWithoutExtension}-${nanoid()}.${extension}`;
+      const fileName = productId
+        ? buildStoredFileName(file, productId, index, normalizedStartIndex)
+        : `${nameWithoutExtension}-${nanoid()}.${extension}`;
       const url = await storageService.uploadFile(file, fileName);
       uploads.push({ url, fileName });
     } catch (error) {
