@@ -14,13 +14,17 @@ import {
 
 import { userSchema } from "../users/users.schema";
 
-export const createCustomerRequestSchema = z.object({
+const createCustomerBaseSchema = z.object({
   fullName: nameSchema.describe("Customer name"),
   email: emailSchema.optional().describe("Customer email"),
   phoneNumber: phoneSchema.describe("Customer phone number"),
   countryId: idSchema.describe("Country ID"),
   address: streetAddressSchema.describe("Customer address"),
   accountType: z.enum(["customer", "retailer"]).optional().default("customer"),
+});
+
+export const createCustomerRequestSchema = createCustomerBaseSchema.extend({
+  password: passwordSchema.describe("Customer password"),
 });
 
 export type CreateCustomerRequest = z.infer<typeof createCustomerRequestSchema>;
@@ -68,7 +72,7 @@ export type CreateCustomerResponse = z.infer<
 >;
 
 export const updateCustomerRequestSchema =
-  createCustomerRequestSchema.partial();
+  createCustomerBaseSchema.partial();
 
 export type UpdateCustomerRequest = z.infer<typeof updateCustomerRequestSchema>;
 

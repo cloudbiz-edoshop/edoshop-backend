@@ -78,7 +78,15 @@ export const list: AppRouteHandler<ListRoute> = async (c) => {
 
 export const create: AppRouteHandler<CreateRoute> = async (c) => {
   const body = c.req.valid("json");
-  const { fullName, email, phoneNumber, countryId, address, accountType } = body;
+  const {
+    fullName,
+    email,
+    phoneNumber,
+    countryId,
+    address,
+    accountType,
+    password,
+  } = body;
 
   const payload = c.get("accessTokenPayload");
   const allowContact = await canViewCustomerContact(payload.userId);
@@ -92,6 +100,7 @@ export const create: AppRouteHandler<CreateRoute> = async (c) => {
     countryId,
     address,
     accountType,
+    password,
     createdBy,
   });
 

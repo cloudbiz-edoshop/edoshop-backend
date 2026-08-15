@@ -174,6 +174,7 @@ export class CustomersService {
 
     const customerCode =
       await this.customerRepository.generateUniqueCustomerCode(countryCode);
+    const hashedPassword = await argon2.hash(customerData.password);
 
     const customer = await db.transaction(async (tx) => {
       const user = await this.userRepository.createWithPhoneNumber(tx, {
@@ -181,6 +182,7 @@ export class CustomersService {
         email: customerData.email,
         phoneNumber: customerData.phoneNumber,
         username,
+        password: hashedPassword,
         createdBy: customerData.createdBy,
       } as any);
 
