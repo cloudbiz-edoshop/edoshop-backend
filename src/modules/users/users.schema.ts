@@ -258,6 +258,10 @@ export type ForgotPasswordRequest = z.infer<typeof forgotPasswordRequestSchema>;
 // Forgot password response schema
 export const forgotPasswordResponseSchema = z.object({
   token: z.string().describe("Reset token"),
+  debugOtp: z
+    .string()
+    .optional()
+    .describe("Test-only OTP returned when OTP_DEBUG_RETURN is enabled"),
 });
 
 // Forgot password response type

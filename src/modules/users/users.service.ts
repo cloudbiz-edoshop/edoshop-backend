@@ -44,7 +44,7 @@ import {
   verifyPasswordResetToken,
 } from "@/lib/generate-token";
 import { sendEmail } from "@/lib/send-email";
-import sendWhatsapp from "@/lib/send-whatsapp";
+import sendOtpToPhone, { shouldReturnDebugOtp } from "@/lib/send-otp-to-phone";
 import type { NextcloudUserIdentity } from "@/lib/nextcloud-auth";
 import { LOGIN_ERROR_MESSAGES } from "@/constants/login.constants";
 import {
@@ -496,17 +496,43 @@ export class UsersService {
       });
       delivered = true;
     } else if (deliveryMethod === "whatsapp" && user.phoneNumber) {
-      const whatsappResult = await sendWhatsapp({
-        phoneNumber: user.phoneNumber,
-        message: `Your Edoshop password reset code is: ${plainToken}`,
-      });
+      try {
+        const otpDelivery = await sendOtpToPhone({
+          phoneNumber: user.phoneNumber,
+          code: plainToken,
+        });
 
-      if (whatsappResult?.skipped) {
-        throw new AppError(
-          "Could not send the WhatsApp verification code. Please try again later or contact support.",
-          503,
-          "whatsapp_unavailable",
-        );
+        if (!otpDelivery.delivered) {
+          throw new AppError(
+            "Could not send the WhatsApp verification code. Please try again later or contact support.",
+            503,
+            "whatsapp_unavailable",
+          );
+        }
+      } catch (error) {
+        if (shouldReturnDebugOtp(user.phoneNumber)) {
+          // eslint-disable-next-line no-console
+          console.warn("OTP delivery failed; returning debug OTP for test phone", {
+            phoneNumber: user.phoneNumber,
+            code: plainToken,
+            error: error instanceof Error ? error.message : error,
+          });
+
+          return {
+            token,
+            debugOtp: plainToken,
+          };
+        }
+
+        throw error instanceof AppError
+          ? error
+          : new AppError(
+              "Could not send the verification code. Please try again later or contact support.",
+              503,
+              "otp_delivery_failed",
+              undefined,
+              error instanceof Error ? error : undefined,
+            );
       }
 
       delivered = true;
@@ -524,6 +550,9 @@ export class UsersService {
 
     return {
       token,
+      ...(shouldReturnDebugOtp(user.phoneNumber)
+        ? { debugOtp: plainToken }
+        : {}),
     };
   }
 

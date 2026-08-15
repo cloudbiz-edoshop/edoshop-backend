@@ -165,6 +165,7 @@ export const forgotPassword: AppRouteHandler<ForgotPasswordRoute> = async (
 
   const response: ForgotPasswordResponse = {
     token: result.token,
+    ...(result.debugOtp ? { debugOtp: result.debugOtp } : {}),
   };
 
   return c.json(
