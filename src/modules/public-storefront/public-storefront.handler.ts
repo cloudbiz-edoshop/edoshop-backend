@@ -120,6 +120,51 @@ const enrichProductImages = (products: any[]) => {
   });
 };
 
+const WAREHOUSE_ORIGIN_BY_CODE: Record<string, string> = {
+  TR: "Turkey",
+  CN: "China",
+  US: "USA",
+};
+
+const COLOR_FILTER_LABELS: Record<string, string> = {
+  black: "Black",
+  white: "White",
+  blue: "Blue",
+  red: "Red",
+  green: "Green",
+  yellow: "Yellow",
+  pink: "Pink",
+  purple: "Purple",
+  brown: "Brown",
+  gray: "Silver",
+  grey: "Silver",
+  silver: "Silver",
+  beige: "Brown",
+  orange: "Yellow",
+  navy: "Blue",
+  multicolor: "Purple",
+};
+
+const inferProductOrigin = (product: any) => {
+  const code =
+    product.directOrderCode || product.dropshippingDetails?.dropshippingCode || "";
+  const codeMatch = String(code).match(/^DO-(TR|CN|US)-/i);
+  if (codeMatch?.[1]) {
+    return WAREHOUSE_ORIGIN_BY_CODE[codeMatch[1].toUpperCase()] || null;
+  }
+
+  const specifications = String(product.specifications || "");
+  const originMatch = specifications.match(/Product Origin:\s*([^\n]+)/i);
+  if (originMatch?.[1]) return originMatch[1].trim();
+
+  const warehouseMatch = specifications.match(/Warehouse:\s*(TR|CN|US)/i);
+  if (warehouseMatch?.[1]) {
+    return WAREHOUSE_ORIGIN_BY_CODE[warehouseMatch[1].toUpperCase()] || null;
+  }
+
+  return null;
+};
+
 const mapPublicProduct = (product: any) => ({
   id: product.id,
   name: product.name,
@@ -132,6 +177,8 @@ const mapPublicProduct = (product: any) => ({
   totalItems: product.totalItems,
   storeId: product.storeId,
   seriesId: product.seriesId,
+  productOrigin: inferProductOrigin(product),
+  directOrderCode: product.directOrderCode || null,
   categoryIds: getPublicCategories(product).map((category: any) => category.id).filter(Boolean),
   categories: getPublicCategories(product),
   isNewArrival: product.isNewArrival,
@@ -160,11 +207,27 @@ const getPublicCategories = (product: any) => product.categories || [];
 
 const getPublicVariants = (product: any) => product.variants || [];
 
-const getVariantColor = (variant: any) =>
-  variant.color?.description || variant.color?.name || null;
+const getVariantColor = (variant: any) => {
+  const rawName = String(variant.color?.name || "").trim().toLowerCase();
+  if (rawName) {
+    return COLOR_FILTER_LABELS[rawName] || rawName.charAt(0).toUpperCase() + rawName.slice(1);
+  }
 
-const getVariantSize = (variant: any) =>
-  variant.size?.description || variant.size?.name || null;
+  const description = String(variant.color?.description || "").trim();
+  if (description && !description.startsWith("#")) {
+    return description;
+  }
+
+  return null;
+};
+
+const getVariantSize = (variant: any) => {
+  const description = String(variant.size?.description || "").trim();
+  if (description) return description;
+
+  const name = String(variant.size?.name || "").trim();
+  return name ? name.toUpperCase() : null;
+};
 
 const getVariantImages = (variant: any) =>
   (variant.images || [])

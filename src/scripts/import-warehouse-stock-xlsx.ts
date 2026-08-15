@@ -3,45 +3,30 @@ import { readFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { eq } from "drizzle-orm";
 import * as XLSX from "xlsx";
 
 import { StoreIds } from "@/constants/stores.constants";
 import db from "@/db";
+import { directOrderProducts, productCategories, products, productTags } from "@/db/models";
+
 import {
-  categories,
-  directOrderProducts,
-  productCategories,
-  products,
-  productTags,
-} from "@/db/models";
+  buildSpecifications,
+  createVariantsForProduct,
+  ensureCategoryId,
+  isValidLegacyReference,
+  normalizeLegacyReference,
+  normalizeText,
+  parsePrice,
+  parseSizeLabels,
+  translateCategoryName,
+  truncate,
+  WAREHOUSE_SHEETS,
+  type WarehouseRow,
+} from "./warehouse-import-utils";
 
 const DEFAULT_TAG_ID = 1;
 const DEFAULT_USER_ID = 1;
 const CHUNK_SIZE = 50;
-
-const WAREHOUSE_SHEETS = [
-  { sheetName: "Stock Entree TR", warehouse: "TR", seriesId: 1 },
-  { sheetName: "Stock Entree Chine", warehouse: "CN", seriesId: 6 },
-  { sheetName: "Stock Entree USA", warehouse: "US", seriesId: 7 },
-] as const;
-
-type WarehouseRow = {
-  warehouse: string;
-  seriesId: number;
-  sheetName: string;
-  legacyReference: string;
-  categoryName: string;
-  name: string;
-  description: string;
-  color: string;
-  sizeLabel: string;
-  quantity: string;
-  unitPrice: string;
-  totalPrice: string;
-  binLocation: string;
-  comment: string;
-};
 
 type IdMappingRow = {
   legacyReference: string;
@@ -49,6 +34,7 @@ type IdMappingRow = {
   directOrderCode: string;
   name: string;
   warehouse: string;
+  origin: string;
   sheetName: string;
   imageFileHint: string;
 };
@@ -65,42 +51,6 @@ const outputArgIndex = args.findIndex((arg) => arg === "--output");
 const outputDir = outputArgIndex >= 0
   ? resolve(args[outputArgIndex + 1] || "")
   : defaultOutputDir;
-
-const normalizeText = (value: unknown) => String(value ?? "").replace(/\s+/g, " ").trim();
-
-const normalizeLegacyReference = (value: string) => value.replace(/\s+/g, "").toUpperCase();
-
-const isValidLegacyReference = (value: string) => {
-  const normalized = normalizeLegacyReference(value);
-  if (!normalized) return false;
-  if (normalized.toLowerCase().includes("nonmention")) return false;
-  if (normalized.toLowerCase().includes("non mention")) return false;
-  return /^DO[-_A-Z0-9]+$/i.test(normalized);
-};
-
-const parsePrice = (value: string) => {
-  const cleaned = value.replace(/[^\d.,]/g, "").replace(",", ".");
-  const parsed = Number.parseFloat(cleaned);
-  if (!Number.isFinite(parsed) || parsed <= 0) return "0.00";
-  return parsed.toFixed(2);
-};
-
-const truncate = (value: string, max: number) => {
-  if (value.length <= max) return value;
-  return `${value.slice(0, max - 3)}...`;
-};
-
-const buildSpecifications = (row: WarehouseRow) => [
-  `Legacy Reference: ${row.legacyReference}`,
-  `Warehouse: ${row.warehouse}`,
-  `Category: ${row.categoryName}`,
-  row.color ? `Color: ${row.color}` : null,
-  row.sizeLabel ? `Size: ${row.sizeLabel}` : null,
-  row.quantity ? `Quantity: ${row.quantity}` : null,
-  row.binLocation ? `Bin Location: ${row.binLocation}` : null,
-  row.comment ? `Comment: ${row.comment}` : null,
-  `Suggested image filename prefix: ${row.legacyReference}`,
-].filter(Boolean).join("\n");
 
 const parseWorkbookRows = (): WarehouseRow[] => {
   const workbook = XLSX.read(readFileSync(xlsxPath), { type: "buffer" });
@@ -126,20 +76,29 @@ const parseWorkbookRows = (): WarehouseRow[] => {
       if (seen.has(legacyReference)) continue;
 
       seen.add(legacyReference);
-      const description = normalizeText(row[4]);
       const categoryName = normalizeText(row[3]) || "Warehouse Import";
-      const name = truncate(description || categoryName || legacyReference, 255);
+      const categoryNameEn = translateCategoryName(categoryName);
+      const description = normalizeText(row[4]);
+      const rawColor = normalizeText(row[5]);
+      const rawSize = normalizeText(row[6]);
+      const colorLabel = rawColor;
+      const sizeLabels = parseSizeLabels(rawSize);
+      const name = truncate(description || categoryNameEn || legacyReference, 255);
 
       parsedRows.push({
         warehouse: sheetConfig.warehouse,
+        origin: sheetConfig.origin,
         seriesId: sheetConfig.seriesId,
         sheetName: sheetConfig.sheetName,
         legacyReference,
         categoryName,
+        categoryNameEn,
         name,
         description,
-        color: normalizeText(row[5]),
-        sizeLabel: normalizeText(row[6]),
+        color: rawColor,
+        colorLabel,
+        sizeLabel: rawSize,
+        sizeLabels,
         quantity: normalizeText(row[7]),
         unitPrice: normalizeText(row[8]),
         totalPrice: normalizeText(row[9]),
@@ -150,47 +109,6 @@ const parseWorkbookRows = (): WarehouseRow[] => {
   }
 
   return parsedRows;
-};
-
-const ensureCategoryId = async (cache: Map<string, number>, categoryName: string) => {
-  const key = categoryName.toLowerCase();
-  const cached = cache.get(key);
-  if (cached) return cached;
-
-  const existing = await db.query.categories.findMany({
-    where: eq(categories.isDeleted, false),
-  });
-  const match = existing.find(
-    (category) => category.name.trim().toLowerCase() === key,
-  );
-  if (match) {
-    cache.set(key, match.id);
-    return match.id;
-  }
-
-  if (dryRun) {
-    const fakeId = cache.size + 1000;
-    cache.set(key, fakeId);
-    return fakeId;
-  }
-
-  const [created] = await db
-    .insert(categories)
-    .values({
-      name: truncate(categoryName, 255),
-      description: "Imported from warehouse stock spreadsheet",
-      parentId: null,
-      level: 1,
-      createdBy: DEFAULT_USER_ID,
-      updatedBy: DEFAULT_USER_ID,
-      isDeleted: false,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    })
-    .returning({ id: categories.id });
-
-  cache.set(key, created.id);
-  return created.id;
 };
 
 const getExistingDirectOrderCodes = async () => {
@@ -221,6 +139,7 @@ const writeMappingFiles = (mapping: IdMappingRow[]) => {
     "directOrderCode",
     "name",
     "warehouse",
+    "origin",
     "sheetName",
     "imageFileHint",
   ].join(",");
@@ -232,6 +151,7 @@ const writeMappingFiles = (mapping: IdMappingRow[]) => {
       row.directOrderCode,
       `"${row.name.replace(/"/g, '""')}"`,
       row.warehouse,
+      row.origin,
       row.sheetName,
       row.imageFileHint,
     ].join(","))
@@ -254,6 +174,8 @@ async function main() {
 
   const existingCodes = await getExistingDirectOrderCodes();
   const categoryCache = new Map<string, number>();
+  const colorCache = new Map<string, number>();
+  const sizeCache = new Map<string, number>();
   const mapping: IdMappingRow[] = [];
   const skippedExisting: string[] = [];
 
@@ -272,10 +194,10 @@ async function main() {
     const chunk = importRows.slice(index, index + CHUNK_SIZE);
 
     for (const row of chunk) {
-      const categoryId = await ensureCategoryId(categoryCache, row.categoryName);
+      const categoryId = await ensureCategoryId(categoryCache, row.categoryName, dryRun);
       const directOrderCode = row.legacyReference;
       const price = parsePrice(row.unitPrice);
-      const shortDescription = truncate(row.description || row.categoryName, 500);
+      const shortDescription = truncate(row.description || row.categoryNameEn, 500);
       const specifications = buildSpecifications(row);
 
       if (dryRun) {
@@ -285,6 +207,7 @@ async function main() {
           directOrderCode,
           name: row.name,
           warehouse: row.warehouse,
+          origin: row.origin,
           sheetName: row.sheetName,
           imageFileHint: `${row.legacyReference}-1.jpg`,
         });
@@ -334,12 +257,22 @@ async function main() {
         createdBy: DEFAULT_USER_ID,
       });
 
+      await createVariantsForProduct({
+        productId: product.id,
+        directOrderCode,
+        row,
+        dryRun,
+        colorCache,
+        sizeCache,
+      });
+
       mapping.push({
         legacyReference: row.legacyReference,
         newProductId: product.id,
         directOrderCode,
         name: row.name,
         warehouse: row.warehouse,
+        origin: row.origin,
         sheetName: row.sheetName,
         imageFileHint: `${product.id}-1.jpg`,
       });
@@ -354,9 +287,6 @@ async function main() {
   console.log(`Created: ${dryRun ? 0 : mapping.length}`);
   console.log(`Mapping JSON: ${jsonPath}`);
   console.log(`Mapping CSV:  ${csvPath}`);
-  console.log("\nImage naming guide:");
-  console.log("- Legacy spreadsheet files may still use the old reference, e.g. DO-TR-B1-E01B.jpg");
-  console.log("- New app uploads should use new product ID prefixes, e.g. 123-1.jpg, 123-2.jpg");
 }
 
 main()
