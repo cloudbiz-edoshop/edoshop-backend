@@ -287,6 +287,7 @@ export type VerifyOtpResponse = z.infer<typeof verifyOtpResponseSchema>;
 export const resetPasswordRequestSchema = z
   .object({
     token: z.string().describe("Reset token"),
+    otp: otpSchema.describe("Verification code sent by email or WhatsApp"),
     password: passwordSchema.describe("New password"),
     confirmPassword: z.string().describe("Confirm password"),
   })

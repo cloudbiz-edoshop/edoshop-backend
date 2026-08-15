@@ -190,13 +190,14 @@ export const verifyOtp: AppRouteHandler<VerifyOtpRoute> = async (c) => {
 };
 
 export const resetPassword: AppRouteHandler<ResetPasswordRoute> = async (c) => {
-  const { token, password, confirmPassword } = c.req.valid("json");
+  const { token, password, confirmPassword, otp } = c.req.valid("json");
 
   // Use auth service
   const result = await usersService.resetPassword({
     token,
     password,
     confirmPassword,
+    otp,
   });
 
   const response: ResetPasswordResponse = {

@@ -163,4 +163,23 @@ describe("UsersService.login admin panel membership", () => {
     expect(result.accessToken).toBe("access-token");
     expect(result.user.id).toBe(9);
   });
+
+  it("returns generic phone invalid error when account has no local password", async () => {
+    mockFindByPhoneNumber.mockResolvedValue({
+      id: 11,
+      username: "team-member",
+      password: null,
+    });
+
+    const service = new UsersService();
+
+    await expect(
+      service.login({
+        phoneNumber: "+923162266713",
+        password: "Abcd1234!",
+      }),
+    ).rejects.toMatchObject({
+      message: LOGIN_ERROR_MESSAGES.PHONE_INVALID,
+    });
+  });
 });

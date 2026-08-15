@@ -240,6 +240,10 @@ export class UsersService {
     }
 
     if (!user.password) {
+      // Storefront phone login must not expose admin Nextcloud messaging.
+      if (phoneNumber) {
+        throw new UnauthorizedError(invalidCredentialsMessage);
+      }
       throw new UnauthorizedError(LOGIN_ERROR_MESSAGES.LOCAL_NO_PASSWORD);
     }
 
@@ -446,7 +450,8 @@ export class UsersService {
     }
 
     if (!user) {
-      throw new ValidationError("User not found");
+      // Do not reveal whether the account exists.
+      return { token: "" };
     }
 
     // Generate reset token
@@ -558,10 +563,10 @@ export class UsersService {
   async resetPassword(
     resetData: ResetPasswordRequest,
   ): Promise<ResetPasswordResponse> {
-    const { token, password } = resetData;
+    const { token, password, otp } = resetData;
 
-    if (!token || !password) {
-      throw new ValidationError("Token and password are required");
+    if (!token || !password || !otp) {
+      throw new ValidationError("Token, OTP, and password are required");
     }
 
     // Verify JWT
@@ -578,6 +583,12 @@ export class UsersService {
 
     if (!storedToken) {
       throw new UnauthorizedError("Invalid or expired token");
+    }
+
+    const otpValid = await verifyPasswordResetToken(storedToken.token, otp);
+
+    if (!otpValid) {
+      throw new UnauthorizedError("Invalid OTP");
     }
 
     // Get user
