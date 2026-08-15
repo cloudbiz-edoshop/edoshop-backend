@@ -335,3 +335,27 @@ export const updatePasswordResponseSchema = z.object({
 export type UpdatePasswordResponse = z.infer<
   typeof updatePasswordResponseSchema
 >;
+
+export const changePasswordByPhoneRequestSchema = z
+  .object({
+    phoneNumber: phoneSchema,
+    currentPassword: passwordSchema.describe("Current password"),
+    newPassword: passwordSchema.describe("New password"),
+    confirmPassword: z.string().describe("Confirm new password"),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
+
+export type ChangePasswordByPhoneRequest = z.infer<
+  typeof changePasswordByPhoneRequestSchema
+>;
+
+export const changePasswordByPhoneResponseSchema = z.object({
+  success: z.boolean().describe("Success status"),
+});
+
+export type ChangePasswordByPhoneResponse = z.infer<
+  typeof changePasswordByPhoneResponseSchema
+>;

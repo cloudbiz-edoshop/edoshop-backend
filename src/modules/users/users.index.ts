@@ -13,6 +13,10 @@ router.openapi(routes.getAllEmails, handlers.getAllEmails);
 router.openapi(routes.forgotPasswordRoute, handlers.forgotPassword);
 router.openapi(routes.verifyOtpRoute, handlers.verifyOtp);
 router.openapi(routes.resetPasswordRoute, handlers.resetPassword);
+router.openapi(
+  routes.changePasswordByPhoneRoute,
+  handlers.changePasswordByPhone,
+);
 router.openapi(routes.refreshTokenRoute, handlers.refreshToken);
 router.openapi(routes.updatePasswordRoute, handlers.updatePassword);
 router.openapi(

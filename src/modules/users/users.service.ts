@@ -7,6 +7,8 @@ import type {
   CreateUserResponseWithEmail,
   CreateUserResponseWithEmailAndPhone,
   CreateUserResponseWithPhoneNumber,
+  ChangePasswordByPhoneRequest,
+  ChangePasswordByPhoneResponse,
   ForgotPasswordRequest,
   ForgotPasswordResponse,
   LoginRequest,
@@ -662,6 +664,33 @@ export class UsersService {
 
       // Mark reset token as used
       await this.userRepository.markResetTokenAsUsed(tx, payload.token);
+    });
+
+    return { success: true };
+  }
+
+  /**
+   * Change password using phone number and current password (storefront, no OTP).
+   */
+  async changePasswordByPhone(
+    data: ChangePasswordByPhoneRequest,
+  ): Promise<ChangePasswordByPhoneResponse> {
+    const { phoneNumber, currentPassword, newPassword } = data;
+
+    const user = await this.userRepository.findByPhoneNumber(phoneNumber);
+
+    if (!user || !user.password) {
+      throw new UnauthorizedError(LOGIN_ERROR_MESSAGES.PHONE_INVALID);
+    }
+
+    const passwordMatch = await argon2.verify(user.password, currentPassword);
+    if (!passwordMatch) {
+      throw new UnauthorizedError(LOGIN_ERROR_MESSAGES.PHONE_INVALID);
+    }
+
+    const hashedPassword = await argon2.hash(newPassword);
+    await db.transaction(async (tx) => {
+      await this.userRepository.updatePassword(tx, user.id, hashedPassword);
     });
 
     return { success: true };

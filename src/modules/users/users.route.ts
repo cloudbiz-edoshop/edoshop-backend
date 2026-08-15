@@ -14,6 +14,8 @@ import {
 import { createSuccessResponseSchema } from "@/lib/openapi/schemas/create-api-response";
 import { jwtHeaderSchema } from "@/lib/zod-schemas/common-schemas";
 import {
+  changePasswordByPhoneRequestSchema,
+  changePasswordByPhoneResponseSchema,
   forgotPasswordRequestSchema,
   forgotPasswordResponseSchema,
   loginRequestSchema,
@@ -245,6 +247,38 @@ export const resetPasswordRoute = createRoute({
   },
 });
 
+export const changePasswordByPhoneRoute = createRoute({
+  path: "/change-password-by-phone",
+  method: "post",
+  tags,
+  summary: "Change Password By Phone",
+  description:
+    "Change a storefront password using WhatsApp number and current password",
+  request: {
+    body: jsonContentRequired(
+      changePasswordByPhoneRequestSchema,
+      "Change Password By Phone",
+    ),
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(
+        changePasswordByPhoneResponseSchema,
+        STANDARD_MESSAGES.AUTH.PASSWORD_UPDATE_SUCCESS,
+      ),
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNPROCESSABLE_ENTITY,
+        HttpStatusCodes.BAD_REQUEST,
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      changePasswordByPhoneRequestSchema,
+    ),
+  },
+});
+
 export const updatePasswordRoute = createRoute({
   path: "/update-password",
   method: "post",
@@ -404,6 +438,7 @@ export type RefreshTokenRoute = typeof refreshTokenRoute;
 export type ForgotPasswordRoute = typeof forgotPasswordRoute;
 export type VerifyOtpRoute = typeof verifyOtpRoute;
 export type ResetPasswordRoute = typeof resetPasswordRoute;
+export type ChangePasswordByPhoneRoute = typeof changePasswordByPhoneRoute;
 export type UpdatePasswordRoute = typeof updatePasswordRoute;
 export type RegisterUserWithoutRolesRoute =
   typeof registerUserWithoutRolesRoute;

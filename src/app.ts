@@ -74,6 +74,7 @@ if (appConfig.isProduction) {
   app.use("/forgot-password", authRateLimiter);
   app.use("/verify-otp", authRateLimiter);
   app.use("/reset-password", authRateLimiter);
+  app.use("/change-password-by-phone", authRateLimiter);
   app.use("/refresh-token", authRateLimiter);
 }
 

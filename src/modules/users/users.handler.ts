@@ -1,6 +1,7 @@
 import type { AppRouteHandler } from "@/lib/types";
 
 import type {
+  ChangePasswordByPhoneRoute,
   ForgotPasswordRoute,
   GetCurrentUserAccessRoute,
   GetCurrentUserRoute,
@@ -15,6 +16,7 @@ import type {
   VerifyOtpRoute,
 } from "@/modules/users/users.route";
 import type {
+  ChangePasswordByPhoneResponse,
   ForgotPasswordResponse,
   LoginResponse,
   RefreshTokenResponse,
@@ -187,6 +189,29 @@ export const verifyOtp: AppRouteHandler<VerifyOtpRoute> = async (c) => {
 
   return c.json(
     successResponse(response, STANDARD_MESSAGES.AUTH.OTP_VERIFIED),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const changePasswordByPhone: AppRouteHandler<
+  ChangePasswordByPhoneRoute
+> = async (c) => {
+  const { phoneNumber, currentPassword, newPassword, confirmPassword } =
+    c.req.valid("json");
+
+  const result = await usersService.changePasswordByPhone({
+    phoneNumber,
+    currentPassword,
+    newPassword,
+    confirmPassword,
+  });
+
+  const response: ChangePasswordByPhoneResponse = {
+    success: result.success,
+  };
+
+  return c.json(
+    successResponse(response, STANDARD_MESSAGES.AUTH.PASSWORD_UPDATE_SUCCESS),
     HttpStatusCodes.OK,
   );
 };
