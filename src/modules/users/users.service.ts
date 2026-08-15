@@ -26,6 +26,7 @@ import * as argon2 from "argon2";
 
 import { addMinutes } from "@/common/date-utils";
 import {
+  AppError,
   NotFoundError,
   UnauthorizedError,
   ValidationError,
@@ -438,10 +439,12 @@ export class UsersService {
     const {
       email,
       phoneNumber,
-      method = "email",
+      method,
       ipAddress,
       userAgent,
     } = forgotData;
+    const deliveryMethod =
+      method ?? (phoneNumber ? "whatsapp" : email ? "email" : "email");
     let user;
     if (email) {
       user = await this.userRepository.findByEmail(email);
@@ -469,7 +472,7 @@ export class UsersService {
         expiresAt,
         ipAddress,
         userAgent,
-        method,
+        deliveryMethod,
       );
     });
 
@@ -481,19 +484,42 @@ export class UsersService {
       Math.floor(expiresAt.getTime() / 1000),
     );
 
+    let delivered = false;
+
     // Send notification based on method
-    if (method === "email" && user.email) {
+    if (deliveryMethod === "email" && user.email) {
       await sendEmail({
         email: user.email,
         subject: "Password Reset",
         message: `Your password reset code is: ${plainToken}`,
         html: `<p>Your password reset code is: <strong>${plainToken}</strong></p>`,
       });
-    } else if (method === "whatsapp" && user.phoneNumber) {
-      await sendWhatsapp({
+      delivered = true;
+    } else if (deliveryMethod === "whatsapp" && user.phoneNumber) {
+      const whatsappResult = await sendWhatsapp({
         phoneNumber: user.phoneNumber,
-        message: `Your password reset code is: ${plainToken}`,
+        message: `Your Edoshop password reset code is: ${plainToken}`,
       });
+
+      if (whatsappResult?.skipped) {
+        throw new AppError(
+          "Could not send the WhatsApp verification code. Please try again later or contact support.",
+          503,
+          "whatsapp_unavailable",
+        );
+      }
+
+      delivered = true;
+    }
+
+    if (!delivered) {
+      throw new AppError(
+        deliveryMethod === "whatsapp"
+          ? "Could not send the WhatsApp verification code for this account."
+          : "Could not send the password reset email for this account.",
+        503,
+        "password_reset_delivery_failed",
+      );
     }
 
     return {

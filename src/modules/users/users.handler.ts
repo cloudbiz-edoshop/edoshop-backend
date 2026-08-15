@@ -152,12 +152,13 @@ export const refreshToken: AppRouteHandler<RefreshTokenRoute> = async (c) => {
 export const forgotPassword: AppRouteHandler<ForgotPasswordRoute> = async (
   c,
 ) => {
-  const { email, phoneNumber } = c.req.valid("json");
+  const { email, phoneNumber, method } = c.req.valid("json");
 
   // Use auth service
   const result = await usersService.forgotPassword({
     email,
     phoneNumber,
+    method,
     ipAddress: c.var.ipAddress,
     userAgent: c.var.userAgent,
   });
