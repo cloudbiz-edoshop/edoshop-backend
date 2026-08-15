@@ -1,9 +1,7 @@
 /* eslint-disable no-console */
-import { readFileSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-
-import * as XLSX from "xlsx";
 
 import { StoreIds } from "@/constants/stores.constants";
 import db from "@/db";
@@ -13,15 +11,9 @@ import {
   buildSpecifications,
   createVariantsForProduct,
   ensureCategoryId,
-  isValidLegacyReference,
-  normalizeLegacyReference,
-  normalizeText,
+  loadWorkbookRowsByReference,
   parsePrice,
-  parseSizeLabels,
-  translateCategoryName,
   truncate,
-  WAREHOUSE_SHEETS,
-  type WarehouseRow,
 } from "./warehouse-import-utils";
 
 const DEFAULT_TAG_ID = 1;
@@ -52,65 +44,6 @@ const outputDir = outputArgIndex >= 0
   ? resolve(args[outputArgIndex + 1] || "")
   : defaultOutputDir;
 
-const parseWorkbookRows = (): WarehouseRow[] => {
-  const workbook = XLSX.read(readFileSync(xlsxPath), { type: "buffer" });
-  const parsedRows: WarehouseRow[] = [];
-  const seen = new Set<string>();
-
-  for (const sheetConfig of WAREHOUSE_SHEETS) {
-    const sheet = workbook.Sheets[sheetConfig.sheetName];
-    if (!sheet) {
-      console.warn(`Sheet not found: ${sheetConfig.sheetName}`);
-      continue;
-    }
-
-    const rows = XLSX.utils.sheet_to_json<(string | number)[]>(sheet, {
-      header: 1,
-      defval: "",
-    });
-
-    for (let index = 5; index < rows.length; index += 1) {
-      const row = rows[index] || [];
-      const legacyReference = normalizeLegacyReference(normalizeText(row[2]));
-      if (!isValidLegacyReference(legacyReference)) continue;
-      if (seen.has(legacyReference)) continue;
-
-      seen.add(legacyReference);
-      const categoryName = normalizeText(row[3]) || "Warehouse Import";
-      const categoryNameEn = translateCategoryName(categoryName);
-      const description = normalizeText(row[4]);
-      const rawColor = normalizeText(row[5]);
-      const rawSize = normalizeText(row[6]);
-      const colorLabel = rawColor;
-      const sizeLabels = parseSizeLabels(rawSize);
-      const name = truncate(description || categoryNameEn || legacyReference, 255);
-
-      parsedRows.push({
-        warehouse: sheetConfig.warehouse,
-        origin: sheetConfig.origin,
-        seriesId: sheetConfig.seriesId,
-        sheetName: sheetConfig.sheetName,
-        legacyReference,
-        categoryName,
-        categoryNameEn,
-        name,
-        description,
-        color: rawColor,
-        colorLabel,
-        sizeLabel: rawSize,
-        sizeLabels,
-        quantity: normalizeText(row[7]),
-        unitPrice: normalizeText(row[8]),
-        totalPrice: normalizeText(row[9]),
-        binLocation: normalizeText(row[10]),
-        comment: normalizeText(row[11]),
-      });
-    }
-  }
-
-  return parsedRows;
-};
-
 const getExistingDirectOrderCodes = async () => {
   const rows = await db
     .select({
@@ -120,7 +53,7 @@ const getExistingDirectOrderCodes = async () => {
 
   return new Set(
     rows
-      .map((row) => normalizeLegacyReference(row.directOrderCode || ""))
+      .map((row) => row.directOrderCode?.replace(/\s+/g, "").toUpperCase() || "")
       .filter(Boolean),
   );
 };
@@ -164,7 +97,8 @@ const writeMappingFiles = (mapping: IdMappingRow[]) => {
 
 async function main() {
   console.log(`Reading workbook: ${xlsxPath}`);
-  const rows = parseWorkbookRows();
+  const rowsByReference = loadWorkbookRowsByReference(xlsxPath);
+  const rows = [...rowsByReference.values()];
   console.log(`Parsed ${rows.length} unique warehouse products.`);
 
   if (!rows.length) {
@@ -197,7 +131,10 @@ async function main() {
       const categoryId = await ensureCategoryId(categoryCache, row.categoryName, dryRun);
       const directOrderCode = row.legacyReference;
       const price = parsePrice(row.unitPrice);
-      const shortDescription = truncate(row.description || row.categoryNameEn, 500);
+      const shortDescription = truncate(
+        row.descriptionEn || row.description || row.categoryNameEn,
+        500,
+      );
       const specifications = buildSpecifications(row);
 
       if (dryRun) {
@@ -222,7 +159,7 @@ async function main() {
           name: row.name,
           price,
           shortDescription,
-          fullDescription: row.description || shortDescription,
+          fullDescription: row.descriptionEn || row.description || shortDescription,
           specifications,
           imageUrls: [],
           version: 1,
