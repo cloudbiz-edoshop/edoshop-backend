@@ -21,6 +21,7 @@ import * as HttpStatusCodes from "@/lib/http-status-codes";
 import { createPagination } from "@/lib/searching-sorting";
 
 import { OrdersService } from "./orders.service";
+import { classifyClientPlatform } from "@/lib/client-platform";
 
 const ordersService = new OrdersService();
 
@@ -184,7 +185,11 @@ export const checkoutDirectOrder: AppRouteHandler<
   const accessTokenPayload = c.get("accessTokenPayload");
   const userId = accessTokenPayload.userId;
 
-  const result = await ordersService.checkoutDirectOrder(userId, payload);
+  const result = await ordersService.checkoutDirectOrder(
+    userId,
+    payload,
+    classifyClientPlatform(c.var.userAgent),
+  );
 
   return c.json(
     successResponse(result, "Direct order checkout completed successfully"),

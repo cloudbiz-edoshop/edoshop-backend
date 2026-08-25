@@ -53,8 +53,17 @@ export const list: AppRouteHandler<ListRoute> = async (c) => {
 };
 
 export const create: AppRouteHandler<CreateRoute> = async (c) => {
-  const { title, heading, text, primaryButtonText, date, delay, imageUrl } =
-    c.req.valid("json");
+  const {
+    title,
+    heading,
+    text,
+    primaryButtonText,
+    date,
+    delay,
+    imageUrl,
+    imagePosition,
+    images,
+  } = c.req.valid("json");
 
   const payload = c.get("accessTokenPayload");
   const createdBy = payload.userId;
@@ -67,6 +76,8 @@ export const create: AppRouteHandler<CreateRoute> = async (c) => {
     date,
     delay,
     imageUrl,
+    imagePosition,
+    images,
     createdBy,
   });
 

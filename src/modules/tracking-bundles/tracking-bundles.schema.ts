@@ -140,7 +140,9 @@ export const assignOrdersToBundleRequestSchema = z.object({
 
 export const updateBundleStepRequestSchema = z.object({
   stepId: z.number().min(1),
-  notes: z.string().max(2000).optional(),
+  notes: z.string().max(2000).optional().describe(
+    "Optional note when advancing. Required when reverting to a previous step.",
+  ),
   attachmentUrl: z.string().url().optional().or(z.literal("")),
 });
 

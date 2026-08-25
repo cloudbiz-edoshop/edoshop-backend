@@ -27,6 +27,13 @@ export const packageStatusBreakdownSchema = z.array(
   }),
 );
 
+export const platformBreakdownSchema = z.array(
+  z.object({
+    platform: z.string(),
+    count: z.number(),
+  }),
+);
+
 export const dashboardMetricsResponseSchema = z.object({
   summary: z.object({
     totalEntries: z.number(),
@@ -34,11 +41,24 @@ export const dashboardMetricsResponseSchema = z.object({
     packagesCompleted: z.number(),
     packagesInProgress: z.number(),
     activeWarehouses: z.number(),
+    totalCustomers: z.number(),
+    newCustomers: z.number(),
+    directOrders: z.number(),
+    dropshippingOrders: z.number(),
+    averageOrderValue: z.number(),
+    ordersDesktop: z.number(),
+    ordersMobile: z.number(),
+    ordersTablet: z.number(),
+    usersDesktop: z.number(),
+    usersMobile: z.number(),
+    usersTablet: z.number(),
   }),
   weeklyEntriesByWarehouse: weeklyEntriesByWarehouseSchema,
   weeklyOrders: weeklySeriesSchema,
   weeklyPackagesCompleted: weeklySeriesSchema,
   packageStatusBreakdown: packageStatusBreakdownSchema,
+  orderPlatformBreakdown: platformBreakdownSchema,
+  userPlatformBreakdown: platformBreakdownSchema,
 });
 
 export type DashboardMetricsResponse = z.infer<

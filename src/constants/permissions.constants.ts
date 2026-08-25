@@ -22,9 +22,7 @@ export const STORE_ENTITIES: EntityType[] = [
   EntityType.CUSTOMERS,
   EntityType.RETAILERS,
   EntityType.DISCOUNTS,
-  EntityType.FAQS,
   EntityType.FILTERS,
-  EntityType.BANNERS,
   EntityType.CATEGORIES,
   EntityType.REVIEWS,
   EntityType.PRODUCTS,
@@ -38,11 +36,14 @@ export const STORE_ENTITIES: EntityType[] = [
   EntityType.PROMOTIONS,
 ];
 
-export const DIALOGUE_ENTITIES: EntityType[] = [
-  EntityType.CHAT,
+export const CMS_ENTITIES: EntityType[] = [
+  EntityType.BANNERS,
+  EntityType.FAQS,
   EntityType.TESTIMONIALS,
   EntityType.ABOUT_US,
 ];
+
+export const DIALOGUE_ENTITIES: EntityType[] = [EntityType.CHAT];
 
 export const NOTIFICATION_ENTITIES: EntityType[] = [EntityType.NOTIFICATIONS];
 
@@ -103,6 +104,7 @@ export const READ_ONLY_OPERATIONS = [OperationType.READ];
 export type AccessSection =
   | "settings"
   | "store"
+  | "cms"
   | "dialogue"
   | "notifications"
   | "tracking"
@@ -115,6 +117,7 @@ export type AccessSection =
 export const SECTION_ENTITY_MAP: Record<AccessSection, EntityType[]> = {
   settings: SETTINGS_ENTITIES,
   store: STORE_ENTITIES,
+  cms: CMS_ENTITIES,
   dialogue: DIALOGUE_ENTITIES,
   notifications: NOTIFICATION_ENTITIES,
   tracking: TRACKING_ENTITIES,

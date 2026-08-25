@@ -603,6 +603,35 @@ export async function ensureRuntimeMigrations() {
     `),
   );
 
+  await db.execute(
+    sql.raw(`
+      ALTER TABLE "about-us"
+      ADD COLUMN IF NOT EXISTS "image_position" varchar(10) NOT NULL DEFAULT 'right'
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
+      ALTER TABLE "about-us"
+      ADD COLUMN IF NOT EXISTS "images" jsonb NOT NULL DEFAULT '[]'::jsonb
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
+      UPDATE "about-us"
+      SET "images" = jsonb_build_array(
+        jsonb_build_object(
+          'imageUrl', "image_url",
+          'displayStyle', 'single',
+          'sortOrder', 0
+        )
+      )
+      WHERE ("images" IS NULL OR "images" = '[]'::jsonb)
+        AND COALESCE("image_url", '') <> ''
+    `),
+  );
+
   await ensureAclRolesAndEntities();
 }
 
@@ -668,6 +697,7 @@ async function ensureAclRolesAndEntities() {
             AND existing."entity_id" = entities."id"
             AND existing."operation_id" = operations."id"
         )
+      ON CONFLICT (role_id, entity_id, operation_id) DO NOTHING
     `),
   );
 
@@ -692,6 +722,7 @@ async function ensureAclRolesAndEntities() {
             AND existing."entity_id" = entities."id"
             AND existing."operation_id" = operations."id"
         )
+      ON CONFLICT (role_id, entity_id, operation_id) DO NOTHING
     `),
   );
 
@@ -716,6 +747,7 @@ async function ensureAclRolesAndEntities() {
             AND existing."entity_id" = entities."id"
             AND existing."operation_id" = operations."id"
         )
+      ON CONFLICT (role_id, entity_id, operation_id) DO NOTHING
     `),
   );
 
@@ -740,6 +772,7 @@ async function ensureAclRolesAndEntities() {
             AND existing."entity_id" = entities."id"
             AND existing."operation_id" = operations."id"
         )
+      ON CONFLICT (role_id, entity_id, operation_id) DO NOTHING
     `),
   );
 
@@ -759,6 +792,7 @@ async function ensureAclRolesAndEntities() {
             AND existing."entity_id" = entities."id"
             AND existing."operation_id" = operations."id"
         )
+      ON CONFLICT (role_id, entity_id, operation_id) DO NOTHING
     `),
   );
 
@@ -784,6 +818,7 @@ async function ensureAclRolesAndEntities() {
             AND existing."entity_id" = entities."id"
             AND existing."operation_id" = operations."id"
         )
+      ON CONFLICT (role_id, entity_id, operation_id) DO NOTHING
     `),
   );
 
@@ -807,6 +842,7 @@ async function ensureAclRolesAndEntities() {
             AND existing."entity_id" = entities."id"
             AND existing."operation_id" = operations."id"
         )
+      ON CONFLICT (role_id, entity_id, operation_id) DO NOTHING
     `),
   );
 
@@ -876,6 +912,20 @@ async function ensureAclRolesAndEntities() {
     sql.raw(`
       ALTER TABLE "user_notification_deliveries"
         ADD COLUMN IF NOT EXISTS "audience" varchar(20) NOT NULL DEFAULT 'customer'
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
+      ALTER TABLE "orders"
+        ADD COLUMN IF NOT EXISTS "client_platform" varchar(20)
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
+      ALTER TABLE "users"
+        ADD COLUMN IF NOT EXISTS "registration_platform" varchar(20)
     `),
   );
 

@@ -33,6 +33,7 @@ export const users = pgTable("users", {
   phoneNumber: varchar({
     length: constraintAndMessages.PHONE.MAX_LENGTH,
   }).unique(),
+  registrationPlatform: varchar({ length: 20 }),
   profilePhotoUrl: varchar({
     length: constraintAndMessages.PROFILE_PHOTO_URL.MAX_LENGTH,
   }),

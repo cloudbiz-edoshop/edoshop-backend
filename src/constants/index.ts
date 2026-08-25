@@ -148,6 +148,7 @@ export {
 export { ROLE_DESCRIPTIONS, RoleType } from "./roles.constants";
 export {
   DELIVERY_ENTITIES,
+  CMS_ENTITIES,
   DIALOGUE_ENTITIES,
   EWMS_MANAGEMENT_ENTITIES,
   EWMS_W1_ENTITIES,

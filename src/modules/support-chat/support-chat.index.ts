@@ -1,5 +1,5 @@
 import { createRoute, z } from "@hono/zod-openapi";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 
 import env from "@/config/env.config";
 import { EntityType, OperationType } from "@/constants";
@@ -9,7 +9,7 @@ import {
   rolesAndPermissionsMiddleware,
 } from "@/core/middlewares";
 import db from "@/db";
-import { orders, paymentTransactions } from "@/db/models";
+import { customers, orders, paymentTransactions } from "@/db/models";
 import { buildCustomerOrderTrackingSteps } from "@/modules/orders/order-tracking.util";
 import { createRouter } from "@/lib/create-app";
 import * as HttpStatusCodes from "@/lib/http-status-codes";
@@ -41,6 +41,9 @@ const supportThreadSchema = z.object({
   waitingForHuman: z.boolean(),
   unreadCustomerCount: z.number().int().nonnegative(),
   customerFirstName: z.string().nullable().optional(),
+  customerId: z.string().nullable().optional(),
+  customerCode: z.string().nullable().optional(),
+  customerRecordId: z.number().nullable().optional(),
 });
 
 const createCustomerSupportMessageSchema = z.object({
@@ -211,7 +214,7 @@ const parseSupportAttachment = (text: string): SupportAttachment | null => {
 
 const buildAttachmentReply = () =>
   withAgentHandoffMarker(
-    "Thanks, I received your attachment and message. A human support agent will review it and reply here shortly.",
+    "Thank you — we've received your attachment. A member of our team will review it and reply here shortly.",
   );
 
 const getMessagePreview = (text: string) => {
@@ -244,9 +247,36 @@ const isBotMessage = (text: string) => String(text || "").includes(BOT_MARKER);
 const withAgentHandoffMarker = (text: string) =>
   `${AGENT_HANDOFF_REQUEST_MARKER}${text}`;
 
-const buildSupportThreads = (
+type CustomerProfile = {
+  customerCode: string;
+  customerRecordId: number;
+};
+
+const resolveCustomerProfilesByUserIds = async (
+  userIds: string[],
+): Promise<Map<string, CustomerProfile>> => {
+  const parsedIds = [...new Set(userIds)]
+    .map((id) => Number(id))
+    .filter((id) => Number.isFinite(id) && id > 0);
+
+  if (!parsedIds.length) return new Map();
+
+  const rows = await db.query.customers.findMany({
+    where: inArray(customers.userId, parsedIds),
+    columns: { id: true, userId: true, customerCode: true },
+  });
+
+  return new Map(
+    rows.map((row) => [
+      String(row.userId),
+      { customerCode: row.customerCode, customerRecordId: row.id },
+    ]),
+  );
+};
+
+const buildSupportThreads = async (
   allMessages: SupportMessage[],
-): SupportThreadSummary[] => {
+): Promise<SupportThreadSummary[]> => {
   const threadMap = new Map<
     string,
     SupportThreadSummary & { latestMessageText: string }
@@ -277,6 +307,8 @@ const buildSupportThreads = (
           message.sender === "customer"
             ? message.customerFirstName ?? null
             : null,
+        customerId:
+          message.sender === "customer" ? message.customerId ?? null : null,
       });
       return;
     }
@@ -295,23 +327,42 @@ const buildSupportThreads = (
       if (message.customerFirstName) {
         existing.customerFirstName = message.customerFirstName;
       }
+      if (message.customerId) {
+        existing.customerId = message.customerId;
+      }
     }
 
     existing.isEscalated = escalatedThreads.has(threadId);
     existing.waitingForHuman = escalatedThreads.has(threadId);
   });
 
-  return Array.from(threadMap.values())
-    .sort((left, right) => {
-      if (left.isEscalated !== right.isEscalated) {
-        return left.isEscalated ? -1 : 1;
-      }
-      return (
-        new Date(right.latestMessageAt).getTime() -
-        new Date(left.latestMessageAt).getTime()
-      );
-    })
-    .map(({ latestMessageText: _ignored, ...thread }) => thread);
+  const sortedThreads = Array.from(threadMap.values()).sort((left, right) => {
+    if (left.isEscalated !== right.isEscalated) {
+      return left.isEscalated ? -1 : 1;
+    }
+    return (
+      new Date(right.latestMessageAt).getTime() -
+      new Date(left.latestMessageAt).getTime()
+    );
+  });
+
+  const profileMap = await resolveCustomerProfilesByUserIds(
+    sortedThreads
+      .map((thread) => thread.customerId)
+      .filter((value): value is string => Boolean(value)),
+  );
+
+  return sortedThreads.map(({ latestMessageText: _ignored, ...thread }) => {
+    const profile = thread.customerId
+      ? profileMap.get(thread.customerId)
+      : undefined;
+
+    return {
+      ...thread,
+      customerCode: profile?.customerCode ?? null,
+      customerRecordId: profile?.customerRecordId ?? null,
+    };
+  });
 };
 
 const withSuggestionsMarker = (text: string, suggestions: string[]) => {
@@ -419,15 +470,15 @@ const buildProductCardsReply = async (query: string) => {
 
   if (!cards.length) {
     return withSuggestionsMarker(
-      "I could not load products right now. Please try again in a moment.",
+      "We couldn't load products just now — please try again in a moment.",
       PRODUCT_SUGGESTIONS,
     );
   }
 
   const normalizedQuery = query.toLowerCase();
   const intro = /dropshipping|drop shipping/.test(normalizedQuery)
-    ? "Here are some dropshipping picks you can open right now:"
-    : "Here are some products you can open right now:";
+    ? "Here are some dropshipping picks you can explore right away:"
+    : "Here are a few products you might like — tap any item to view details:";
 
   return withSuggestionsMarker(
     withProductCardsMarker(intro, cards),
@@ -520,7 +571,7 @@ const resolveEta = (order: any, currentStepLabel: string) => {
 
 const buildAgentHandoffReply = () => {
   return withAgentHandoffMarker(
-    "Understood. I have notified a human support agent. They will reply here soon. While you wait, you can share your order code or exact error to speed things up.",
+    "Of course — I've passed this to our support team. A specialist will reply here shortly. If you have an order code or can describe the issue in a bit more detail, that will help us assist you faster.",
   );
 };
 
@@ -541,7 +592,7 @@ const buildEscalatedWaitingReply = (
     : intentSuggestions;
 
   let baseReply =
-    "A human support agent has been notified and will reply here soon. I have added your latest message to the ticket.";
+    "Your message has been shared with our support team — someone will reply here shortly.";
 
   if (
     /\blogin\b|sign in|signin|log in|can't login|cannot login|otp|password|profile|account/.test(
@@ -549,27 +600,27 @@ const buildEscalatedWaitingReply = (
     )
   ) {
     baseReply =
-      "I have shared your account/login issue with the human support agent. While you wait, please keep the exact error text ready so they can resolve faster.";
+      "We've shared your account question with our team. While you wait, please keep the exact error message handy so we can resolve this quickly for you.";
   } else if (
     /payment|campay|stripe|card|checkout|failed|declin/.test(cleanedMessage)
   ) {
     baseReply =
-      "I have shared your payment issue with the human support agent. While you wait, please keep the method used and exact error text ready for quick resolution.";
+      "We've passed your payment issue to our team. If you can share the payment method used and the exact error text, that will help us get this sorted faster.";
   } else if (
     /order|track|status|delivery|shipping|shipment/.test(cleanedMessage)
   ) {
     baseReply =
-      "I have shared your order/tracking request with the human support agent. If you have your order code (ORD-...), send it now to speed up the response.";
+      "We've shared your order enquiry with our team. Sending your order code (ORD-...) now will help us look it up right away.";
   } else if (
     /product|products|catalog|item|items|trending|dropshipping|drop shipping/.test(
       cleanedMessage,
     )
   ) {
     baseReply =
-      "I have shared your product request with the human support agent. You can also send your preferred category to get a faster recommendation.";
+      "We've shared your product request with our team. Feel free to mention your preferred category so we can recommend the best options.";
   } else if (CONVERSATIONAL_SHORTCUT_PATTERN.test(cleanedMessage)) {
     baseReply =
-      "Thanks. Your conversation is still queued for a human support agent, and they will reply here shortly.";
+      "Thank you — your conversation is still with our support team, and someone will reply here shortly.";
   }
 
   const fullReply = withSuggestionsMarker(baseReply, nextSuggestions);
@@ -583,7 +634,7 @@ const buildEscalatedWaitingReply = (
     normalizeReply(lastSupportText)
   ) {
     return withSuggestionsMarker(
-      "Update received. I have attached it to your existing support ticket. A human support agent will reply here soon.",
+      "Got it — we've added that to your support ticket. Our team will reply here soon.",
       nextSuggestions,
     );
   }
@@ -596,7 +647,7 @@ const getSupportOrderTrackingReply = async (message: string) => {
 
   if (!reference) {
     return withSuggestionsMarker(
-      "I can track this for you. Please send your order code (example: ORD-20260705-1234) or tracking reference.",
+      "We'd be happy to look that up for you. Share your order code (for example, ORD-20260705-1234) or your tracking reference.",
       ORDER_SUGGESTIONS,
     );
   }
@@ -708,7 +759,7 @@ const getSupportOrderTrackingReply = async (message: string) => {
 
     if (!order) {
       return withSuggestionsMarker(
-        "I could not find an order with that reference. Please check and resend your order code (ORD-...) or tracking reference.",
+        "We couldn't find an order with that reference. Please double-check and resend your order code (ORD-...) or tracking reference.",
         ORDER_SUGGESTIONS,
       );
     }
@@ -728,9 +779,9 @@ const getSupportOrderTrackingReply = async (message: string) => {
     const eta = resolveEta(order, currentStep?.label || "");
     const location = resolveTrackingLocation(order);
 
-    return `Tracking update for ${order.orderCode}: status is ${order.orderStatus?.name || "pending"}. Current stage: ${currentStep?.label || "Order Placed"}. Payment: ${paymentStatus}. Last update: ${lastUpdated}. ETA: ${eta}. ${location ? `Location: ${location}.` : ""}`;
+    return `Here's the latest on ${order.orderCode}: status is ${order.orderStatus?.name || "pending"}. Current stage: ${currentStep?.label || "Order Placed"}. Payment: ${paymentStatus}. Last update: ${lastUpdated}. ETA: ${eta}.${location ? ` Location: ${location}.` : ""}`;
   } catch {
-    return "I could not retrieve tracking right now. Please try again in a moment.";
+    return "We couldn't retrieve tracking details just now — please try again in a moment.";
   }
 };
 
@@ -745,7 +796,7 @@ const buildRuleBasedReply = (message: string) => {
   if (KNOWN_SUPPORT_CHIPS_NORMALIZED.has(normalizedChip)) {
     if (/track|order|delivery|shipping|where/.test(normalizedChip)) {
       return withSuggestionsMarker(
-        "I can help you check your order. Send your order code (ORD-...) or pick one of these options.",
+        "Happy to help with your order. Share your order code (ORD-...) or choose one of the options below.",
         ORDER_SUGGESTIONS,
       );
     }
@@ -754,7 +805,7 @@ const buildRuleBasedReply = (message: string) => {
       /payment|campay|stripe|card|checkout|failed|declin/.test(normalizedChip)
     ) {
       return withSuggestionsMarker(
-        "I can help with payment issues. Share the method you used and the exact error text.",
+        "No worries — we can help with payment issues. Tell us which method you used and what error appeared on screen.",
         PAYMENT_SUGGESTIONS,
       );
     }
@@ -763,7 +814,7 @@ const buildRuleBasedReply = (message: string) => {
       /login|sign in|signin|otp|password|profile|account/.test(normalizedChip)
     ) {
       return withSuggestionsMarker(
-        "I can help with account access. Tell me if this is login, OTP, password reset, or profile update.",
+        "We can help with account access. Let us know whether this is about login, OTP, password reset, or your profile.",
         ACCOUNT_SUGGESTIONS,
       );
     }
@@ -774,7 +825,7 @@ const buildRuleBasedReply = (message: string) => {
       )
     ) {
       return withSuggestionsMarker(
-        "Sure. Tell me what you want to browse, or pick one of these product options.",
+        "Sure thing — tell us what you'd like to browse, or pick one of these product options.",
         PRODUCT_SUGGESTIONS,
       );
     }
@@ -789,21 +840,21 @@ const buildRuleBasedReply = (message: string) => {
       normalized,
     )
   ) {
-    return "You are welcome. If you want, I can also help you with orders, payments, account settings, or product discovery.";
+    return "You're very welcome! If there's anything else we can help with — orders, payments, or finding products — just let us know.";
   }
 
   if (
     /^cool$|^ok$|^okay$|^nice$|^great$|^awesome$|^perfect$/.test(normalized)
   ) {
     return withSuggestionsMarker(
-      "Nice. Want to continue with anything else?",
+      "Glad we could help. Is there anything else you'd like assistance with?",
       GENERAL_SUGGESTIONS,
     );
   }
 
   if (/\b(shit|damn|wtf|fuck|f\*\*\*)\b/.test(normalized)) {
     return withSuggestionsMarker(
-      "I understand this is frustrating. I can help fix it quickly. Share the exact error, or choose one option below.",
+      "We completely understand — let's get this sorted for you. Share the exact error you're seeing, or choose one of the options below.",
       getIntentSuggestions(normalized),
     );
   }
@@ -811,12 +862,12 @@ const buildRuleBasedReply = (message: string) => {
   if (
     /^bye$|^goodbye$|see you|cya|talk later|good night|gn$/.test(normalized)
   ) {
-    return "Bye for now. I am here whenever you need help with orders, payments, account, or products.";
+    return "Take care! We'll be here whenever you need us. Have a great day.";
   }
 
   if (/^hi$|^hello$|^hey$|^yo$/.test(normalized)) {
     return withSuggestionsMarker(
-      "Welcome. Choose a quick option below, or tell me your issue directly.",
+      "Hello! Lovely to hear from you. What can we help you with today?",
       GENERAL_SUGGESTIONS,
     );
   }
@@ -825,7 +876,7 @@ const buildRuleBasedReply = (message: string) => {
     /\blogin\b|sign in|signin|log in|can't login|cannot login/.test(normalized)
   ) {
     return withSuggestionsMarker(
-      "For login issues, please try this: 1) confirm the same phone/email used at signup, 2) verify country code on phone number, 3) use Forgot Password to reset, 4) retry after clearing browser cache. If it still fails, send the exact error text and whether you are on mobile or web.",
+      "Let's get you signed in. Confirm you're using the same phone number or email from registration, including the correct country code. If you've forgotten your password, use Forgot Password to reset it. Still stuck? Send us the exact error and whether you're on mobile or desktop.",
       ACCOUNT_SUGGESTIONS,
     );
   }
@@ -836,62 +887,62 @@ const buildRuleBasedReply = (message: string) => {
     )
   ) {
     return withSuggestionsMarker(
-      "For OTP issues: 1) check the phone number format with country code, 2) wait 30-60 seconds and resend once, 3) ensure WhatsApp/SMS network is stable. If OTP still does not arrive, share the phone number mask and timestamp so support can trace delivery.",
+      "For OTP issues: check your phone number includes the country code, wait 30–60 seconds and try resending once, and make sure your network connection is stable. If the code still doesn't arrive, share the last few digits of your number and when you requested it so we can trace delivery.",
       ACCOUNT_SUGGESTIONS,
     );
   }
 
   if (/password reset|forgot password|reset password/.test(normalized)) {
     return withSuggestionsMarker(
-      "To reset password: open Forgot Password, request OTP, then set a new password with at least 8 characters. If reset fails, share the exact error and at which step it fails (request OTP, verify OTP, or submit new password).",
+      "To reset your password: open Forgot Password, request an OTP, then set a new password with at least 8 characters. If anything fails along the way, tell us the exact error and which step it happened at.",
       ACCOUNT_SUGGESTIONS,
     );
   }
 
   if (/profile|account settings|update profile|photo upload/.test(normalized)) {
     return withSuggestionsMarker(
-      "For profile/account settings issues, tell me which field fails (name, phone, photo, email) and whether the Save action shows an error toast. I will give exact steps from there.",
+      "For profile updates, let us know which field isn't saving correctly (name, phone, photo, or email) and whether you see an error when you tap Save — we'll walk you through the fix.",
       ACCOUNT_SUGGESTIONS,
     );
   }
 
   if (/payment|campay|stripe|card|checkout|failed|declin/.test(normalized)) {
     return withSuggestionsMarker(
-      "I can help with payment issues. Please share what you selected (Campay or card), the exact error text, and approximately when it happened so we can guide you quickly.",
+      "Payment issues happen — we're here to help. Share which method you used (Campay or card), the exact error message, and roughly when it occurred so we can guide you through the next steps.",
       PAYMENT_SUGGESTIONS,
     );
   }
 
   if (/group|dropshipping|drop shipping|ongoing/.test(normalized)) {
     return withSuggestionsMarker(
-      "For group and dropshipping support, share the product or group request context and what action failed. I will guide the next step right away.",
+      "For group and dropshipping enquiries, share the product or group you're interested in and what you'd like to do — we'll point you in the right direction.",
       PRODUCT_SUGGESTIONS,
     );
   }
 
   if (/order|track|status|delivery|shipping|where/.test(normalized)) {
     return withSuggestionsMarker(
-      "I can help you check your order. Please send your order code (ORD-...) or tracking reference, and I will fetch the latest tracking status.",
+      "We'd be happy to check on your order. Send your order code (ORD-...) and we'll fetch the latest tracking status for you.",
       ORDER_SUGGESTIONS,
     );
   }
 
   if (/account|login|otp|password|profile/.test(normalized)) {
     return withSuggestionsMarker(
-      "I can help with account access. Tell me if this is login, OTP, password reset, or profile update so I can give the exact next steps.",
+      "We can help with your account. Let us know if this is about login, OTP, password reset, or updating your profile, and we'll give you the exact steps.",
       ACCOUNT_SUGGESTIONS,
     );
   }
 
   if (/product|products|catalog|show me|item|items/.test(normalized)) {
     return withSuggestionsMarker(
-      "Sure. Tell me what you want to browse: direct-order or dropshipping, and optionally a category like men, women, beauty, or accessories.",
+      "Happy to help you browse. Tell us whether you're looking for direct-order or dropshipping items, and optionally a category like men, women, beauty, or accessories.",
       PRODUCT_SUGGESTIONS,
     );
   }
 
   return withSuggestionsMarker(
-    "I am not fully sure yet. Share the exact issue or choose one of these quick options so I can help faster.",
+    "We want to make sure we help you properly. Could you share a few more details, or choose one of the quick options below?",
     getIntentSuggestions(normalized),
   );
 };
@@ -907,7 +958,7 @@ const buildSupportPrompt = (
   recentMessages: SupportMessage[],
 ) => ({
   system:
-    "You are Edoshop support. Keep answers short, practical, and commerce-focused. If information is missing, ask one concise follow-up question. If user says thanks/thank you, reply with a short polite closure instead of restarting generic help options.",
+    "You are a friendly, professional Edoshop support assistant. Write warm, clear replies in complete sentences — avoid sounding robotic or overly terse. Keep answers concise but helpful. Focus on orders, payments, accounts, and products. Ask one focused follow-up question when details are missing. If the customer says thank you, respond with a brief polite closing rather than restarting with generic options.",
   user: `Recent chat:\n${buildChatHistory(recentMessages)}\n\nCurrent customer message:\n${cleanedMessage}`,
 });
 
@@ -971,7 +1022,7 @@ const createAiReply = async (
 ) => {
   const cleanedMessage = stripThreadMarker(customerMessage);
   if (!cleanedMessage) {
-    return "Please share a bit more detail so I can help you faster.";
+    return "Could you share a bit more detail so we can help you properly?";
   }
 
   if (parseSupportAttachment(customerMessage)) {
@@ -1110,7 +1161,7 @@ const messages: SupportMessage[] = [
     sender: "support",
     text: withBotMarker(
       withSuggestionsMarker(
-        "Hi! Welcome to Edoshop Support. Pick an option below to get started, or type your issue.",
+        "Hello and welcome to Edoshop! We're here to help with orders, payments, account questions, and product discovery. Choose a topic below, or tell us what's on your mind.",
         GENERAL_SUGGESTIONS,
       ),
     ),
@@ -1126,7 +1177,7 @@ void (async () => {
     messages[0].text = withBotMarker(
       withSuggestionsMarker(
         withProductCardsMarker(
-          "Hi! Welcome to Edoshop Support. Here are a few products you can browse, or pick an option below to get started.",
+          "Hello and welcome to Edoshop! Here are a few products you might like — or choose a topic below to get started.",
           cards,
         ),
         GENERAL_SUGGESTIONS,
@@ -1259,7 +1310,7 @@ router.openapi(listAdminMessagesRoute, (async (c) => {
 router.openapi(listThreadsRoute, (async (c) => {
   return c.json(
     successResponse(
-      buildSupportThreads(messages),
+      await buildSupportThreads(messages),
       "Support chat threads retrieved",
     ),
   );

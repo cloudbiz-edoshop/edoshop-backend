@@ -130,13 +130,16 @@ export class CustomersService {
   async createCustomer(
     customerData: CreateCustomerRequest & {
       createdBy: number;
+      registrationPlatform?: string;
     },
   ): Promise<CreateCustomerResponse> {
     const username = generateUsername(customerData.fullName);
 
+    const email = customerData.email?.trim() || undefined;
+
     await this.assertUniqueCustomerIdentity({
       fullName: customerData.fullName,
-      email: customerData.email,
+      email,
       phoneNumber: customerData.phoneNumber,
     });
 
@@ -147,10 +150,8 @@ export class CustomersService {
     }
 
     // Check if email is already taken
-    if (customerData.email) {
-      const existingEmail = await this.userRepository.findByEmail(
-        customerData.email,
-      );
+    if (email) {
+      const existingEmail = await this.userRepository.findByEmail(email);
       if (existingEmail) {
         throw new ValidationError("Email is already taken");
       }
@@ -179,10 +180,11 @@ export class CustomersService {
     const customer = await db.transaction(async (tx) => {
       const user = await this.userRepository.createWithPhoneNumber(tx, {
         fullName: customerData.fullName,
-        email: customerData.email,
+        email,
         phoneNumber: customerData.phoneNumber,
         username,
         password: hashedPassword,
+        registrationPlatform: customerData.registrationPlatform ?? null,
         createdBy: customerData.createdBy,
       } as any);
 
@@ -226,7 +228,10 @@ export class CustomersService {
     return customerWithAddresses as CreateCustomerResponse;
   }
 
-  async createPublicCustomerSignup(customerData: PublicCustomerSignupRequest) {
+  async createPublicCustomerSignup(
+    customerData: PublicCustomerSignupRequest,
+    registrationPlatform?: string,
+  ) {
     const username = generateUsername(customerData.fullName);
 
     await this.assertUniqueCustomerIdentity({
@@ -269,6 +274,7 @@ export class CustomersService {
         email: customerData.email || undefined,
         phoneNumber: customerData.phoneNumber,
         password: hashedPassword,
+        registrationPlatform: registrationPlatform ?? null,
       } as any);
 
       const createdCustomer = await this.customerRepository.create(tx, {
@@ -368,17 +374,17 @@ export class CustomersService {
       throw new NotFoundError("User not found");
     }
 
+    const email = customerData.email?.trim() || undefined;
+
     await this.assertUniqueCustomerIdentity({
       fullName: customerData.fullName,
-      email: customerData.email,
+      email,
       phoneNumber: customerData.phoneNumber,
       excludeUserId: user.id,
     });
 
-    if (customerData.email && customerData.email !== user.email) {
-      const existingEmail = await this.userRepository.findByEmail(
-        customerData.email,
-      );
+    if (email && email !== user.email) {
+      const existingEmail = await this.userRepository.findByEmail(email);
       if (existingEmail) {
         throw new ValidationError("Email is already taken");
       }
@@ -401,7 +407,7 @@ export class CustomersService {
       phoneNumber?: string;
       fullName?: string;
     } = {
-      email: customerData.email,
+      email,
       phoneNumber: customerData.phoneNumber,
       fullName: customerData.fullName,
     };
@@ -416,7 +422,7 @@ export class CustomersService {
 
     await db.transaction(async (tx) => {
       if (
-        customerData.email ||
+        email ||
         customerData.phoneNumber ||
         customerData.fullName
       ) {

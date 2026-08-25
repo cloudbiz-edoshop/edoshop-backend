@@ -9,6 +9,7 @@ import { AppError } from "@/core/errors/app-error";
 import db from "@/db";
 
 import { AboutUsRepository } from "./about-us.repository";
+import { normalizeAboutUsPayload, serializeAboutUsRecord } from "./about-us.util";
 
 export class AboutUsService {
   private readonly aboutUsRepository: AboutUsRepository;
@@ -32,24 +33,26 @@ export class AboutUsService {
       createdBy: number;
     },
   ): Promise<CreateAboutUsResponse> {
+    const normalizedData = normalizeAboutUsPayload(aboutUsData);
+
     const aboutUs = await db.transaction(async (tx) => {
-      // Create aboutUs
       const aboutUs = await this.aboutUsRepository.create(tx, {
-        ...aboutUsData,
+        ...normalizedData,
         updatedBy: aboutUsData.createdBy,
       });
 
       return aboutUs;
     });
 
-    // fetch aboutUs
     const aboutUsWithAttributeType = await this.aboutUsRepository.findById(
       aboutUs.id,
     );
     if (!aboutUsWithAttributeType) {
       throw new AppError("AboutUs could not be fetched after creation");
     }
-    return aboutUsWithAttributeType as CreateAboutUsResponse;
+    return serializeAboutUsRecord(
+      aboutUsWithAttributeType,
+    ) as CreateAboutUsResponse;
   }
 
   /**
@@ -72,7 +75,12 @@ export class AboutUsService {
     sortOrder?: "asc" | "desc";
     filters?: Record<string, any>;
   }) {
-    return await this.aboutUsRepository.list(params);
+    const result = await this.aboutUsRepository.list(params);
+    return {
+      data: result.data.map((item) => serializeAboutUsRecord(item)),
+      total: result.total,
+      searchableFields: result.searchableFields,
+    };
   }
 
   /**
@@ -86,7 +94,7 @@ export class AboutUsService {
     if (!aboutUs) {
       throw new NotFoundError("AboutUs not found");
     }
-    return aboutUs;
+    return serializeAboutUsRecord(aboutUs);
   }
 
   /**
@@ -108,21 +116,31 @@ export class AboutUsService {
       throw new NotFoundError("AboutUs not found");
     }
 
+    const normalizedData = normalizeAboutUsPayload({
+      ...aboutUsData,
+      imageUrl: aboutUsData.imageUrl ?? aboutUs.imageUrl ?? undefined,
+      imagePosition:
+        aboutUsData.imagePosition ?? aboutUs.imagePosition ?? undefined,
+      images:
+        aboutUsData.images ??
+        (Array.isArray(aboutUs.images) ? aboutUs.images : undefined),
+    });
+
     await db.transaction(async (tx) => {
-      // Update aboutUs
       await this.aboutUsRepository.update(tx, id, {
-        ...aboutUsData,
+        ...normalizedData,
         updatedBy: aboutUsData.updatedBy,
       });
     });
-    // fetch aboutUs
     const aboutUsWithAttributeType = await this.aboutUsRepository.findById(
       aboutUs.id,
     );
     if (!aboutUsWithAttributeType) {
       throw new AppError("AboutUs could not be fetched after update");
     }
-    return aboutUsWithAttributeType as CreateAboutUsResponse;
+    return serializeAboutUsRecord(
+      aboutUsWithAttributeType,
+    ) as CreateAboutUsResponse;
   }
 
   /**

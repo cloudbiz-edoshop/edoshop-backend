@@ -31,6 +31,7 @@ import {
   redactCustomerContact,
   redactCustomerContactList,
 } from "@/lib/customer-contact-privacy";
+import { classifyClientPlatform } from "@/lib/client-platform";
 
 import { PermissionsService } from "../permissions/permissions.service";
 import { CustomersService } from "./customers.service";
@@ -101,6 +102,7 @@ export const create: AppRouteHandler<CreateRoute> = async (c) => {
     address,
     accountType,
     password,
+    registrationPlatform: classifyClientPlatform(c.var.userAgent),
     createdBy,
   });
 
@@ -114,7 +116,10 @@ export const create: AppRouteHandler<CreateRoute> = async (c) => {
 
 export const publicSignup: AppRouteHandler<PublicSignupRoute> = async (c) => {
   const data = c.req.valid("json");
-  const result = await customersService.createPublicCustomerSignup(data);
+  const result = await customersService.createPublicCustomerSignup(
+    data,
+    classifyClientPlatform(c.var.userAgent),
+  );
 
   return c.json(
     successResponse(result, "Customer registered successfully"),

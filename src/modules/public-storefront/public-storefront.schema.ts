@@ -1,5 +1,24 @@
 import { z } from "@hono/zod-openapi";
 
+export const publicAboutUsImageSchema = z.object({
+  imageUrl: z.string(),
+  displayStyle: z.string(),
+  sortOrder: z.number(),
+});
+
+export const publicAboutUsSchema = z.object({
+  id: z.number(),
+  title: z.string(),
+  heading: z.string(),
+  text: z.string(),
+  primaryButtonText: z.string(),
+  delay: z.union([z.string(), z.number()]),
+  date: z.string(),
+  imageUrl: z.string().nullable().optional(),
+  imagePosition: z.enum(["left", "right"]).optional(),
+  images: z.array(publicAboutUsImageSchema).optional(),
+});
+
 export const publicBannerSchema = z.object({
   id: z.number(),
   heading: z.string().nullable().optional(),

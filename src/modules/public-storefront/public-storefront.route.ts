@@ -22,6 +22,7 @@ import {
   subscribeNewsletterResponseSchema,
   publicCreateReviewRequestSchema,
   publicCreateReviewResponseSchema,
+  publicAboutUsSchema,
 } from "./public-storefront.schema";
 
 const tags = ["Public Storefront"];
@@ -52,6 +53,12 @@ export const listFaqs = publicListRoute(
   "/public/faqs",
   publicFaqSchema,
   "Public FAQs",
+);
+
+export const listAboutUs = publicListRoute(
+  "/public/about-us",
+  publicAboutUsSchema,
+  "Public About Us sections",
 );
 
 export const listFilters = publicListRoute(

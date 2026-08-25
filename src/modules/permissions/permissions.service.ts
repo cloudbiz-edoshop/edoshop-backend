@@ -1,6 +1,7 @@
 import {
   ALL_ENTITY_TYPES,
   buildPermissionKeys,
+  CMS_ENTITIES,
   DELIVERY_ENTITIES,
   DIALOGUE_ENTITIES,
   EWMS_MANAGEMENT_ENTITIES,
@@ -150,6 +151,7 @@ export class PermissionsService {
     const sectionAnchorEntities: Record<AccessSection, EntityType> = {
       settings: EntityType.SETTINGS,
       store: EntityType.STORES,
+      cms: EntityType.BANNERS,
       dialogue: EntityType.CHAT,
       notifications: EntityType.NOTIFICATIONS,
       tracking: EntityType.TRACKING,
@@ -163,6 +165,16 @@ export class PermissionsService {
     return Object.keys(SECTION_ENTITY_MAP).reduce(
       (sections, section) => {
         const accessSection = section as AccessSection;
+
+        if (accessSection === "cms") {
+          sections.cms = CMS_ENTITIES.some((entity) =>
+            permissionSet.has(
+              formatPermissionKey(entity, OperationType.READ),
+            ),
+          );
+          return sections;
+        }
+
         sections[accessSection] = permissionSet.has(
           formatPermissionKey(
             sectionAnchorEntities[accessSection],
@@ -238,6 +250,7 @@ export function getRolePermissionTemplate(roleName: RoleType) {
       return buildPermissionKeys(
         [
           ...DIALOGUE_ENTITIES,
+          ...CMS_ENTITIES,
           ...NOTIFICATION_ENTITIES,
           ...TRACKING_ENTITIES,
         ],
@@ -259,7 +272,7 @@ export function getRolePermissionTemplate(roleName: RoleType) {
 
     case RoleType.DIGITAL_MARKETER:
       return buildPermissionKeys(
-        [...STORE_ENTITIES, ...TICKETING_CORE_ENTITIES],
+        [...STORE_ENTITIES, ...CMS_ENTITIES, ...TICKETING_CORE_ENTITIES],
         STANDARD_CRUD_OPERATIONS,
       );
 

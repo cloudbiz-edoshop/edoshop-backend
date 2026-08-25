@@ -12,6 +12,7 @@ import { createPagination } from "@/lib/searching-sorting";
 import db from "@/db";
 import { newsletterSubscribers } from "@/db/models/newsletter-subscribers";
 import { BannersService } from "@/modules/banners/banners.service";
+import { AboutUsService } from "@/modules/about-us/about-us.service";
 import { CategoriesService } from "@/modules/categories/categories.service";
 import { CustomersService } from "@/modules/customers/customers.service";
 import { DiscountsService } from "@/modules/discounts/discounts.service";
@@ -24,6 +25,7 @@ import { RetailersService } from "@/modules/retailers/retailers.service";
 import { ReviewsService } from "@/modules/reviews/reviews.service";
 
 const bannersService = new BannersService();
+const aboutUsService = new AboutUsService();
 const faqsService = new FaqsService();
 const filtersService = new FiltersService();
 const categoriesService = new CategoriesService();
@@ -270,6 +272,25 @@ export const listFaqs = async (c: any) => {
     params.page,
     params.limit,
     "Public FAQs retrieved successfully",
+  );
+};
+
+export const listAboutUs = async (c: any) => {
+  const params = getListParams(c);
+  const result = await aboutUsService.listAboutUs({
+    ...params,
+    sortBy: params.sortBy || "date",
+    sortOrder: params.sortOrder || "asc",
+  });
+
+  return sendPublicList(
+    c,
+    result.data,
+    result.total,
+    result.searchableFields,
+    params.page,
+    params.limit,
+    "Public About Us sections retrieved successfully",
   );
 };
 

@@ -16,7 +16,7 @@ import { userSchema } from "../users/users.schema";
 
 const createCustomerBaseSchema = z.object({
   fullName: nameSchema.describe("Customer name"),
-  email: emailSchema.optional().describe("Customer email"),
+  email: emailSchema.optional().or(z.literal("")).describe("Customer email"),
   phoneNumber: phoneSchema.describe("Customer phone number"),
   countryId: idSchema.describe("Country ID"),
   address: streetAddressSchema.describe("Customer address"),

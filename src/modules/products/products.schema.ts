@@ -41,16 +41,6 @@ export const baseProductSchema = z.object({
 export const createProductRequestSchema = baseProductSchema
   .refine(
     (data) => {
-      // Require tags for all products
-      return data.tagIds?.length;
-    },
-    {
-      message: "At least one tag is required for all products",
-      path: ["tagIds"],
-    },
-  )
-  .refine(
-    (data) => {
       // Require categories for all products
       return data.categoryIds?.length;
     },

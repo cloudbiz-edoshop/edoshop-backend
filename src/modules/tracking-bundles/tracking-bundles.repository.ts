@@ -485,13 +485,28 @@ export class TrackingBundlesRepository {
     }
 
     const currentStepOrder = bundle.currentStep?.stepOrder ?? BUNDLE_MANUAL_STEP_MIN;
-    if (step.stepOrder !== currentStepOrder + 1) {
+
+    if (step.stepOrder === currentStepOrder) {
+      throw new Error("Bundle is already on this step");
+    }
+
+    const isBackward = step.stepOrder < currentStepOrder;
+
+    if (isBackward) {
+      if (!payload.notes?.trim()) {
+        throw new Error("A reason is required when moving to a previous step");
+      }
+    } else if (step.stepOrder !== currentStepOrder + 1) {
       throw new Error(
         `Complete steps one at a time. Next allowed step is ${currentStepOrder + 1}.`,
       );
     }
 
     const now = new Date().toISOString();
+    const trimmedNotes = payload.notes?.trim() || null;
+    const historyNotes = isBackward && trimmedNotes
+      ? `Reverted from step ${currentStepOrder} to step ${step.stepOrder}: ${trimmedNotes}`
+      : trimmedNotes;
 
     await db
       .update(trackingBundles)
@@ -505,7 +520,7 @@ export class TrackingBundlesRepository {
     await db.insert(trackingBundleHistory).values({
       bundleId: bundle.id,
       stepId: payload.stepId,
-      notes: payload.notes?.trim() || null,
+      notes: historyNotes,
       attachmentUrl: payload.attachmentUrl?.trim() || null,
       createdAt: now,
       createdBy: userId,

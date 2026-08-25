@@ -614,6 +614,7 @@ export class OrdersRepository {
       color?: string;
       size?: string;
     }>;
+    clientPlatform?: string;
   }) {
     const fulfillmentMethod =
       params.fulfillmentMethod === FulfillmentMethod.PICKUP
@@ -828,6 +829,7 @@ export class OrdersRepository {
           discountAmount: "0.00",
           totalAmount,
           notes: orderNotes || null,
+          clientPlatform: params.clientPlatform ?? null,
           createdBy: params.userId,
           updatedBy: params.userId,
         })

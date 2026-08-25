@@ -1,8 +1,10 @@
 import { and, count, eq, gte, inArray, sql } from "drizzle-orm";
 
+import { OrderTypeIds } from "@/constants/order-types.constants";
 import { PackageStatusIds } from "@/constants/package-statuses.constants";
 import db from "@/db";
-import { entries, orders, packages, warehouses } from "@/db/models";
+import { customers, entries, orders, packages, users, warehouses } from "@/db/models";
+import { formatClientPlatformLabel } from "@/lib/client-platform";
 
 type WeekBucket = {
   key: string;
@@ -60,6 +62,21 @@ function mapWeeklyCounts(
   return buckets.map((bucket) => countByWeek.get(bucket.key) ?? 0);
 }
 
+function mapPlatformBreakdown(
+  rows: { platform: string | null; count: number }[],
+) {
+  const totals = new Map<string, number>();
+
+  for (const row of rows) {
+    const label = formatClientPlatformLabel(row.platform ?? "unknown");
+    totals.set(label, (totals.get(label) ?? 0) + row.count);
+  }
+
+  return Array.from(totals.entries())
+    .map(([platform, countValue]) => ({ platform, count: countValue }))
+    .sort((left, right) => right.count - left.count);
+}
+
 export class DashboardRepository {
   async getMetrics(weekCount: number) {
     const weekBuckets = buildWeekBuckets(weekCount);
@@ -76,6 +93,13 @@ export class DashboardRepository {
       totalOrdersResult,
       packagesCompletedResult,
       packagesInProgressResult,
+      totalCustomersResult,
+      newCustomersResult,
+      directOrdersResult,
+      dropshippingOrdersResult,
+      averageOrderValueResult,
+      orderPlatformRows,
+      userPlatformRows,
       entriesWeeklyRows,
       ordersWeeklyRows,
       packagesWeeklyRows,
@@ -97,6 +121,62 @@ export class DashboardRepository {
         .select({ value: count() })
         .from(packages)
         .where(inArray(packages.packageStatusId, IN_PROGRESS_PACKAGE_STATUSES)),
+      db
+        .select({ value: count() })
+        .from(customers)
+        .where(eq(customers.isDeleted, false)),
+      db
+        .select({ value: count() })
+        .from(users)
+        .innerJoin(customers, eq(customers.userId, users.id))
+        .where(
+          and(
+            eq(customers.isDeleted, false),
+            eq(users.isDeleted, false),
+            gte(users.createdAt, sql`now() - interval '30 days'`),
+          ),
+        ),
+      db
+        .select({ value: count() })
+        .from(orders)
+        .where(
+          and(
+            eq(orders.isDeleted, false),
+            eq(orders.orderTypeId, OrderTypeIds.DIRECT_ORDER),
+          ),
+        ),
+      db
+        .select({ value: count() })
+        .from(orders)
+        .where(
+          and(
+            eq(orders.isDeleted, false),
+            eq(orders.orderTypeId, OrderTypeIds.DROPSHIPPING),
+          ),
+        ),
+      db
+        .select({
+          value: sql<number>`coalesce(avg(${orders.totalAmount}::numeric), 0)::float`,
+        })
+        .from(orders)
+        .where(eq(orders.isDeleted, false)),
+      db
+        .select({
+          platform: orders.clientPlatform,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(orders)
+        .where(eq(orders.isDeleted, false))
+        .groupBy(orders.clientPlatform),
+      db
+        .select({
+          platform: users.registrationPlatform,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(users)
+        .innerJoin(customers, eq(customers.userId, users.id))
+        .where(and(eq(customers.isDeleted, false), eq(users.isDeleted, false)))
+        .groupBy(users.registrationPlatform),
       db
         .select({
           weekStart: sql<string>`date_trunc('week', ${entries.date}::timestamp)::date`,
@@ -161,6 +241,12 @@ export class DashboardRepository {
 
     const weekLabels = weekBuckets.map((bucket) => bucket.label);
 
+    const orderPlatformBreakdown = mapPlatformBreakdown(orderPlatformRows);
+    const userPlatformBreakdown = mapPlatformBreakdown(userPlatformRows);
+
+    const countByPlatform = (rows: { platform: string; count: number }[], label: string) =>
+      rows.find((row) => row.platform === label)?.count ?? 0;
+
     return {
       summary: {
         totalEntries: totalEntriesResult[0]?.value ?? 0,
@@ -168,6 +254,17 @@ export class DashboardRepository {
         packagesCompleted: packagesCompletedResult[0]?.value ?? 0,
         packagesInProgress: packagesInProgressResult[0]?.value ?? 0,
         activeWarehouses: warehouseList.length,
+        totalCustomers: totalCustomersResult[0]?.value ?? 0,
+        newCustomers: newCustomersResult[0]?.value ?? 0,
+        directOrders: directOrdersResult[0]?.value ?? 0,
+        dropshippingOrders: dropshippingOrdersResult[0]?.value ?? 0,
+        averageOrderValue: Number(averageOrderValueResult[0]?.value ?? 0),
+        ordersDesktop: countByPlatform(orderPlatformBreakdown, "Desktop"),
+        ordersMobile: countByPlatform(orderPlatformBreakdown, "Mobile"),
+        ordersTablet: countByPlatform(orderPlatformBreakdown, "Tablet"),
+        usersDesktop: countByPlatform(userPlatformBreakdown, "Desktop"),
+        usersMobile: countByPlatform(userPlatformBreakdown, "Mobile"),
+        usersTablet: countByPlatform(userPlatformBreakdown, "Tablet"),
       },
       weeklyEntriesByWarehouse: {
         weeks: weekLabels,
@@ -191,6 +288,8 @@ export class DashboardRepository {
         status: String(row.statusId),
         count: row.count,
       })),
+      orderPlatformBreakdown,
+      userPlatformBreakdown,
     };
   }
 }

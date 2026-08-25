@@ -134,6 +134,7 @@ export class OrdersService {
   async checkoutDirectOrder(
     userId: number,
     payload: CheckoutDirectOrderRequest,
+    clientPlatform?: string,
   ) {
     const customer = await this.ordersRepository.findCustomerByUserId(userId);
     if (!customer) {
@@ -171,6 +172,7 @@ export class OrdersService {
       shippingPriorityCodeId: payload.shippingPriorityCodeId,
       billing: payload.billing,
       items: payload.items,
+      clientPlatform,
     });
 
     if (isMobileTransfer && !payOnDelivery && campayConfig.enabled) {

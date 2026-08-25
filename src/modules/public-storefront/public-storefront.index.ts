@@ -8,6 +8,7 @@ const router = createRouter();
 router
   .openapi(routes.listBanners, handlers.listBanners as any)
   .openapi(routes.listFaqs, handlers.listFaqs as any)
+  .openapi(routes.listAboutUs, handlers.listAboutUs as any)
   .openapi(routes.listFilters, handlers.listFilters as any)
   .openapi(routes.listCategories, handlers.listCategories as any)
   .openapi(routes.listNewArrivalProducts, handlers.listNewArrivalProducts as any)

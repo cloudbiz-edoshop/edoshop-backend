@@ -6,12 +6,15 @@ import {
   date,
   decimal,
   integer,
+  jsonb,
   pgTable,
   serial,
   timestamp,
   varchar,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
+
+import type { AboutUsImageItem } from "@/constants/about-us-image.constants";
 
 import { users } from "./users";
 
@@ -24,6 +27,8 @@ export const aboutUs = pgTable("about-us", {
   delay: decimal({ precision: 10, scale: 2 }).notNull().$type<number>(),
   date: date().notNull(),
   imageUrl: varchar({ length: 255 }).notNull(),
+  imagePosition: varchar({ length: 10 }).notNull().default("right"),
+  images: jsonb().$type<AboutUsImageItem[]>().notNull().default([]),
   createdAt: timestamp({ mode: "string" }).notNull().defaultNow(),
   updatedAt: timestamp({ mode: "string" }).notNull().defaultNow(),
   createdBy: integer()

@@ -45,6 +45,7 @@ export const orders = pgTable("orders", {
   discountAmount: decimal({ precision: 10, scale: 2 }).notNull().default("0"),
   totalAmount: decimal({ precision: 10, scale: 2 }).notNull(),
   notes: text(),
+  clientPlatform: varchar({ length: 20 }),
   fulfillmentMethod: varchar({ length: 20 }).notNull().default("delivery"),
   pickupWarehouseId: integer().references(() => warehouses.id),
   version: integer().notNull().default(1),
