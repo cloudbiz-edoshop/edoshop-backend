@@ -1,9 +1,11 @@
 import type {
   CreateRoute,
+  GetDefaultsRoute,
   GetOneRoute,
   ListRoute,
   PatchRoute,
   RemoveSelectedRoute,
+  SeedDefaultsRoute,
 } from "./about-us.route";
 
 import type {
@@ -129,4 +131,25 @@ export const removeSelected: AppRouteHandler<RemoveSelectedRoute> = async (
   await aboutUsService.deleteAboutUs(ids, deletedBy);
 
   return c.body(null, HttpStatusCodes.NO_CONTENT);
+};
+
+export const getDefaults: AppRouteHandler<GetDefaultsRoute> = async (c) => {
+  const { section } = c.req.valid("query");
+  const defaults = aboutUsService.getAboutUsDefaults(section);
+
+  return c.json(
+    successResponse(defaults, "Default About Us sections retrieved successfully"),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const seedDefaults: AppRouteHandler<SeedDefaultsRoute> = async (c) => {
+  const payload = c.get("accessTokenPayload");
+  const createdBy = payload.userId;
+  const sections = await aboutUsService.seedDefaultAboutUsSections(createdBy);
+
+  return c.json(
+    successResponse(sections, "Default About Us sections imported successfully"),
+    HttpStatusCodes.OK,
+  );
 };

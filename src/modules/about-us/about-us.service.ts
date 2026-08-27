@@ -3,12 +3,16 @@ import type {
   CreateAboutUsResponse,
   UpdateAboutUsRequest,
 } from "./about-us.schema";
-import { NotFoundError } from "@/core/errors";
+import { ConflictError, NotFoundError } from "@/core/errors";
 import { AppError } from "@/core/errors/app-error";
 
 import db from "@/db";
 
 import { AboutUsRepository } from "./about-us.repository";
+import {
+  getDefaultAboutUsSection,
+  getDefaultAboutUsSections,
+} from "./about-us.defaults";
 import { normalizeAboutUsPayload, serializeAboutUsRecord } from "./about-us.util";
 
 export class AboutUsService {
@@ -158,5 +162,44 @@ export class AboutUsService {
       throw new AppError("Failed to delete aboutUs");
     }
     return result;
+  }
+
+  getAboutUsDefaults(sectionKey?: string | null) {
+    if (sectionKey) {
+      const section = getDefaultAboutUsSection(sectionKey);
+      if (!section) {
+        throw new NotFoundError("About Us default section not found");
+      }
+
+      return section;
+    }
+
+    return getDefaultAboutUsSections();
+  }
+
+  async seedDefaultAboutUsSections(createdBy: number) {
+    const existing = await this.aboutUsRepository.list({
+      page: 1,
+      limit: 1,
+    });
+
+    if (existing.total > 0) {
+      throw new ConflictError(
+        "About Us sections already exist. Edit them individually or delete them before importing defaults.",
+      );
+    }
+
+    const defaults = getDefaultAboutUsSections();
+    const createdSections: CreateAboutUsResponse[] = [];
+
+    for (const section of defaults) {
+      const created = await this.createAboutUs({
+        ...section,
+        createdBy,
+      });
+      createdSections.push(created);
+    }
+
+    return createdSections;
   }
 }

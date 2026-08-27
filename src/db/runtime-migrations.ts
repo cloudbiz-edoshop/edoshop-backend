@@ -644,6 +644,13 @@ export async function ensureRuntimeMigrations() {
     `),
   );
 
+  await db.execute(
+    sql.raw(`
+      ALTER TABLE "about-us"
+      ALTER COLUMN "text" TYPE text
+    `),
+  );
+
   await ensureAclRolesAndEntities();
 }
 

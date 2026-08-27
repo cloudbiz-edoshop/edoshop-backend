@@ -24,7 +24,7 @@ export type AboutUsImageInput = z.infer<typeof aboutUsImageSchema>;
 const aboutUsBaseFields = {
   title: z.string().trim().min(1).max(255).describe("AboutUs title"),
   heading: z.string().trim().min(1).max(255).describe("AboutUs heading"),
-  text: z.string().trim().min(1).max(255).describe("AboutUs text"),
+  text: z.string().trim().min(1).describe("AboutUs text"),
   primaryButtonText: z
     .string()
     .trim()
@@ -73,3 +73,31 @@ export type GetAboutUsResponse = z.infer<typeof getAboutUsResponseSchema>;
 export const listAboutUsResponseSchema = z.array(getAboutUsResponseSchema);
 
 export type ListAboutUsResponse = z.infer<typeof listAboutUsResponseSchema>;
+
+export const aboutUsDefaultsQuerySchema = z.object({
+  section: z
+    .enum(["who-we-are", "drop-shipping", "direct-order"])
+    .optional()
+    .describe("Load one default section template by key"),
+});
+
+export const aboutUsDefaultSectionSchema = z.object({
+  key: z.string().optional(),
+  title: z.string(),
+  heading: z.string(),
+  text: z.string(),
+  primaryButtonText: z.string(),
+  delay: z.coerce.number(),
+  date: z.string(),
+  imagePosition: z.enum(["left", "right"]),
+  images: z.array(aboutUsImageSchema),
+});
+
+export const aboutUsDefaultsResponseSchema = z.union([
+  aboutUsDefaultSectionSchema,
+  z.array(aboutUsDefaultSectionSchema),
+]);
+
+export const seedAboutUsDefaultsResponseSchema = z.array(
+  createAboutUsResponseSchema,
+);

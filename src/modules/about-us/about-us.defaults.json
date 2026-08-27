@@ -1,0 +1,53 @@
+[
+  {
+    "key": "who-we-are",
+    "title": "About Edoshop",
+    "heading": "Who Are We?",
+    "text": "Edoshop is built to make everyday shopping simpler, faster, and more reliable. We bring together trusted sellers, practical delivery options, and secure payment choices so customers can shop with confidence. Whether you are ordering directly from available stock or joining dropshipping and groupage purchases, our goal is to keep the experience clear from discovery to delivery. We focus on useful products, responsive support, and a marketplace experience that works for real shoppers.",
+    "primaryButtonText": "Shop Now",
+    "delay": 1000,
+    "date": "2026-01-01",
+    "imagePosition": "right",
+    "images": [
+      {
+        "imageUrl": "/img/whoarewe.png",
+        "displayStyle": "single",
+        "sortOrder": 0
+      }
+    ]
+  },
+  {
+    "key": "drop-shipping",
+    "title": "DropShipping",
+    "heading": "DropShipping Store",
+    "text": "Dropshipping is a retail method where products are shipped directly from a third-party supplier to customers. Sellers don't need to keep stock, streamlining operations and inventory management.",
+    "primaryButtonText": "Shop Now",
+    "delay": 1000,
+    "date": "2026-01-02",
+    "imagePosition": "left",
+    "images": [
+      {
+        "imageUrl": "/img/dropshipping-collage.png",
+        "displayStyle": "single",
+        "sortOrder": 0
+      }
+    ]
+  },
+  {
+    "key": "direct-order",
+    "title": "Direct Order",
+    "heading": "Direct Order",
+    "text": "Direct ordering allows customers to select and purchase products directly from a seller's inventory. Customers browse, select items, provide payment, and receive confirmation of their order. It's a streamlined process for efficient shopping.",
+    "primaryButtonText": "Shop Now",
+    "delay": 1000,
+    "date": "2026-01-03",
+    "imagePosition": "right",
+    "images": [
+      {
+        "imageUrl": "/img/dropshipping-collage2.png",
+        "displayStyle": "single",
+        "sortOrder": 0
+      }
+    ]
+  }
+]

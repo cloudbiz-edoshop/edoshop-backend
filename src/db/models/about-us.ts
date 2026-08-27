@@ -9,6 +9,7 @@ import {
   jsonb,
   pgTable,
   serial,
+  text,
   timestamp,
   varchar,
 } from "drizzle-orm/pg-core";
@@ -22,7 +23,7 @@ export const aboutUs = pgTable("about-us", {
   id: serial().primaryKey(),
   title: varchar({ length: 255 }).notNull(),
   heading: varchar({ length: 255 }).notNull(),
-  text: varchar({ length: 255 }).notNull(),
+  text: text().notNull(),
   primaryButtonText: varchar({ length: 255 }).notNull(),
   delay: decimal({ precision: 10, scale: 2 }).notNull().$type<number>(),
   date: date().notNull(),

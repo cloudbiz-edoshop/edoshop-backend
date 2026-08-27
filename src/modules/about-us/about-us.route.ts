@@ -21,6 +21,9 @@ import {
   createAboutUsResponseSchema,
   getAboutUsResponseSchema,
   listAboutUsResponseSchema,
+  aboutUsDefaultsQuerySchema,
+  aboutUsDefaultsResponseSchema,
+  seedAboutUsDefaultsResponseSchema,
   updateAboutUsRequestSchema,
 } from "./about-us.schema";
 
@@ -207,7 +210,79 @@ export const removeSelected = createRoute({
   },
 });
 
+export const getDefaults = createRoute({
+  path: "/aboutUs/defaults",
+  method: "get",
+  tags,
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.ABOUT_US, operation: OperationType.READ },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    query: aboutUsDefaultsQuerySchema,
+  },
+  summary: "Get default About Us section templates",
+  description:
+    "Returns the current storefront static About Us sections as editable templates",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(aboutUsDefaultsResponseSchema),
+      "Default About Us section templates",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNPROCESSABLE_ENTITY,
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.FORBIDDEN,
+        HttpStatusCodes.NOT_FOUND,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      aboutUsDefaultsQuerySchema,
+    ),
+  },
+});
+
+export const seedDefaults = createRoute({
+  path: "/aboutUs/seed-defaults",
+  method: "post",
+  tags,
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.ABOUT_US, operation: OperationType.CREATE },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+  },
+  summary: "Import default About Us sections",
+  description:
+    "Creates all three default About Us sections when none exist yet",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(
+        seedAboutUsDefaultsResponseSchema,
+        "Default About Us sections imported successfully",
+      ),
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.FORBIDDEN,
+        HttpStatusCodes.CONFLICT,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      z.object({}),
+    ),
+  },
+});
+
 export type ListRoute = typeof list;
+export type GetDefaultsRoute = typeof getDefaults;
+export type SeedDefaultsRoute = typeof seedDefaults;
 export type CreateRoute = typeof create;
 export type GetOneRoute = typeof getOne;
 export type PatchRoute = typeof patch;
