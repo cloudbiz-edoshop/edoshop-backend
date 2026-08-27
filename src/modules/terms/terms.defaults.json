@@ -1,0 +1,784 @@
+{
+  "en": {
+    "meta": {
+      "title": "EDOSHOP Terms of Service, Privacy & Cookie Policy",
+      "effectiveDate": "July 1, 2026",
+      "version": "1.0",
+      "contact": {
+        "website": "https://edoshop.online",
+        "email": "admin@edoshop.online",
+        "phones": [
+          "+1 585 317 4403",
+          "+237 689 210 027"
+        ]
+      }
+    },
+    "acceptanceLabel": "I have read and agree to the EDOSHOP Terms and Conditions",
+    "sections": [
+      {
+        "id": 1,
+        "title": "Welcome to EDOSHOP",
+        "body": [
+          "Welcome to EDOSHOP ('EDOSHOP', 'we', 'our', or 'us'). These Terms of Service, together with our Privacy and Cookie provisions, govern your access to and use of the EDOSHOP website, mobile application, and related services, including edoshop.online.",
+          "By creating an account, accessing our services, placing an order or making a payment, you agree to these Terms."
+        ]
+      },
+      {
+        "id": 2,
+        "title": "About EDOSHOP",
+        "body": [
+          "EDOSHOP is an international e-commerce platform offering clothing, shoes, home products, kitchen utensils, electronics, beauty products and other consumer goods.",
+          "EDOSHOP also operates its proprietary Groupage purchasing and consolidated international shipping service."
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Definitions",
+        "body": [
+          "Account, Application, Website, Customer, Order, Groupage, Supplier, HT (price excluding logistics charges) and TTC (price including the transportation costs specified by EDOSHOP)."
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Eligibility",
+        "body": [
+          "Users must be at least 18 years old or use the platform under parental or legal guardian supervision, provide accurate information and have legal capacity to enter binding agreements."
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Account Registration",
+        "body": [
+          "Customers are responsible for maintaining accurate account information and protecting their login credentials. EDOSHOP is not responsible for losses resulting from failure to secure an account."
+        ]
+      },
+      {
+        "id": 6,
+        "title": "User Responsibilities",
+        "body": [
+          "Users agree to provide accurate shipping information, pay applicable charges, comply with laws, treat EDOSHOP staff respectfully and refrain from fraudulent or unlawful activities. EDOSHOP may suspend or terminate accounts for violations."
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Products and Services",
+        "body": [
+          "Products may include stocked items, sourced items, Groupage products, promotional items and limited-time offers. Availability is not guaranteed until an order is accepted."
+        ]
+      },
+      {
+        "id": 8,
+        "title": "The EDOSHOP Groupage Service",
+        "body": [
+          "Groupage is EDOSHOP's proprietary consolidated purchasing and shipping model allowing customers to benefit from lower logistics costs through combined international shipments. Typical delivery estimates are 10–14 business days by air and 45–60 days by sea.",
+          "Delivery estimates are not guaranteed and may be affected by suppliers, carriers, customs or force majeure events."
+        ]
+      },
+      {
+        "id": 9,
+        "title": "Product Availability",
+        "body": [
+          "If a product becomes unavailable, EDOSHOP may offer a replacement, store credit, refund or another mutually agreed solution."
+        ]
+      },
+      {
+        "id": 10,
+        "title": "Pricing",
+        "body": [
+          "EDOSHOP provides transparent pricing. Prices are shown in the applicable currency and may change due to supplier costs, exchange rates, logistics or taxes. The confirmed order price is the price accepted by EDOSHOP."
+        ],
+        "subsections": [
+          {
+            "title": "10.1 HT (Excluding Shipping Costs)",
+            "body": [
+              "Products marked HT exclude transportation, freight, customs, logistics, storage, handling and related charges. These costs are paid separately."
+            ]
+          },
+          {
+            "title": "10.2 TTC (All Costs Included)",
+            "body": [
+              "Products marked TTC include the transportation costs specified by EDOSHOP for that listing unless otherwise stated."
+            ]
+          }
+        ]
+      },
+      {
+        "id": 11,
+        "title": "Orders",
+        "body": [
+          "Orders may be placed through the website, mobile application, official WhatsApp channels, social media or other authorized channels. EDOSHOP may refuse or cancel orders for fraud, payment failure, stock shortages, pricing errors or violations of these Terms."
+        ]
+      },
+      {
+        "id": 12,
+        "title": "Payments",
+        "body": [
+          "Payments may be made through Stripe, bank transfer, mobile money, cards and other supported payment methods. Orders remain pending until payment is confirmed."
+        ]
+      },
+      {
+        "id": 13,
+        "title": "Groupage Transportation Charges",
+        "body": [
+          "Transportation charges are calculated according to weight, CBM, destination and logistics requirements. Customers must pay notified transportation charges within five (5) calendar days."
+        ]
+      },
+      {
+        "id": 14,
+        "title": "Shipping and Delivery",
+        "body": [
+          "Delivery estimates are not guaranteed and may be affected by suppliers, customs, carriers, weather, holidays, strikes or force majeure."
+        ]
+      },
+      {
+        "id": 15,
+        "title": "Pickup of Goods",
+        "body": [
+          "Groupage goods are generally collected at EDOSHOP's designated pickup location. Additional shipment to another destination is at the customer's expense."
+        ]
+      },
+      {
+        "id": 16,
+        "title": "Pickup Deadline",
+        "body": [
+          "Orders must be collected within seven (7) calendar days after notification. Orders left uncollected for more than fourteen (14) days may be considered abandoned and may be resold or disposed of without refund."
+        ]
+      },
+      {
+        "id": 17,
+        "title": "Order Cancellations",
+        "body": [
+          "Cancellation requests are accepted only before procurement or shipment when possible. Refunds may be full, partial, store credit or exchange depending on costs already incurred."
+        ]
+      },
+      {
+        "id": 18,
+        "title": "Out-of-Stock Products",
+        "body": [
+          "EDOSHOP may offer a replacement product, store credit, refund or another mutually agreed solution."
+        ]
+      },
+      {
+        "id": 19,
+        "title": "Returns and Refunds",
+        "body": [
+          "Refund eligibility depends on product condition, supplier policies, shipping status and applicable law. Certain logistics and third-party fees may be non-refundable."
+        ]
+      },
+      {
+        "id": 20,
+        "title": "International Shipments",
+        "body": [
+          "Customers are responsible for customs duties, taxes and legal import requirements applicable in their destination country."
+        ]
+      },
+      {
+        "id": 21,
+        "title": "Privacy Policy",
+        "body": [
+          "EDOSHOP is committed to protecting the privacy and personal information of every customer, visitor, supplier, business partner and user. By using EDOSHOP, you consent to the processing of your information as described in this Privacy Policy."
+        ]
+      },
+      {
+        "id": 22,
+        "title": "Information We Collect",
+        "body": [
+          "EDOSHOP may collect personal information (name, phone, WhatsApp, email, billing and delivery addresses), account information, payment-related information processed by trusted providers such as Stripe, device information, and usage information to provide and improve our services."
+        ]
+      },
+      {
+        "id": 23,
+        "title": "Why We Collect Your Information",
+        "body": [
+          "Information is collected to create accounts, process orders and payments, arrange deliveries, provide customer support, prevent fraud, improve services, maintain security, comply with legal obligations and communicate with customers."
+        ]
+      },
+      {
+        "id": 24,
+        "title": "Marketing Communications Consent",
+        "body": [
+          "By creating an account or using EDOSHOP, you authorize EDOSHOP to contact you via email, SMS, WhatsApp, telephone, push notifications and in-app messages for order updates, customer support, promotions, discounts, newsletters, new products, surveys, security notices and other communications related to EDOSHOP.",
+          "You may opt out of marketing communications at any time, but essential transactional communications will continue."
+        ]
+      },
+      {
+        "id": 25,
+        "title": "Sharing of Information",
+        "body": [
+          "EDOSHOP does not sell personal information. Information may be shared with payment processors, logistics providers, customs authorities, technology partners and other service providers only as necessary to deliver our services or comply with legal requirements."
+        ]
+      },
+      {
+        "id": 26,
+        "title": "Data Security",
+        "body": [
+          "EDOSHOP uses commercially reasonable safeguards including HTTPS/TLS encryption, secure authentication, password hashing, access controls, monitoring, backups and security updates. However, no Internet-connected system can be guaranteed completely secure."
+        ]
+      },
+      {
+        "id": 27,
+        "title": "Cookie Policy",
+        "body": [
+          "EDOSHOP uses cookies and similar technologies to provide a secure, efficient and personalized experience. By using EDOSHOP, you consent to the use of cookies as described in this policy unless disabled through your browser settings."
+        ]
+      },
+      {
+        "id": 28,
+        "title": "Types of Cookies We Use",
+        "body": [
+          "EDOSHOP uses essential cookies for authentication and security, performance and analytics cookies to improve the platform, functional cookies to remember user preferences, and marketing cookies (where permitted) to personalize offers and advertisements."
+        ]
+      },
+      {
+        "id": 29,
+        "title": "Analytics Technologies",
+        "body": [
+          "Analytics tools may measure visitor activity, application performance, purchase trends, feature usage, customer engagement and marketing effectiveness to improve EDOSHOP's products and services."
+        ]
+      },
+      {
+        "id": 30,
+        "title": "Managing Cookies",
+        "body": [
+          "Most browsers allow users to delete, block or restrict cookies. Disabling cookies may affect certain EDOSHOP features and services."
+        ]
+      },
+      {
+        "id": 31,
+        "title": "Data Retention",
+        "body": [
+          "EDOSHOP retains personal information only as long as necessary to provide services, comply with legal obligations, resolve disputes, prevent fraud and maintain business records. Data is securely deleted or anonymized when no longer required."
+        ]
+      },
+      {
+        "id": 32,
+        "title": "International Data Transfers",
+        "body": [
+          "Personal information may be processed or stored outside the customer's country. EDOSHOP takes commercially reasonable measures to protect transferred data."
+        ]
+      },
+      {
+        "id": 33,
+        "title": "Children's Privacy",
+        "body": [
+          "EDOSHOP is not intended for children below the minimum legal age. If unauthorized information from a child is identified, EDOSHOP will take reasonable steps to remove it."
+        ]
+      },
+      {
+        "id": 34,
+        "title": "Your Privacy Rights",
+        "body": [
+          "Depending on applicable law, customers may request access, correction, deletion, portability of their information or withdraw marketing consent after identity verification."
+        ]
+      },
+      {
+        "id": 35,
+        "title": "Changes to this Privacy Policy",
+        "body": [
+          "EDOSHOP may revise this Privacy and Cookie Policy from time to time. Continued use of the platform after publication constitutes acceptance of the updated version."
+        ]
+      },
+      {
+        "id": 36,
+        "title": "Privacy Contact",
+        "body": [
+          "Website: https://edoshop.online",
+          "Email: admin@edoshop.online",
+          "WhatsApp/Phone: +1 585 317 4403 / +237 689 210 027"
+        ]
+      },
+      {
+        "id": 37,
+        "title": "Intellectual Property",
+        "body": [
+          "All EDOSHOP content, including logos, text, graphics, software, databases and trademarks, is owned by EDOSHOP or its licensors and is protected by applicable intellectual property laws. Unauthorized use is prohibited."
+        ]
+      },
+      {
+        "id": 38,
+        "title": "User-Generated Content",
+        "body": [
+          "Users grant EDOSHOP a worldwide, non-exclusive, royalty-free license to use reviews, comments and uploaded content for operational and promotional purposes while remaining responsible for its legality."
+        ]
+      },
+      {
+        "id": 39,
+        "title": "Prohibited Activities",
+        "body": [
+          "Fraud, impersonation, false payment information, hacking, malware, unauthorized data extraction, abuse of promotions and unlawful conduct are strictly prohibited."
+        ]
+      },
+      {
+        "id": 40,
+        "title": "Disclaimer of Warranties",
+        "body": [
+          "EDOSHOP provides its services 'as is' and 'as available' without guaranteeing uninterrupted operation, permanent product availability or error-free information, except where required by law."
+        ]
+      },
+      {
+        "id": 41,
+        "title": "Limitation of Liability",
+        "body": [
+          "To the fullest extent permitted by law, EDOSHOP is not liable for indirect or consequential damages. Liability, where it cannot be excluded, is limited to the amount paid for the order giving rise to the claim."
+        ]
+      },
+      {
+        "id": 42,
+        "title": "Indemnification",
+        "body": [
+          "Customers agree to indemnify EDOSHOP against claims arising from misuse of the platform, violations of these Terms or infringement of third-party rights."
+        ]
+      },
+      {
+        "id": 43,
+        "title": "Force Majeure",
+        "body": [
+          "EDOSHOP is not responsible for delays caused by natural disasters, pandemics, war, customs, government actions, transportation disruptions or other events beyond its reasonable control."
+        ]
+      },
+      {
+        "id": 44,
+        "title": "Governing Law",
+        "body": [
+          "These Terms are governed by the laws applicable to the relevant EDOSHOP contracting entity, subject to mandatory consumer protection laws."
+        ]
+      },
+      {
+        "id": 45,
+        "title": "Dispute Resolution",
+        "body": [
+          "Customers are encouraged to contact EDOSHOP before legal action. Unresolved disputes shall be handled by the competent legal authorities with jurisdiction."
+        ]
+      },
+      {
+        "id": 46,
+        "title": "Changes to these Terms",
+        "body": [
+          "EDOSHOP may update these Terms at any time. Continued use after publication constitutes acceptance of the revised version."
+        ]
+      },
+      {
+        "id": 47,
+        "title": "Severability",
+        "body": [
+          "If any provision is held invalid, the remaining provisions remain fully enforceable."
+        ]
+      },
+      {
+        "id": 48,
+        "title": "Entire Agreement",
+        "body": [
+          "These Terms, together with the Privacy Policy and Cookie Policy, constitute the entire agreement between EDOSHOP and the customer."
+        ]
+      },
+      {
+        "id": 49,
+        "title": "Contact Information",
+        "body": [
+          "Website: https://edoshop.online",
+          "Email: admin@edoshop.online",
+          "WhatsApp/Phone: +1 585 317 4403 / +237 689 210 027"
+        ]
+      },
+      {
+        "id": 50,
+        "title": "Final Acceptance",
+        "body": [
+          "By using EDOSHOP, creating an account or placing an order, customers acknowledge that they have read, understood and accepted these Terms.",
+          "Version 1.0 — Effective July 1, 2026. © 2026 EDOSHOP. All Rights Reserved."
+        ]
+      }
+    ]
+  },
+  "fr": {
+    "meta": {
+      "title": "Conditions generales d'utilisation, politique de confidentialite et cookies d'EDOSHOP",
+      "effectiveDate": "1er juillet 2026",
+      "version": "1.0",
+      "contact": {
+        "website": "https://edoshop.online",
+        "email": "admin@edoshop.online",
+        "phones": [
+          "+1 585 317 4403",
+          "+237 689 210 027"
+        ]
+      }
+    },
+    "acceptanceLabel": "J'ai lu et j'accepte les Conditions generales d'EDOSHOP",
+    "sections": [
+      {
+        "id": 1,
+        "title": "Bienvenue sur EDOSHOP",
+        "body": [
+          "Bienvenue sur EDOSHOP (« EDOSHOP », « nous », « notre » ou « nos »). Les presentes Conditions generales d'utilisation, ainsi que nos dispositions relatives a la confidentialite et aux cookies, regissent votre acces et votre utilisation du site web EDOSHOP, de l'application mobile et des services associes, y compris edoshop.online.",
+          "En creant un compte, en accedant a nos services, en passant une commande ou en effectuant un paiement, vous acceptez les presentes Conditions."
+        ]
+      },
+      {
+        "id": 2,
+        "title": "A propos d'EDOSHOP",
+        "body": [
+          "EDOSHOP est une plateforme internationale de commerce electronique proposant des vetements, chaussures, produits pour la maison, ustensiles de cuisine, electronique, produits de beaute et autres biens de consommation.",
+          "EDOSHOP exploite egalement son service proprietaire d'achat Groupage et d'expedition internationale consolidee."
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Definitions",
+        "body": [
+          "Compte, Application, Site web, Client, Commande, Groupage, Fournisseur, HT (prix hors frais logistiques) et TTC (prix incluant les frais de transport specifies par EDOSHOP)."
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Eligibilite",
+        "body": [
+          "Les utilisateurs doivent avoir au moins 18 ans ou utiliser la plateforme sous la supervision d'un parent ou tuteur legal, fournir des informations exactes et disposer de la capacite juridique de conclure des accords contraignants."
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Creation de compte",
+        "body": [
+          "Les clients sont responsables du maintien d'informations de compte exactes et de la protection de leurs identifiants de connexion. EDOSHOP n'est pas responsable des pertes resultant d'un manque de securisation du compte."
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Responsabilites de l'utilisateur",
+        "body": [
+          "Les utilisateurs s'engagent a fournir des informations de livraison exactes, a payer les frais applicables, a respecter la legislation, a traiter le personnel EDOSHOP avec respect et a s'abstenir de toute activite frauduleuse ou illegale. EDOSHOP peut suspendre ou resilier les comptes en cas de violation."
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Produits et services",
+        "body": [
+          "Les produits peuvent inclure des articles en stock, des articles approvisionnes, des produits Groupage, des articles promotionnels et des offres limitees dans le temps. La disponibilite n'est pas garantie tant qu'une commande n'est pas acceptee."
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Le service Groupage d'EDOSHOP",
+        "body": [
+          "Le Groupage est le modele proprietaire d'EDOSHOP d'achat consolide et d'expedition permettant aux clients de beneficier de couts logistiques reduits grace a des envois internationaux combines. Les delais de livraison typiques sont de 10 a 14 jours ouvrables par voie aerienne et de 45 a 60 jours par voie maritime.",
+          "Les delais de livraison ne sont pas garantis et peuvent etre affectes par les fournisseurs, transporteurs, douanes ou cas de force majeure."
+        ]
+      },
+      {
+        "id": 9,
+        "title": "Disponibilite des produits",
+        "body": [
+          "Si un produit devient indisponible, EDOSHOP peut proposer un remplacement, un avoir, un remboursement ou une autre solution convenue mutuellement."
+        ]
+      },
+      {
+        "id": 10,
+        "title": "Tarification",
+        "body": [
+          "EDOSHOP propose une tarification transparente. Les prix sont affiches dans la devise applicable et peuvent evoluer en fonction des couts fournisseurs, des taux de change, de la logistique ou des taxes. Le prix confirme de la commande est celui accepte par EDOSHOP."
+        ],
+        "subsections": [
+          {
+            "title": "10.1 HT (hors frais d'expedition)",
+            "body": [
+              "Les produits marques HT excluent le transport, le fret, les droits de douane, la logistique, le stockage, la manutention et les frais connexes. Ces couts sont payes separement."
+            ]
+          },
+          {
+            "title": "10.2 TTC (tous frais inclus)",
+            "body": [
+              "Les produits marques TTC incluent les frais de transport specifies par EDOSHOP pour cette annonce, sauf indication contraire."
+            ]
+          }
+        ]
+      },
+      {
+        "id": 11,
+        "title": "Commandes",
+        "body": [
+          "Les commandes peuvent etre passees via le site web, l'application mobile, les canaux WhatsApp officiels, les reseaux sociaux ou d'autres canaux autorises. EDOSHOP peut refuser ou annuler des commandes en cas de fraude, d'echec de paiement, de rupture de stock, d'erreur de prix ou de violation des presentes Conditions."
+        ]
+      },
+      {
+        "id": 12,
+        "title": "Paiements",
+        "body": [
+          "Les paiements peuvent etre effectues via Stripe, virement bancaire, mobile money, cartes et autres moyens de paiement pris en charge. Les commandes restent en attente jusqu'a confirmation du paiement."
+        ]
+      },
+      {
+        "id": 13,
+        "title": "Frais de transport Groupage",
+        "body": [
+          "Les frais de transport sont calcules selon le poids, le CBM, la destination et les exigences logistiques. Les clients doivent payer les frais de transport notifies dans un delai de cinq (5) jours calendaires."
+        ]
+      },
+      {
+        "id": 14,
+        "title": "Expedition et livraison",
+        "body": [
+          "Les delais de livraison ne sont pas garantis et peuvent etre affectes par les fournisseurs, les douanes, les transporteurs, la meteo, les jours feries, les greves ou la force majeure."
+        ]
+      },
+      {
+        "id": 15,
+        "title": "Retrait des marchandises",
+        "body": [
+          "Les marchandises Groupage sont generalement recuperees au point de retrait designe par EDOSHOP. Toute expedition supplementaire vers une autre destination est aux frais du client."
+        ]
+      },
+      {
+        "id": 16,
+        "title": "Delai de retrait",
+        "body": [
+          "Les commandes doivent etre recuperees dans les sept (7) jours calendaires suivant la notification. Les commandes non recuperees pendant plus de quatorze (14) jours peuvent etre considerees comme abandonnees et peuvent etre revendues ou eliminees sans remboursement."
+        ]
+      },
+      {
+        "id": 17,
+        "title": "Annulations de commande",
+        "body": [
+          "Les demandes d'annulation ne sont acceptees qu'avant l'approvisionnement ou l'expedition lorsque cela est possible. Les remboursements peuvent etre integraux, partiels, sous forme d'avoir ou d'echange selon les couts deja engages."
+        ]
+      },
+      {
+        "id": 18,
+        "title": "Produits en rupture de stock",
+        "body": [
+          "EDOSHOP peut proposer un produit de remplacement, un avoir, un remboursement ou une autre solution convenue mutuellement."
+        ]
+      },
+      {
+        "id": 19,
+        "title": "Retours et remboursements",
+        "body": [
+          "L'eligibilite au remboursement depend de l'etat du produit, des politiques fournisseurs, du statut d'expedition et de la legislation applicable. Certains frais logistiques et frais tiers peuvent etre non remboursables."
+        ]
+      },
+      {
+        "id": 20,
+        "title": "Expeditions internationales",
+        "body": [
+          "Les clients sont responsables des droits de douane, taxes et exigences legales d'importation applicables dans leur pays de destination."
+        ]
+      },
+      {
+        "id": 21,
+        "title": "Politique de confidentialite",
+        "body": [
+          "EDOSHOP s'engage a proteger la vie privee et les informations personnelles de chaque client, visiteur, fournisseur, partenaire commercial et utilisateur. En utilisant EDOSHOP, vous consentez au traitement de vos informations tel que decrit dans la presente Politique de confidentialite."
+        ]
+      },
+      {
+        "id": 22,
+        "title": "Informations que nous collectons",
+        "body": [
+          "EDOSHOP peut collecter des informations personnelles (nom, telephone, WhatsApp, e-mail, adresses de facturation et de livraison), des informations de compte, des informations liees aux paiements traitees par des prestataires de confiance tels que Stripe, des informations sur l'appareil et des informations d'utilisation afin de fournir et d'ameliorer nos services."
+        ]
+      },
+      {
+        "id": 23,
+        "title": "Pourquoi nous collectons vos informations",
+        "body": [
+          "Les informations sont collectees pour creer des comptes, traiter les commandes et paiements, organiser les livraisons, fournir le support client, prevenir la fraude, ameliorer les services, maintenir la securite, respecter les obligations legales et communiquer avec les clients."
+        ]
+      },
+      {
+        "id": 24,
+        "title": "Consentement aux communications marketing",
+        "body": [
+          "En creant un compte ou en utilisant EDOSHOP, vous autorisez EDOSHOP a vous contacter par e-mail, SMS, WhatsApp, telephone, notifications push et messages in-app pour les mises a jour de commande, le support client, les promotions, remises, newsletters, nouveaux produits, enquetes, avis de securite et autres communications liees a EDOSHOP.",
+          "Vous pouvez vous desabonner des communications marketing a tout moment, mais les communications transactionnelles essentielles continueront."
+        ]
+      },
+      {
+        "id": 25,
+        "title": "Partage des informations",
+        "body": [
+          "EDOSHOP ne vend pas d'informations personnelles. Les informations peuvent etre partagees avec les processeurs de paiement, prestataires logistiques, autorites douanieres, partenaires technologiques et autres prestataires uniquement dans la mesure necessaire pour fournir nos services ou respecter les exigences legales."
+        ]
+      },
+      {
+        "id": 26,
+        "title": "Securite des donnees",
+        "body": [
+          "EDOSHOP utilise des mesures de protection commercialement raisonnables, notamment le chiffrement HTTPS/TLS, l'authentification securisee, le hachage des mots de passe, les controles d'acces, la surveillance, les sauvegardes et les mises a jour de securite. Cependant, aucun systeme connecte a Internet ne peut etre garanti totalement securise."
+        ]
+      },
+      {
+        "id": 27,
+        "title": "Politique relative aux cookies",
+        "body": [
+          "EDOSHOP utilise des cookies et technologies similaires pour offrir une experience securisee, efficace et personnalisee. En utilisant EDOSHOP, vous consentez a l'utilisation des cookies telle que decrite dans la presente politique, sauf si vous les desactivez via les parametres de votre navigateur."
+        ]
+      },
+      {
+        "id": 28,
+        "title": "Types de cookies que nous utilisons",
+        "body": [
+          "EDOSHOP utilise des cookies essentiels pour l'authentification et la securite, des cookies de performance et d'analyse pour ameliorer la plateforme, des cookies fonctionnels pour memoriser les preferences utilisateur, et des cookies marketing (lorsque permis) pour personnaliser les offres et publicites."
+        ]
+      },
+      {
+        "id": 29,
+        "title": "Technologies d'analyse",
+        "body": [
+          "Les outils d'analyse peuvent mesurer l'activite des visiteurs, les performances de l'application, les tendances d'achat, l'utilisation des fonctionnalites, l'engagement client et l'efficacite marketing afin d'ameliorer les produits et services d'EDOSHOP."
+        ]
+      },
+      {
+        "id": 30,
+        "title": "Gestion des cookies",
+        "body": [
+          "La plupart des navigateurs permettent de supprimer, bloquer ou restreindre les cookies. La desactivation des cookies peut affecter certaines fonctionnalites et services EDOSHOP."
+        ]
+      },
+      {
+        "id": 31,
+        "title": "Conservation des donnees",
+        "body": [
+          "EDOSHOP conserve les informations personnelles uniquement aussi longtemps que necessaire pour fournir les services, respecter les obligations legales, resoudre les litiges, prevenir la fraude et maintenir les registres commerciaux. Les donnees sont supprimees ou anonymisees de maniere securisee lorsqu'elles ne sont plus requises."
+        ]
+      },
+      {
+        "id": 32,
+        "title": "Transferts internationaux de donnees",
+        "body": [
+          "Les informations personnelles peuvent etre traitees ou stockees en dehors du pays du client. EDOSHOP prend des mesures commercialement raisonnables pour proteger les donnees transferees."
+        ]
+      },
+      {
+        "id": 33,
+        "title": "Confidentialite des enfants",
+        "body": [
+          "EDOSHOP n'est pas destine aux enfants en dessous de l'age legal minimum. Si des informations non autorisees provenant d'un enfant sont identifiees, EDOSHOP prendra des mesures raisonnables pour les supprimer."
+        ]
+      },
+      {
+        "id": 34,
+        "title": "Vos droits en matiere de confidentialite",
+        "body": [
+          "Selon la legislation applicable, les clients peuvent demander l'acces, la correction, la suppression, la portabilite de leurs informations ou retirer leur consentement marketing apres verification d'identite."
+        ]
+      },
+      {
+        "id": 35,
+        "title": "Modifications de la presente Politique de confidentialite",
+        "body": [
+          "EDOSHOP peut reviser la presente Politique de confidentialite et relative aux cookies de temps a autre. L'utilisation continue de la plateforme apres publication vaut acceptation de la version mise a jour."
+        ]
+      },
+      {
+        "id": 36,
+        "title": "Contact confidentialite",
+        "body": [
+          "Site web : https://edoshop.online",
+          "E-mail : admin@edoshop.online",
+          "WhatsApp/Telephone : +1 585 317 4403 / +237 689 210 027"
+        ]
+      },
+      {
+        "id": 37,
+        "title": "Propriete intellectuelle",
+        "body": [
+          "L'ensemble du contenu EDOSHOP, y compris logos, textes, graphiques, logiciels, bases de donnees et marques, appartient a EDOSHOP ou a ses concédants et est protege par les lois applicables en matiere de propriete intellectuelle. Toute utilisation non autorisee est interdite."
+        ]
+      },
+      {
+        "id": 38,
+        "title": "Contenu genere par les utilisateurs",
+        "body": [
+          "Les utilisateurs accordent a EDOSHOP une licence mondiale, non exclusive et gratuite pour utiliser les avis, commentaires et contenus telecharges a des fins operationnelles et promotionnelles, tout en restant responsables de leur legalite."
+        ]
+      },
+      {
+        "id": 39,
+        "title": "Activites interdites",
+        "body": [
+          "La fraude, l'usurpation d'identite, les fausses informations de paiement, le piratage, les logiciels malveillants, l'extraction non autorisee de donnees, l'abus de promotions et toute conduite illegale sont strictement interdits."
+        ]
+      },
+      {
+        "id": 40,
+        "title": "Exclusion de garanties",
+        "body": [
+          "EDOSHOP fournit ses services « en l'etat » et « selon disponibilite » sans garantir un fonctionnement ininterrompu, une disponibilite permanente des produits ou des informations exemptes d'erreurs, sauf lorsque la loi l'exige."
+        ]
+      },
+      {
+        "id": 41,
+        "title": "Limitation de responsabilite",
+        "body": [
+          "Dans toute la mesure permise par la loi, EDOSHOP n'est pas responsable des dommages indirects ou consequents. La responsabilite, lorsqu'elle ne peut etre exclue, est limitee au montant paye pour la commande a l'origine de la reclamation."
+        ]
+      },
+      {
+        "id": 42,
+        "title": "Indemnisation",
+        "body": [
+          "Les clients s'engagent a indemniser EDOSHOP contre toute reclamation resultant d'une mauvaise utilisation de la plateforme, d'une violation des presentes Conditions ou d'une atteinte aux droits de tiers."
+        ]
+      },
+      {
+        "id": 43,
+        "title": "Force majeure",
+        "body": [
+          "EDOSHOP n'est pas responsable des retards causes par des catastrophes naturelles, pandemies, guerres, douanes, actions gouvernementales, perturbations de transport ou autres evenements echappant a son controle raisonnable."
+        ]
+      },
+      {
+        "id": 44,
+        "title": "Droit applicable",
+        "body": [
+          "Les presentes Conditions sont regies par les lois applicables a l'entite contractante EDOSHOP concernee, sous reserve des lois imperatives de protection des consommateurs."
+        ]
+      },
+      {
+        "id": 45,
+        "title": "Reglement des litiges",
+        "body": [
+          "Les clients sont encourages a contacter EDOSHOP avant toute action en justice. Les litiges non resolus seront traites par les autorites juridiques competentes."
+        ]
+      },
+      {
+        "id": 46,
+        "title": "Modifications des presentes Conditions",
+        "body": [
+          "EDOSHOP peut mettre a jour les presentes Conditions a tout moment. L'utilisation continue apres publication vaut acceptation de la version revisee."
+        ]
+      },
+      {
+        "id": 47,
+        "title": "Divisibilite",
+        "body": [
+          "Si une disposition est jugee invalide, les dispositions restantes demeurent pleinement applicables."
+        ]
+      },
+      {
+        "id": 48,
+        "title": "Accord integral",
+        "body": [
+          "Les presentes Conditions, ainsi que la Politique de confidentialite et la Politique relative aux cookies, constituent l'integralite de l'accord entre EDOSHOP et le client."
+        ]
+      },
+      {
+        "id": 49,
+        "title": "Coordonnees",
+        "body": [
+          "Site web : https://edoshop.online",
+          "E-mail : admin@edoshop.online",
+          "WhatsApp/Telephone : +1 585 317 4403 / +237 689 210 027"
+        ]
+      },
+      {
+        "id": 50,
+        "title": "Acceptation finale",
+        "body": [
+          "En utilisant EDOSHOP, en creant un compte ou en passant une commande, les clients reconnaissent avoir lu, compris et accepte les presentes Conditions.",
+          "Version 1.0 — En vigueur depuis le 1er juillet 2026. © 2026 EDOSHOP. Tous droits reserves."
+        ]
+      }
+    ]
+  }
+}

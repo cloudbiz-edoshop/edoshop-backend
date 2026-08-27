@@ -43,6 +43,7 @@ import supportChat from "@/modules/support-chat/support-chat.index";
 import suppliers from "@/modules/suppliers/suppliers.index";
 import tags from "@/modules/tags/tags.index";
 import testimonials from "@/modules/testimonials/testimonials.index";
+import terms from "@/modules/terms/terms.index";
 import trackingBundles from "@/modules/tracking-bundles/tracking-bundles.index";
 import uploadTokens from "@/modules/upload-tokens/upload-tokens.index";
 import uploads from "@/modules/uploads/uploads.index";
@@ -112,6 +113,7 @@ const routes = [
   filters,
   testimonials,
   aboutUs,
+  terms,
   banners,
   tags,
   categories,

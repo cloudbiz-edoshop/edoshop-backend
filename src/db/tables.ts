@@ -105,6 +105,7 @@ export const allTables: Table[] = [
   schema.faqs,
   schema.banners,
   schema.aboutUs,
+  schema.terms,
   schema.filters,
   schema.directOrderProducts,
   schema.dropshippingProducts,

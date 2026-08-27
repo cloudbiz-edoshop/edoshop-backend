@@ -7,52 +7,91 @@ const discountRateSchema = z.coerce
   .min(0, "Discount rate must be a percentage value between 0 and 100")
   .max(100, "Discount rate must be a percentage value between 0 and 100");
 
-export const baseDiscountSchema = z
-  .object({
-    targetType: z.enum(["series", "product"]).default("series"),
-    seriesId: z.coerce.number().int().positive().optional(),
-    productId: z.coerce.number().int().positive().optional(),
-    discountRate: discountRateSchema,
-    name: z.string().optional(),
-    description: z.string().optional(),
-    discountTypeId: z.coerce.number().int().positive().optional(),
-    minimumPurchaseAmount: z.coerce.number().min(0).optional(),
-    isActive: z.boolean().optional(),
-    isPermanent: z.boolean().optional().default(true),
-    startsAt: z.string().datetime().optional(),
-    endsAt: z.string().datetime().optional(),
-    discountValue: z.coerce.number().min(0).optional(),
-  })
-  .superRefine((data, ctx) => {
-    if (data.targetType === "series" && !data.seriesId) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Series ID is required for series discounts",
-        path: ["seriesId"],
-      });
-    }
+export const discountFieldsSchema = z.object({
+  targetType: z.enum(["series", "product"]).default("series"),
+  seriesId: z.coerce.number().int().positive().optional(),
+  productId: z.coerce.number().int().positive().optional(),
+  discountRate: discountRateSchema,
+  name: z.string().optional(),
+  description: z.string().optional(),
+  discountTypeId: z.coerce.number().int().positive().optional(),
+  minimumPurchaseAmount: z.coerce.number().min(0).optional(),
+  isActive: z.boolean().optional(),
+  isPermanent: z.boolean().optional().default(true),
+  startsAt: z.string().datetime().optional(),
+  endsAt: z.string().datetime().optional(),
+  discountValue: z.coerce.number().min(0).optional(),
+});
 
-    if (data.targetType === "product" && !data.productId) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Product is required for product discounts",
-        path: ["productId"],
-      });
-    }
+type DiscountFields = z.infer<typeof discountFieldsSchema>;
+type PartialDiscountFields = z.infer<
+  ReturnType<typeof discountFieldsSchema.partial>
+>;
 
-    if (!data.isPermanent && !data.endsAt) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Expiration date and time is required",
-        path: ["endsAt"],
-      });
-    }
-  });
+const refineCreateDiscount = (data: DiscountFields, ctx: z.RefinementCtx) => {
+  if (data.targetType === "series" && !data.seriesId) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Series ID is required for series discounts",
+      path: ["seriesId"],
+    });
+  }
 
-export const createDiscountRequestSchema = baseDiscountSchema;
+  if (data.targetType === "product" && !data.productId) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Product is required for product discounts",
+      path: ["productId"],
+    });
+  }
+
+  if (!data.isPermanent && !data.endsAt) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Expiration date and time is required",
+      path: ["endsAt"],
+    });
+  }
+};
+
+const refineUpdateDiscount = (
+  data: PartialDiscountFields,
+  ctx: z.RefinementCtx,
+) => {
+  if (data.targetType === "series" && data.seriesId === undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Series ID is required for series discounts",
+      path: ["seriesId"],
+    });
+  }
+
+  if (data.targetType === "product" && data.productId === undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Product is required for product discounts",
+      path: ["productId"],
+    });
+  }
+
+  if (data.isPermanent === false && !data.endsAt) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Expiration date and time is required",
+      path: ["endsAt"],
+    });
+  }
+};
+
+export const baseDiscountSchema = discountFieldsSchema;
+
+export const createDiscountRequestSchema =
+  discountFieldsSchema.superRefine(refineCreateDiscount);
 export type CreateDiscountRequest = z.infer<typeof createDiscountRequestSchema>;
 
-export const updateDiscountRequestSchema = baseDiscountSchema.partial();
+export const updateDiscountRequestSchema = discountFieldsSchema
+  .partial()
+  .superRefine(refineUpdateDiscount);
 export type UpdateDiscountRequest = z.infer<typeof updateDiscountRequestSchema>;
 
 export const createDiscountResponseSchema = discountsSchema;

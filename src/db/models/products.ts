@@ -33,6 +33,7 @@ export const products = pgTable("products", {
   shortDescription: varchar({ length: 500 }),
   fullDescription: text(),
   specifications: text(),
+  section: varchar({ length: 64 }),
   imageUrls: json().$type<string[]>().default([]),
   version: integer().notNull().default(1),
   createdAt: timestamp({ mode: "string" }).defaultNow(),

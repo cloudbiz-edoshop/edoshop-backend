@@ -22,6 +22,7 @@ export const baseProductSchema = z.object({
   fullDescription: z.string().optional(),
   specifications: z.string().optional(),
   imageUrls: z.array(z.string()).optional(),
+  section: z.string().max(64).optional().nullable(),
   tagIds: z.array(z.number()).optional(),
   categoryIds: z.array(z.number()).optional(),
   concurrentReqs: z.number().min(1).optional(),

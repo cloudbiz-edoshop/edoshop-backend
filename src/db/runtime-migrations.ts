@@ -103,6 +103,18 @@ export async function ensureRuntimeMigrations() {
 
   await db.execute(
     sql.raw(
+      `ALTER TABLE "products" ADD COLUMN IF NOT EXISTS "section" varchar(64)`,
+    ),
+  );
+
+  await db.execute(
+    sql.raw(
+      `CREATE INDEX IF NOT EXISTS "products_section_idx" ON "products" ("section")`,
+    ),
+  );
+
+  await db.execute(
+    sql.raw(
       `ALTER TABLE "direct_order_products" ADD COLUMN IF NOT EXISTS "total_items" integer`,
     ),
   );

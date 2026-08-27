@@ -67,6 +67,7 @@ export const publicNewArrivalProductSchema = z.object({
   shortDescription: z.string().nullable().optional(),
   fullDescription: z.string().nullable().optional(),
   specifications: z.string().nullable().optional(),
+  section: z.string().nullable().optional(),
   totalItems: z.number().nullable().optional(),
   storeId: z.number().nullable().optional(),
   seriesId: z.number().nullable().optional(),

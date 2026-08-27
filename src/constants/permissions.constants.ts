@@ -41,6 +41,7 @@ export const CMS_ENTITIES: EntityType[] = [
   EntityType.FAQS,
   EntityType.TESTIMONIALS,
   EntityType.ABOUT_US,
+  EntityType.TERMS,
 ];
 
 export const DIALOGUE_ENTITIES: EntityType[] = [EntityType.CHAT];

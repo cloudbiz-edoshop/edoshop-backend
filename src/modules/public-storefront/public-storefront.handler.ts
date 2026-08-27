@@ -179,6 +179,7 @@ const mapPublicProduct = (product: any) => ({
   shortDescription: product.shortDescription,
   fullDescription: product.fullDescription,
   specifications: product.specifications,
+  section: product.section || null,
   totalItems: product.totalItems,
   storeId: product.storeId,
   seriesId: product.seriesId,

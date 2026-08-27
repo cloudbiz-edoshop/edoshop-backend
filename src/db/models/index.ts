@@ -204,6 +204,7 @@ export { default as stores, storesRelations } from "./stores";
 export { default as suppliers, suppliersRelations } from "./suppliers";
 export { default as tags, tagsRelations } from "./tags";
 export { default as testimonials, testimonialsRelations } from "./testimonials";
+export { default as terms, termsRelations } from "./terms";
 export {
   default as trackingBundles,
   trackingBundleHistory,
