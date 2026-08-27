@@ -1,4 +1,4 @@
-import { and, count, eq, gte, inArray, sql } from "drizzle-orm";
+import { and, count, eq, gte, inArray, lt, sql } from "drizzle-orm";
 
 import { OrderTypeIds } from "@/constants/order-types.constants";
 import { PackageStatusIds } from "@/constants/package-statuses.constants";
@@ -25,30 +25,95 @@ const IN_PROGRESS_PACKAGE_STATUSES = [
   PackageStatusIds.DISPATCHED,
 ];
 
-function buildWeekBuckets(weekCount: number): WeekBucket[] {
-  const buckets: WeekBucket[] = [];
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+function formatLocalDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
 
-  const day = today.getDay();
+function getMondayOfWeek(date: Date) {
+  const monday = new Date(date);
+  monday.setHours(0, 0, 0, 0);
+
+  const day = monday.getDay();
   const mondayOffset = day === 0 ? -6 : 1 - day;
-  const currentWeekStart = new Date(today);
-  currentWeekStart.setDate(today.getDate() + mondayOffset);
+  monday.setDate(monday.getDate() + mondayOffset);
+
+  return monday;
+}
+
+function buildWeekBucket(start: Date): WeekBucket {
+  const key = formatLocalDateKey(start);
+  const label = start.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+
+  return { key, label, start: key };
+}
+
+function buildWeekBuckets(weekCount: number): WeekBucket[] {
+  const currentWeekStart = getMondayOfWeek(new Date());
+  const buckets: WeekBucket[] = [];
 
   for (let index = weekCount - 1; index >= 0; index -= 1) {
     const start = new Date(currentWeekStart);
     start.setDate(currentWeekStart.getDate() - index * 7);
-
-    const key = start.toISOString().slice(0, 10);
-    const label = start.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-    });
-
-    buckets.push({ key, label, start: key });
+    buckets.push(buildWeekBucket(start));
   }
 
   return buckets;
+}
+
+function buildWeekBucketsFromRange(from: string, to: string): WeekBucket[] {
+  const startMonday = getMondayOfWeek(new Date(`${from}T00:00:00`));
+  const endMonday = getMondayOfWeek(new Date(`${to}T00:00:00`));
+
+  if (startMonday > endMonday) {
+    return [];
+  }
+
+  const buckets: WeekBucket[] = [];
+  const cursor = new Date(startMonday);
+
+  while (cursor <= endMonday) {
+    buckets.push(buildWeekBucket(cursor));
+    cursor.setDate(cursor.getDate() + 7);
+
+    if (buckets.length > 52) {
+      break;
+    }
+  }
+
+  return buckets;
+}
+
+function resolveWeekBuckets(params: {
+  weeks?: number;
+  from?: string;
+  to?: string;
+}) {
+  if (params.from && params.to) {
+    return buildWeekBucketsFromRange(params.from, params.to);
+  }
+
+  return buildWeekBuckets(params.weeks ?? 8);
+}
+
+function getPeriodBounds(buckets: WeekBucket[]) {
+  const sinceDate = buckets[0]?.start;
+  const lastWeekStart = buckets[buckets.length - 1]?.start;
+
+  if (!lastWeekStart) {
+    return { sinceDate, untilDate: undefined as string | undefined };
+  }
+
+  const until = new Date(`${lastWeekStart}T00:00:00`);
+  until.setDate(until.getDate() + 7);
+  const untilDate = formatLocalDateKey(until);
+
+  return { sinceDate, untilDate };
 }
 
 function mapWeeklyCounts(
@@ -78,9 +143,9 @@ function mapPlatformBreakdown(
 }
 
 export class DashboardRepository {
-  async getMetrics(weekCount: number) {
-    const weekBuckets = buildWeekBuckets(weekCount);
-    const sinceDate = weekBuckets[0]?.start;
+  async getMetrics(params: { weeks?: number; from?: string; to?: string }) {
+    const weekBuckets = resolveWeekBuckets(params);
+    const { sinceDate, untilDate } = getPeriodBounds(weekBuckets);
 
     const warehouseList = await db
       .select({ id: warehouses.id, name: warehouses.name })
@@ -188,6 +253,7 @@ export class DashboardRepository {
           and(
             eq(entries.isDeleted, false),
             sinceDate ? gte(entries.date, sinceDate) : undefined,
+            untilDate ? lt(entries.date, untilDate) : undefined,
           ),
         )
         .groupBy(
@@ -206,6 +272,9 @@ export class DashboardRepository {
             sinceDate
               ? gte(orders.createdAt, `${sinceDate}T00:00:00.000Z`)
               : undefined,
+            untilDate
+              ? lt(orders.createdAt, `${untilDate}T00:00:00.000Z`)
+              : undefined,
           ),
         )
         .groupBy(sql`date_trunc('week', ${orders.createdAt}::timestamp)::date`),
@@ -220,6 +289,9 @@ export class DashboardRepository {
             inArray(packages.packageStatusId, COMPLETED_PACKAGE_STATUSES),
             sinceDate
               ? gte(packages.updatedAt, `${sinceDate}T00:00:00.000Z`)
+              : undefined,
+            untilDate
+              ? lt(packages.updatedAt, `${untilDate}T00:00:00.000Z`)
               : undefined,
           ),
         )

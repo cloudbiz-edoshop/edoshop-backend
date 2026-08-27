@@ -1,8 +1,31 @@
 import { z } from "@hono/zod-openapi";
 
-export const dashboardMetricsQuerySchema = z.object({
-  weeks: z.coerce.number().int().min(4).max(12).optional().default(8),
-});
+export const dashboardMetricsQuerySchema = z
+  .object({
+    weeks: z.coerce.number().int().min(4).max(52).optional().default(8),
+    from: z.string().date().optional(),
+    to: z.string().date().optional(),
+  })
+  .superRefine((data, ctx) => {
+    const hasFrom = Boolean(data.from);
+    const hasTo = Boolean(data.to);
+
+    if (hasFrom !== hasTo) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Both from and to are required for a custom period",
+        path: ["from"],
+      });
+    }
+
+    if (hasFrom && hasTo && data.from! > data.to!) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "From date must be on or before to date",
+        path: ["from"],
+      });
+    }
+  });
 
 export const weeklySeriesSchema = z.object({
   weeks: z.array(z.string()),

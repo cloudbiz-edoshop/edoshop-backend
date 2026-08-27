@@ -9,9 +9,9 @@ import { DashboardService } from "./dashboard.service";
 const dashboardService = new DashboardService();
 
 export const getMetrics: AppRouteHandler<GetMetricsRoute> = async (c) => {
-  const { weeks } = c.req.valid("query");
+  const { weeks, from, to } = c.req.valid("query");
 
-  const metrics = await dashboardService.getMetrics(weeks);
+  const metrics = await dashboardService.getMetrics({ weeks, from, to });
 
   return c.json(
     successResponse(metrics, "Dashboard metrics retrieved successfully"),

@@ -5,8 +5,12 @@ import { DashboardRepository } from "./dashboard.repository";
 export class DashboardService {
   private readonly repository = new DashboardRepository();
 
-  async getMetrics(weeks: number) {
-    const metrics = await this.repository.getMetrics(weeks);
+  async getMetrics(params: {
+    weeks?: number;
+    from?: string;
+    to?: string;
+  }) {
+    const metrics = await this.repository.getMetrics(params);
 
     return {
       ...metrics,
