@@ -19,6 +19,7 @@ export class DiscountsRepository {
       where: eq(discounts.id, id),
       with: {
         series: true,
+        product: true,
         discountType: true,
         createdByUser: true,
         updatedByUser: true,
@@ -55,9 +56,13 @@ export class DiscountsRepository {
       whereConditions.push(eq(discounts.seriesId, Number(filters.seriesId)));
     }
 
-    // Add other filters
+    if (filters?.productId) {
+      whereConditions.push(eq(discounts.productId, Number(filters.productId)));
+    }
+
     const otherFilters = { ...filters };
     delete otherFilters.seriesId;
+    delete otherFilters.productId;
     const filterCondition = createFilterConditions(discounts, otherFilters);
     if (filterCondition) {
       whereConditions.push(filterCondition);
@@ -109,7 +114,8 @@ export class DiscountsRepository {
       discountTypeId: number;
       discountValue: string;
       minimumPurchaseAmount?: string;
-      seriesId: number;
+      seriesId?: number | null;
+      productId?: number | null;
       isActive: boolean;
       startsAt?: Date;
       endsAt?: Date;
@@ -137,10 +143,11 @@ export class DiscountsRepository {
       discountTypeId: number;
       discountValue: string;
       minimumPurchaseAmount?: string;
-      seriesId: number;
+      seriesId?: number | null;
+      productId?: number | null;
       isActive: boolean;
-      startsAt: Date;
-      endsAt: Date;
+      startsAt?: Date | null;
+      endsAt?: Date | null;
       updatedBy: number;
     }>,
   ) {

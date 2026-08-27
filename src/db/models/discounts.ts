@@ -13,6 +13,7 @@ import {
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 
 import { discountTypes } from "./discount-types";
+import { products } from "./products";
 import { series } from "./series";
 import { users } from "./users";
 
@@ -29,6 +30,7 @@ export const discounts = pgTable("discounts", {
   startsAt: timestamp("starts_at"),
   endsAt: timestamp("ends_at"),
   seriesId: integer("series_id").references(() => series.id),
+  productId: integer("product_id").references(() => products.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at"),
   createdBy: integer("created_by").references(() => users.id),
@@ -48,6 +50,10 @@ export const discountsRelations = relations(discounts, ({ one }) => ({
   series: one(series, {
     fields: [discounts.seriesId],
     references: [series.id],
+  }),
+  product: one(products, {
+    fields: [discounts.productId],
+    references: [products.id],
   }),
   createdByUser: one(users, {
     fields: [discounts.createdBy],

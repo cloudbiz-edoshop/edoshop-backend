@@ -11,6 +11,52 @@ import db from "@/db";
 
 import { DiscountsRepository } from "./discounts.repository";
 
+const resolveTargetIds = (data: {
+  targetType?: "series" | "product";
+  seriesId?: number;
+  productId?: number;
+}) => {
+  if (data.targetType === "product") {
+    return { seriesId: null, productId: data.productId ?? null };
+  }
+
+  return { seriesId: data.seriesId ?? null, productId: null };
+};
+
+const resolveEndsAt = (data: {
+  isPermanent?: boolean;
+  endsAt?: string;
+}) => {
+  if (data.isPermanent ?? !data.endsAt) {
+    return null;
+  }
+
+  return new Date(data.endsAt);
+};
+
+export const isDiscountCurrentlyActive = (
+  discount: {
+    isActive?: boolean | null;
+    startsAt?: Date | string | null;
+    endsAt?: Date | string | null;
+  },
+  now = new Date(),
+) => {
+  if (discount.isActive === false) {
+    return false;
+  }
+
+  if (discount.startsAt && new Date(discount.startsAt) > now) {
+    return false;
+  }
+
+  if (discount.endsAt && new Date(discount.endsAt) < now) {
+    return false;
+  }
+
+  return true;
+};
+
 export class DiscountsService {
   private readonly discountsRepository: DiscountsRepository;
 
@@ -21,6 +67,7 @@ export class DiscountsService {
   async createDiscount(
     data: CreateDiscountRequest & { createdBy: number },
   ): Promise<CreateDiscountResponse> {
+    const targetIds = resolveTargetIds(data);
     const discount = await db.transaction(async (tx) => {
       const createdDiscount = await this.discountsRepository.create(tx, {
         name: data.name ?? `Discount ${data.discountRate}%`,
@@ -30,8 +77,9 @@ export class DiscountsService {
         minimumPurchaseAmount: data.minimumPurchaseAmount?.toString(),
         isActive: data.isActive ?? true,
         startsAt: data.startsAt ? new Date(data.startsAt) : undefined,
-        endsAt: data.endsAt ? new Date(data.endsAt) : undefined,
-        seriesId: data.seriesId,
+        endsAt: resolveEndsAt(data),
+        seriesId: targetIds.seriesId,
+        productId: targetIds.productId,
         updatedBy: data.createdBy,
         createdBy: data.createdBy,
       });
@@ -62,21 +110,54 @@ export class DiscountsService {
     id: number,
     data: UpdateDiscountRequest & { updatedBy: number },
   ): Promise<CreateDiscountResponse> {
-    const updateData = {
-      ...data,
+    const existingDiscount = await this.discountsRepository.findById(id);
+    if (!existingDiscount) {
+      throw new NotFoundError("Discount not found");
+    }
+
+    const targetType =
+      data.targetType ??
+      (existingDiscount.productId ? "product" : "series");
+    const targetIds = data.targetType || data.seriesId || data.productId
+      ? resolveTargetIds({
+          targetType,
+          seriesId: data.seriesId,
+          productId: data.productId,
+        })
+      : {
+          seriesId: existingDiscount.seriesId,
+          productId: existingDiscount.productId,
+        };
+
+    const updateData: Record<string, unknown> = {
+      name: data.name,
+      description: data.description,
+      discountTypeId: data.discountTypeId,
       discountValue:
         data.discountRate !== undefined
           ? data.discountRate.toString()
           : data.discountValue?.toString(),
       minimumPurchaseAmount: data.minimumPurchaseAmount?.toString(),
+      isActive: data.isActive,
       startsAt: data.startsAt ? new Date(data.startsAt) : undefined,
-      endsAt: data.endsAt ? new Date(data.endsAt) : undefined,
+      seriesId: targetIds.seriesId,
+      productId: targetIds.productId,
       updatedBy: data.updatedBy,
     };
-    delete updateData.discountRate;
+
+    if (data.isPermanent !== undefined || data.endsAt !== undefined) {
+      updateData.endsAt = resolveEndsAt({
+        isPermanent: data.isPermanent,
+        endsAt: data.endsAt,
+      });
+    }
 
     const discount = await db.transaction(async (tx) => {
-      const updatedDiscount = await this.discountsRepository.update(tx, id, updateData);
+      const updatedDiscount = await this.discountsRepository.update(
+        tx,
+        id,
+        updateData,
+      );
 
       if (!updatedDiscount) {
         throw new NotFoundError("Discount not found");
@@ -114,15 +195,17 @@ export class DiscountsService {
     sortOrder?: "asc" | "desc";
     filters?: string | Record<string, any>;
   }) {
-    // Parse filters if it's a string
     const parsedFilters =
       typeof params.filters === "string"
         ? JSON.parse(params.filters)
         : params.filters;
 
-    // Convert seriesId to number if it exists
     if (parsedFilters?.seriesId) {
       parsedFilters.seriesId = Number(parsedFilters.seriesId);
+    }
+
+    if (parsedFilters?.productId) {
+      parsedFilters.productId = Number(parsedFilters.productId);
     }
 
     return await this.discountsRepository.list({

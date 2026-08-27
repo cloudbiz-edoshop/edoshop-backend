@@ -15,7 +15,10 @@ import { BannersService } from "@/modules/banners/banners.service";
 import { AboutUsService } from "@/modules/about-us/about-us.service";
 import { CategoriesService } from "@/modules/categories/categories.service";
 import { CustomersService } from "@/modules/customers/customers.service";
-import { DiscountsService } from "@/modules/discounts/discounts.service";
+import {
+  DiscountsService,
+  isDiscountCurrentlyActive,
+} from "@/modules/discounts/discounts.service";
 import { FaqsService } from "@/modules/faqs/faqs.service";
 import { FiltersService } from "@/modules/filters/filters.service";
 import { NewArrivalsService } from "@/modules/new-arrivals/new-arrivals.service";
@@ -372,9 +375,12 @@ export const listDiscounts = async (c: any) => {
     ...params,
     filters: { ...params.filters, isActive: true },
   });
-  const publicDiscounts = result.data.map((discount) => ({
+  const publicDiscounts = result.data
+    .filter((discount) => isDiscountCurrentlyActive(discount))
+    .map((discount) => ({
     id: discount.id,
     seriesId: discount.seriesId,
+    productId: discount.productId,
     discountRate: discount.discountValue,
     name: discount.name,
     description: discount.description,
