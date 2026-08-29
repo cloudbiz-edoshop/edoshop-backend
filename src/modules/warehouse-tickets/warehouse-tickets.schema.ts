@@ -145,6 +145,7 @@ export const warehouseTicketEntryOptionSchema = z.object({
 
 export const returnWarehouseTicketRequestSchema = z.object({
   requesterId: z.number().int().positive().optional(),
+  idempotencyKey: z.string().uuid().optional(),
   items: z
     .array(
       z.object({

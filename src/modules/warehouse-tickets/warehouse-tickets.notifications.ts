@@ -149,6 +149,31 @@ export async function notifyWarehouseTechsForApprovedTicket(params: {
   });
 }
 
+export async function notifyWarehouseTechsForReturn(params: {
+  ticketId: number;
+  warehouseId: number;
+  ticketCode: string;
+  requesterName: string;
+}) {
+  const roleNames =
+    params.warehouseId === 1
+      ? [...WAREHOUSE_TICKET_W1_TECH_ROLES]
+      : [...WAREHOUSE_TICKET_W2_TECH_ROLES];
+
+  const techIds =
+    await warehouseTicketsRepository.listUserIdsByRoleNames(roleNames);
+
+  await notifyWarehouseTicketUsers({
+    userIds: techIds,
+    title: "Borrowed products return recorded",
+    message: `${params.requesterName} recorded a return on ticket ${params.ticketCode}. Review the return in EWMS if needed.`,
+    notificationTypeId: NotificationTypeIds.WARNING,
+    actionUrl: `/warehouse/${params.warehouseId}/receive-from-requester?ticketId=${params.ticketId}`,
+    referenceType: WAREHOUSE_TICKET_NOTIFICATION_REFERENCES.TICKET,
+    referenceId: params.ticketId,
+  });
+}
+
 export async function notifyApproversAndRequester(params: {
   requesterId: number;
   ticketId: number;

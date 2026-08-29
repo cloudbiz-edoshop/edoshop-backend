@@ -450,6 +450,42 @@ export class WarehouseTicketsRepository {
       .returning();
   }
 
+  async lockTicketItem(tx: TX, itemId: number, ticketId: number) {
+    const [item] = await tx
+      .select()
+      .from(warehouseTicketItems)
+      .where(
+        and(
+          eq(warehouseTicketItems.id, itemId),
+          eq(warehouseTicketItems.ticketId, ticketId),
+        ),
+      )
+      .for("update");
+
+    return item;
+  }
+
+  async hasReturnIdempotencyKey(
+    tx: TX,
+    ticketId: number,
+    idempotencyKey: string,
+  ) {
+    const marker = `[idempotency:${idempotencyKey}]`;
+    const [event] = await tx
+      .select({ id: warehouseTicketEvents.id })
+      .from(warehouseTicketEvents)
+      .where(
+        and(
+          eq(warehouseTicketEvents.ticketId, ticketId),
+          eq(warehouseTicketEvents.action, "item_returned"),
+          sql`${warehouseTicketEvents.comment} LIKE ${`%${marker}%`}`,
+        ),
+      )
+      .limit(1);
+
+    return Boolean(event);
+  }
+
   async addEvent(
     tx: TX,
     data: {
@@ -554,6 +590,30 @@ export class WarehouseTicketsRepository {
         and(
           eq(warehouseTicketItems.id, itemId),
           eq(warehouseTicketItems.ticketId, ticketId),
+        ),
+      )
+      .returning();
+
+    return item;
+  }
+
+  async incrementItemReturn(
+    tx: TX,
+    itemId: number,
+    ticketId: number,
+    increment: number,
+  ) {
+    const [item] = await tx
+      .update(warehouseTicketItems)
+      .set({
+        returnedQuantity: sql`${warehouseTicketItems.returnedQuantity} + ${increment}`,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(
+        and(
+          eq(warehouseTicketItems.id, itemId),
+          eq(warehouseTicketItems.ticketId, ticketId),
+          sql`${warehouseTicketItems.returnedQuantity} + ${increment} <= ${warehouseTicketItems.transferredQuantity}`,
         ),
       )
       .returning();

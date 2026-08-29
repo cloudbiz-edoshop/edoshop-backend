@@ -27,6 +27,7 @@ import {
   notifyRequester,
   notifyReturnReminder,
   notifyWarehouseTechsForApprovedTicket,
+  notifyWarehouseTechsForReturn,
 } from "./warehouse-tickets.notifications";
 import { WarehouseTicketsRepository } from "./warehouse-tickets.repository";
 
@@ -979,6 +980,7 @@ export class WarehouseTicketsService {
     data: {
       items: Array<{ itemId: number; returnedQuantity: number }>;
       requesterId?: number;
+      idempotencyKey?: string;
     },
     actor: ActorContext,
   ): Promise<WarehouseTicketResponse> {
@@ -1001,34 +1003,59 @@ export class WarehouseTicketsService {
     }
 
     const roleName = await this.getActorRoleName(actor);
-    this.assertWarehouseTechRole(existing.warehouseId, roleName, actor.isAdmin);
+    const isRequester = existing.requesterId === actor.userId;
+    if (!actor.isAdmin && !isRequester) {
+      this.assertWarehouseTechRole(existing.warehouseId, roleName, actor.isAdmin);
+    }
+
+    const returnRows = data.items.filter((row) => row.returnedQuantity > 0);
+    if (!returnRows.length) {
+      throw new ValidationError("At least one return quantity greater than zero is required");
+    }
 
     await db.transaction(async (tx) => {
-      for (const row of data.items) {
-        const item = existing.items?.find((entry) => entry.id === row.itemId);
+      if (data.idempotencyKey) {
+        const isDuplicate = await this.repository.hasReturnIdempotencyKey(
+          tx,
+          id,
+          data.idempotencyKey,
+        );
+        if (isDuplicate) {
+          throw new ValidationError("This return was already recorded");
+        }
+      }
+
+      for (const row of returnRows) {
+        const item = await this.repository.lockTicketItem(tx, row.itemId, id);
         if (!item) {
           throw new ValidationError(`Ticket item ${row.itemId} not found`);
         }
 
-        const outstanding = item.transferredQuantity - (item.returnedQuantity ?? 0);
-        if (row.returnedQuantity > outstanding) {
-          throw new ValidationError(
-            `Return quantity exceeds outstanding borrowed amount for ${item.productLabel}`,
-          );
-        }
-
-        await this.repository.updateItemReturn(
+        const updatedItem = await this.repository.incrementItemReturn(
           tx,
           row.itemId,
           id,
-          (item.returnedQuantity ?? 0) + row.returnedQuantity,
+          row.returnedQuantity,
         );
+
+        if (!updatedItem) {
+          const outstanding = item.transferredQuantity - (item.returnedQuantity ?? 0);
+          throw new ValidationError(
+            row.returnedQuantity > outstanding
+              ? `Return quantity exceeds outstanding borrowed amount for ${item.productLabel}`
+              : `Unable to record return for ${item.productLabel}. Please refresh and try again.`,
+          );
+        }
+
+        const idempotencySuffix = data.idempotencyKey
+          ? ` [idempotency:${data.idempotencyKey}]`
+          : "";
 
         await this.repository.addEvent(tx, {
           ticketId: id,
           actorId: actor.userId,
           action: WarehouseTicketEventAction.ITEM_RETURNED,
-          comment: `${item.productLabel}: ${row.returnedQuantity} returned to EWMS`,
+          comment: `${item.productLabel}: ${row.returnedQuantity} returned to EWMS${idempotencySuffix}`,
         });
       }
     });
@@ -1044,6 +1071,15 @@ export class WarehouseTicketsService {
       title: "Borrowed products returned",
       message: `Ticket ${ticket.ticketCode}: returned quantities were recorded in EWMS.`,
     });
+
+    if (isRequester) {
+      await notifyWarehouseTechsForReturn({
+        ticketId: ticket.id,
+        warehouseId: ticket.warehouseId,
+        ticketCode: ticket.ticketCode,
+        requesterName: formatUserName(ticket.requester ?? undefined),
+      });
+    }
 
     return await this.mapTicket(ticket);
   }
