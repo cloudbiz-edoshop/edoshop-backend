@@ -519,6 +519,27 @@ export const markStaffNotificationRead = createRoute({
   },
 });
 
+export const markAllStaffNotificationsRead = createRoute({
+  path: "/employees/me/notifications/read-all",
+  method: "patch",
+  tags: ["Team Notifications"],
+  middleware: [jwtMiddleware()] as const,
+  request: {
+    headers: jwtHeaderSchema,
+  },
+  summary: "Mark all team notifications as read",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(z.object({ success: z.literal(true) })),
+      "All team notifications marked as read",
+    ),
+    ...commonErrorResponses(
+      [HttpStatusCodes.UNAUTHORIZED, HttpStatusCodes.INTERNAL_SERVER_ERROR],
+      z.object({}),
+    ),
+  },
+});
+
 export const getStaffUnreadNotificationCount = createRoute({
   path: "/employees/me/notifications/unread-count",
   method: "get",
@@ -559,5 +580,7 @@ export type GetMyUnreadNotificationCountRoute =
   typeof getMyUnreadNotificationCount;
 export type GetStaffNotificationsRoute = typeof getStaffNotifications;
 export type MarkStaffNotificationReadRoute = typeof markStaffNotificationRead;
+export type MarkAllStaffNotificationsReadRoute =
+  typeof markAllStaffNotificationsRead;
 export type GetStaffUnreadNotificationCountRoute =
   typeof getStaffUnreadNotificationCount;

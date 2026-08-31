@@ -12,6 +12,7 @@ import type {
   ListRoute,
   MarkAllMyNotificationsReadRoute,
   MarkMyNotificationReadRoute,
+  MarkAllStaffNotificationsReadRoute,
   MarkStaffNotificationReadRoute,
   PatchRoute,
   RemoveSelectedRoute,
@@ -297,6 +298,15 @@ export const markStaffNotificationRead: AppRouteHandler<MarkStaffNotificationRea
   );
   return c.json(
     successResponse(updated, "Team notification marked as read"),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const markAllStaffNotificationsRead: AppRouteHandler<MarkAllStaffNotificationsReadRoute> = async (c) => {
+  const payload = c.get("accessTokenPayload");
+  await notificationsService.markAllStaffNotificationsRead(payload.userId);
+  return c.json(
+    successResponse({ success: true }, "All team notifications marked as read"),
     HttpStatusCodes.OK,
   );
 };

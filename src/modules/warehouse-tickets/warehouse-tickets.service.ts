@@ -1,6 +1,10 @@
 import type {
+  ConfirmTakeoutRequest,
   ConfirmWarehouseTicketRequest,
   CreateWarehouseTicketRequest,
+  InitiateReturnRequest,
+  PrepareWarehouseTicketRequest,
+  ConfirmReturnRequest,
   UpdateWarehouseTicketRequest,
   UpdateWarehouseTicketSettingsRequest,
   WarehouseTicketResponse,
@@ -28,14 +32,29 @@ import {
   notifyReturnReminder,
   notifyWarehouseTechsForApprovedTicket,
   notifyWarehouseTechsForReturn,
+  notifyStaffForReturnInitiated,
+  deactivateReturnPendingNotifications,
 } from "./warehouse-tickets.notifications";
 import { WarehouseTicketsRepository } from "./warehouse-tickets.repository";
+import {
+  getItemOutstanding,
+  getItemPrepared,
+  getItemReceived,
+  getItemReturnable,
+  getTicketQuantitySummary,
+  resolveBorrowTicketStatus,
+} from "./warehouse-tickets.quantities";
 
 type ActorContext = {
   userId: number;
   roleName?: string | null;
   isAdmin?: boolean;
 };
+
+type TicketRecord = NonNullable<
+  Awaited<ReturnType<WarehouseTicketsRepository["findById"]>>
+>;
+type TicketItemRecord = NonNullable<TicketRecord["items"]>[number];
 
 export class WarehouseTicketsService {
   private readonly repository: WarehouseTicketsRepository;
@@ -121,9 +140,19 @@ export class WarehouseTicketsService {
     });
   }
 
-  private async mapTicket(ticket: NonNullable<
-    Awaited<ReturnType<WarehouseTicketsRepository["findById"]>>
-  >): Promise<WarehouseTicketResponse> {
+  private enrichItem(item: TicketItemRecord) {
+    const receivedQuantity = getItemReceived(item);
+    return {
+      ...item,
+      preparedQuantity: getItemPrepared(item),
+      receivedQuantity,
+      outstandingQuantity: getItemOutstanding(item),
+      pendingReturnQuantity: item.pendingReturnQuantity ?? 0,
+      shortageReason: item.shortageReason ?? null,
+    };
+  }
+
+  private async mapTicket(ticket: TicketRecord): Promise<WarehouseTicketResponse> {
     const entryIds = ticket.items?.map((item) => item.entryId) ?? [];
     const imageMap = await this.repository.getEntryImagesByIds(
       entryIds.filter((id): id is number => Boolean(id)),
@@ -134,7 +163,7 @@ export class WarehouseTicketsService {
       status: ticket.status as WarehouseTicketStatus,
       pausedFromStatus: ticket.pausedFromStatus as WarehouseTicketStatus | null,
       items: ticket.items?.map((item) => ({
-        ...item,
+        ...this.enrichItem(item),
         entryId: item.entryId ?? null,
         sku: item.sku ?? null,
         notes: item.notes ?? null,
@@ -575,6 +604,7 @@ export class WarehouseTicketsService {
       warehouseId: ticket.warehouseId,
       ticketCode: ticket.ticketCode,
       requesterName: formatUserName(ticket.requester ?? undefined),
+      requesterId: ticket.requesterId,
     });
 
     return await this.mapTicket(ticket);
@@ -805,6 +835,7 @@ export class WarehouseTicketsService {
         warehouseId: ticket.warehouseId,
         ticketCode: ticket.ticketCode,
         requesterName: formatUserName(ticket.requester ?? undefined),
+        requesterId: ticket.requesterId,
       });
     } else {
       await notifyApproversForNewTicket({
@@ -819,9 +850,9 @@ export class WarehouseTicketsService {
     return await this.mapTicket(ticket);
   }
 
-  async confirmTicket(
+  async prepareTicket(
     id: number,
-    data: ConfirmWarehouseTicketRequest,
+    data: PrepareWarehouseTicketRequest,
     actor: ActorContext,
   ): Promise<WarehouseTicketResponse> {
     const existing = await this.repository.findById(id);
@@ -829,9 +860,13 @@ export class WarehouseTicketsService {
       throw new NotFoundError("Warehouse ticket not found");
     }
 
-    if (existing.status !== WarehouseTicketStatus.APPROVED) {
+    const allowedStatuses = [
+      WarehouseTicketStatus.APPROVED,
+      WarehouseTicketStatus.BEING_PREPARED,
+    ];
+    if (!allowedStatuses.includes(existing.status as WarehouseTicketStatus)) {
       throw new ValidationError(
-        "Only approved tickets can be confirmed for pickup",
+        "Only approved tickets can be prepared for pickup",
       );
     }
 
@@ -841,60 +876,55 @@ export class WarehouseTicketsService {
     const now = new Date().toISOString();
 
     await db.transaction(async (tx) => {
-      if (data.items?.length) {
-        for (const transfer of data.items) {
-          const item = existing.items?.find(
-            (row) => row.id === transfer.itemId,
-          );
-          if (!item) {
-            throw new ValidationError(`Ticket item ${transfer.itemId} not found`);
-          }
+      for (const row of data.items) {
+        const item = existing.items?.find((entry) => entry.id === row.itemId);
+        if (!item) {
+          throw new ValidationError(`Ticket item ${row.itemId} not found`);
+        }
 
-          if (transfer.transferredQuantity > item.quantity) {
+        if (row.preparedQuantity > item.quantity) {
+          throw new ValidationError(
+            `Prepared quantity cannot exceed requested quantity for ${item.productLabel}`,
+          );
+        }
+
+        if (row.preparedQuantity < item.quantity) {
+          const reason = row.shortageReason?.trim();
+          if (!reason || reason.length < 3) {
             throw new ValidationError(
-              `Transferred quantity cannot exceed requested quantity for ${item.productLabel}`,
+              `Shortage reason is required when prepared quantity is less than requested for ${item.productLabel}`,
             );
           }
-
-          await this.repository.updateItemTransfer(
-            tx,
-            transfer.itemId,
-            id,
-            transfer.transferredQuantity,
-          );
-
-          await this.repository.addEvent(tx, {
-            ticketId: id,
-            actorId: actor.userId,
-            action: WarehouseTicketEventAction.ITEM_TRANSFERRED,
-            comment: `${item.productLabel}: ${transfer.transferredQuantity}/${item.quantity} transferred`,
-          });
         }
-      } else {
-        for (const item of existing.items ?? []) {
-          await this.repository.updateItemTransfer(
-            tx,
-            item.id,
-            id,
-            item.quantity,
-          );
-        }
+
+        await this.repository.updateItemPrepared(tx, row.itemId, id, {
+          preparedQuantity: row.preparedQuantity,
+          shortageReason: row.shortageReason?.trim() || null,
+        });
+
+        await this.repository.addEvent(tx, {
+          ticketId: id,
+          actorId: actor.userId,
+          action: WarehouseTicketEventAction.ITEM_PREPARED,
+          comment: `${item.productLabel}: ${row.preparedQuantity}/${item.quantity} prepared${row.shortageReason ? ` (${row.shortageReason})` : ""}`,
+        });
       }
 
-      const allTransferred = (existing.items ?? []).every((item) => {
-        const override = data.items?.find((row) => row.itemId === item.id);
-        const transferredQty = override?.transferredQuantity ?? item.quantity;
-        return transferredQty >= item.quantity;
-      });
+      const treatedItemIds = new Set(data.items.map((row) => row.itemId));
+      const allTreated = (existing.items ?? []).every((item) =>
+        treatedItemIds.has(item.id),
+      );
 
-      if (!allTransferred) {
+      if (!allTreated) {
         throw new ValidationError(
-          "All ticket items must be fully transferred before confirming pickup",
+          "All ticket items must be treated before completing preparation",
         );
       }
 
       await this.repository.updateTicket(tx, id, {
         status: WarehouseTicketStatus.READY_FOR_PICKUP,
+        preparedAt: now,
+        preparedById: actor.userId,
         warehouseTechId: actor.userId,
         confirmedAt: now,
         updatedBy: actor.userId,
@@ -903,7 +933,7 @@ export class WarehouseTicketsService {
       await this.repository.addEvent(tx, {
         ticketId: id,
         actorId: actor.userId,
-        action: WarehouseTicketEventAction.CONFIRMED,
+        action: WarehouseTicketEventAction.PREPARED,
         previousStatus: existing.status,
         newStatus: WarehouseTicketStatus.READY_FOR_PICKUP,
       });
@@ -926,8 +956,38 @@ export class WarehouseTicketsService {
     return await this.mapTicket(ticket);
   }
 
-  async completeTicket(
+  async confirmTicket(
     id: number,
+    data: ConfirmWarehouseTicketRequest,
+    actor: ActorContext,
+  ): Promise<WarehouseTicketResponse> {
+    const existing = await this.repository.findById(id);
+    if (!existing) {
+      throw new NotFoundError("Warehouse ticket not found");
+    }
+
+    const items = data.items?.length
+      ? data.items.map((row) => ({
+          itemId: row.itemId,
+          preparedQuantity: row.transferredQuantity,
+          shortageReason:
+            row.transferredQuantity
+            < (existing.items?.find((item) => item.id === row.itemId)?.quantity ?? 0)
+              ? "Partial preparation"
+              : null,
+        }))
+      : (existing.items ?? []).map((item) => ({
+          itemId: item.id,
+          preparedQuantity: item.quantity,
+          shortageReason: null,
+        }));
+
+    return this.prepareTicket(id, { items }, actor);
+  }
+
+  async confirmTakeout(
+    id: number,
+    data: ConfirmTakeoutRequest,
     actor: ActorContext,
   ): Promise<WarehouseTicketResponse> {
     const existing = await this.repository.findById(id);
@@ -936,10 +996,13 @@ export class WarehouseTicketsService {
     }
 
     if (existing.status !== WarehouseTicketStatus.READY_FOR_PICKUP) {
-      throw new ValidationError("Only ready tickets can be marked as collected");
+      throw new ValidationError(
+        "Only tickets ready for pickup can be confirmed as taken out",
+      );
     }
 
-    this.assertRequesterOrAdmin(existing.requesterId, actor);
+    const roleName = await this.getActorRoleName(actor);
+    this.assertWarehouseTechRole(existing.warehouseId, roleName, actor.isAdmin);
 
     const settings = await this.repository.getTicketSettings();
     const reminderDays = settings?.returnReminderDays ?? 7;
@@ -949,9 +1012,36 @@ export class WarehouseTicketsService {
     const now = new Date().toISOString();
 
     await db.transaction(async (tx) => {
+      for (const item of existing.items ?? []) {
+        const override = data.items?.find((row) => row.itemId === item.id);
+        const receivedQuantity =
+          override?.receivedQuantity ?? getItemPrepared(item);
+
+        if (receivedQuantity > getItemPrepared(item)) {
+          throw new ValidationError(
+            `Received quantity cannot exceed prepared quantity for ${item.productLabel}`,
+          );
+        }
+
+        await this.repository.updateItemReceived(
+          tx,
+          item.id,
+          id,
+          receivedQuantity,
+        );
+
+        await this.repository.addEvent(tx, {
+          ticketId: id,
+          actorId: actor.userId,
+          action: WarehouseTicketEventAction.ITEM_TRANSFERRED,
+          comment: `${item.productLabel}: ${receivedQuantity} received by requester`,
+        });
+      }
+
       await this.repository.updateTicket(tx, id, {
-        status: WarehouseTicketStatus.COMPLETED,
+        status: WarehouseTicketStatus.RECEIVED_BORROWED,
         completedAt: now,
+        releasedAt: now,
         borrowDueAt,
         updatedBy: actor.userId,
       });
@@ -959,9 +1049,9 @@ export class WarehouseTicketsService {
       await this.repository.addEvent(tx, {
         ticketId: id,
         actorId: actor.userId,
-        action: WarehouseTicketEventAction.COMPLETED,
+        action: WarehouseTicketEventAction.TAKEOUT_CONFIRMED,
         previousStatus: existing.status,
-        newStatus: WarehouseTicketStatus.COMPLETED,
+        newStatus: WarehouseTicketStatus.RECEIVED_BORROWED,
       });
     });
 
@@ -970,7 +1060,266 @@ export class WarehouseTicketsService {
       throw new NotFoundError("Warehouse ticket not found");
     }
 
+    await notifyRequester({
+      requesterId: ticket.requesterId,
+      ticketId: ticket.id,
+      title: "Borrow confirmed",
+      message: `Ticket ${ticket.ticketCode}: takeout was confirmed. Return items through the ticket when finished.`,
+    });
+
     await deactivateTicketNotifications(id);
+
+    return await this.mapTicket(ticket);
+  }
+
+  async completeTicket(
+    id: number,
+    actor: ActorContext,
+  ): Promise<WarehouseTicketResponse> {
+    return this.confirmTakeout(id, {}, actor);
+  }
+
+  async initiateReturn(
+    id: number,
+    data: InitiateReturnRequest,
+    actor: ActorContext,
+  ): Promise<WarehouseTicketResponse> {
+    const existing = await this.repository.findById(id);
+    if (!existing) {
+      throw new NotFoundError("Warehouse ticket not found");
+    }
+
+    const borrowStatuses = [
+      WarehouseTicketStatus.RECEIVED_BORROWED,
+      WarehouseTicketStatus.PARTIALLY_RETURNED,
+      WarehouseTicketStatus.COMPLETED,
+    ];
+    if (!borrowStatuses.includes(existing.status as WarehouseTicketStatus)) {
+      throw new ValidationError(
+        "Only borrowed tickets can initiate product returns",
+      );
+    }
+
+    if (
+      data.requesterId != null &&
+      data.requesterId !== existing.requesterId
+    ) {
+      throw new ValidationError(
+        "Returned products must match the requester who borrowed them",
+      );
+    }
+
+    const isRequester = existing.requesterId === actor.userId;
+    if (!actor.isAdmin && !isRequester) {
+      throw new ForbiddenError("Only the requester can initiate a return");
+    }
+
+    const returnRows = data.items.filter((row) => row.returnQuantity > 0);
+    if (!returnRows.length) {
+      throw new ValidationError(
+        "At least one return quantity greater than zero is required",
+      );
+    }
+
+    await db.transaction(async (tx) => {
+      if (data.idempotencyKey) {
+        const isDuplicate = await this.repository.hasReturnIdempotencyKey(
+          tx,
+          id,
+          data.idempotencyKey,
+          ["return_initiated"],
+        );
+        if (isDuplicate) {
+          throw new ValidationError("This return was already recorded");
+        }
+      }
+
+      for (const row of returnRows) {
+        const item = await this.repository.lockTicketItem(tx, row.itemId, id);
+        if (!item) {
+          throw new ValidationError(`Ticket item ${row.itemId} not found`);
+        }
+
+        const returnable = getItemReturnable(item);
+        if (row.returnQuantity > returnable) {
+          throw new ValidationError(
+            `Return quantity exceeds outstanding borrowed amount for ${item.productLabel}`,
+          );
+        }
+
+        const updatedItem = await this.repository.incrementItemPendingReturn(
+          tx,
+          row.itemId,
+          id,
+          row.returnQuantity,
+        );
+
+        if (!updatedItem) {
+          throw new ValidationError(
+            `Unable to record return for ${item.productLabel}. Please refresh and try again.`,
+          );
+        }
+
+        const idempotencySuffix = data.idempotencyKey
+          ? ` [idempotency:${data.idempotencyKey}]`
+          : "";
+
+        await this.repository.addEvent(tx, {
+          ticketId: id,
+          actorId: actor.userId,
+          action: WarehouseTicketEventAction.RETURN_INITIATED,
+          comment: `${item.productLabel}: ${row.returnQuantity} return initiated${idempotencySuffix}`,
+        });
+      }
+
+      const refreshedItems = await tx.query.warehouseTicketItems.findMany({
+        where: (items, { eq }) => eq(items.ticketId, id),
+      });
+      const nextStatus = resolveBorrowTicketStatus(
+        refreshedItems,
+        WarehouseTicketStatus.RETURN_PENDING,
+      );
+
+      await this.repository.updateTicket(tx, id, {
+        status: nextStatus,
+        updatedBy: actor.userId,
+      });
+    });
+
+    const ticket = await this.repository.findById(id);
+    if (!ticket) {
+      throw new NotFoundError("Warehouse ticket not found");
+    }
+
+    await notifyRequester({
+      requesterId: ticket.requesterId,
+      ticketId: ticket.id,
+      title: "Return submitted",
+      message: `Ticket ${ticket.ticketCode}: your return is pending warehouse confirmation.`,
+    });
+
+    await deactivateReturnPendingNotifications(ticket.id);
+
+    await notifyStaffForReturnInitiated({
+      ticketId: ticket.id,
+      warehouseId: ticket.warehouseId,
+      ticketCode: ticket.ticketCode,
+      requesterId: ticket.requesterId,
+      requesterName: formatUserName(ticket.requester ?? undefined),
+    });
+
+    return await this.mapTicket(ticket);
+  }
+
+  async confirmReturn(
+    id: number,
+    data: ConfirmReturnRequest,
+    actor: ActorContext,
+  ): Promise<WarehouseTicketResponse> {
+    const existing = await this.repository.findById(id);
+    if (!existing) {
+      throw new NotFoundError("Warehouse ticket not found");
+    }
+
+    const roleName = await this.getActorRoleName(actor);
+    this.assertWarehouseTechRole(existing.warehouseId, roleName, actor.isAdmin);
+
+    const returnRows = data.items.filter((row) => row.confirmedQuantity > 0);
+    if (!returnRows.length) {
+      throw new ValidationError(
+        "At least one confirmed return quantity greater than zero is required",
+      );
+    }
+
+    await db.transaction(async (tx) => {
+      if (data.idempotencyKey) {
+        const isDuplicate = await this.repository.hasReturnIdempotencyKey(
+          tx,
+          id,
+          data.idempotencyKey,
+          ["return_confirmed"],
+        );
+        if (isDuplicate) {
+          throw new ValidationError("This return confirmation was already recorded");
+        }
+      }
+
+      for (const row of returnRows) {
+        const item = await this.repository.lockTicketItem(tx, row.itemId, id);
+        if (!item) {
+          throw new ValidationError(`Ticket item ${row.itemId} not found`);
+        }
+
+        if (row.confirmedQuantity > (item.pendingReturnQuantity ?? 0)) {
+          throw new ValidationError(
+            `Confirmed quantity exceeds pending return for ${item.productLabel}`,
+          );
+        }
+
+        const updatedItem = await this.repository.confirmItemPendingReturn(
+          tx,
+          row.itemId,
+          id,
+          row.confirmedQuantity,
+        );
+
+        if (!updatedItem) {
+          throw new ValidationError(
+            `Unable to confirm return for ${item.productLabel}. Please refresh and try again.`,
+          );
+        }
+
+        const idempotencySuffix = data.idempotencyKey
+          ? ` [idempotency:${data.idempotencyKey}]`
+          : "";
+
+        await this.repository.addEvent(tx, {
+          ticketId: id,
+          actorId: actor.userId,
+          action: WarehouseTicketEventAction.RETURN_CONFIRMED,
+          comment: `${item.productLabel}: ${row.confirmedQuantity} return confirmed in EWMS${idempotencySuffix}`,
+        });
+      }
+
+      const refreshedItems = await tx.query.warehouseTicketItems.findMany({
+        where: (items, { eq }) => eq(items.ticketId, id),
+      });
+      const nextStatus = resolveBorrowTicketStatus(
+        refreshedItems,
+        existing.status,
+      );
+      const summary = getTicketQuantitySummary(refreshedItems);
+      const now = new Date().toISOString();
+
+      await this.repository.updateTicket(tx, id, {
+        status: nextStatus,
+        closedAt: nextStatus === WarehouseTicketStatus.CLOSED ? now : null,
+        updatedBy: actor.userId,
+      });
+
+      if (nextStatus === WarehouseTicketStatus.CLOSED) {
+        await this.repository.addEvent(tx, {
+          ticketId: id,
+          actorId: actor.userId,
+          action: WarehouseTicketEventAction.CLOSED,
+          previousStatus: existing.status,
+          newStatus: WarehouseTicketStatus.CLOSED,
+          comment: `All ${summary.received} borrowed item(s) returned`,
+        });
+      }
+    });
+
+    const ticket = await this.repository.findById(id);
+    if (!ticket) {
+      throw new NotFoundError("Warehouse ticket not found");
+    }
+
+    await notifyRequester({
+      requesterId: ticket.requesterId,
+      ticketId: ticket.id,
+      title: "Return confirmed",
+      message: `Ticket ${ticket.ticketCode}: returned quantities were confirmed in EWMS.`,
+    });
 
     return await this.mapTicket(ticket);
   }
@@ -989,99 +1338,67 @@ export class WarehouseTicketsService {
       throw new NotFoundError("Warehouse ticket not found");
     }
 
-    if (existing.status !== WarehouseTicketStatus.COMPLETED) {
-      throw new ValidationError("Only collected tickets can receive product returns");
-    }
+    const isRequester = existing.requesterId === actor.userId;
+    const roleName = await this.getActorRoleName(actor);
+    const isWarehouseTech = this.canHandleWarehouseTech(
+      existing.warehouseId,
+      roleName,
+      actor.isAdmin,
+    );
 
-    if (
-      data.requesterId != null &&
-      data.requesterId !== existing.requesterId
-    ) {
-      throw new ValidationError(
-        "Returned products must match the requester who borrowed them",
+    const hasPendingReturn = (existing.items ?? []).some(
+      (item) => (item.pendingReturnQuantity ?? 0) > 0,
+    );
+
+    if (isWarehouseTech && hasPendingReturn && !isRequester) {
+      return this.confirmReturn(
+        id,
+        {
+          idempotencyKey: data.idempotencyKey,
+          items: data.items.map((row) => ({
+            itemId: row.itemId,
+            confirmedQuantity: row.returnedQuantity,
+          })),
+        },
+        actor,
       );
     }
 
-    const roleName = await this.getActorRoleName(actor);
-    const isRequester = existing.requesterId === actor.userId;
-    if (!actor.isAdmin && !isRequester) {
-      this.assertWarehouseTechRole(existing.warehouseId, roleName, actor.isAdmin);
+    return this.initiateReturn(
+      id,
+      {
+        requesterId: data.requesterId,
+        idempotencyKey: data.idempotencyKey,
+        items: data.items.map((row) => ({
+          itemId: row.itemId,
+          returnQuantity: row.returnedQuantity,
+        })),
+      },
+      actor,
+    );
+  }
+
+  private canHandleWarehouseTech(
+    warehouseId: number,
+    roleName: string | null,
+    isAdmin?: boolean,
+  ) {
+    if (isAdmin) {
+      return true;
     }
 
-    const returnRows = data.items.filter((row) => row.returnedQuantity > 0);
-    if (!returnRows.length) {
-      throw new ValidationError("At least one return quantity greater than zero is required");
+    const w1Roles = WAREHOUSE_TICKET_W1_TECH_ROLES as readonly string[];
+    const w2Roles = WAREHOUSE_TICKET_W2_TECH_ROLES as readonly string[];
+
+    if (warehouseId === 1) {
+      return roleName != null && w1Roles.includes(roleName);
     }
 
-    await db.transaction(async (tx) => {
-      if (data.idempotencyKey) {
-        const isDuplicate = await this.repository.hasReturnIdempotencyKey(
-          tx,
-          id,
-          data.idempotencyKey,
-        );
-        if (isDuplicate) {
-          throw new ValidationError("This return was already recorded");
-        }
-      }
-
-      for (const row of returnRows) {
-        const item = await this.repository.lockTicketItem(tx, row.itemId, id);
-        if (!item) {
-          throw new ValidationError(`Ticket item ${row.itemId} not found`);
-        }
-
-        const updatedItem = await this.repository.incrementItemReturn(
-          tx,
-          row.itemId,
-          id,
-          row.returnedQuantity,
-        );
-
-        if (!updatedItem) {
-          const outstanding = item.transferredQuantity - (item.returnedQuantity ?? 0);
-          throw new ValidationError(
-            row.returnedQuantity > outstanding
-              ? `Return quantity exceeds outstanding borrowed amount for ${item.productLabel}`
-              : `Unable to record return for ${item.productLabel}. Please refresh and try again.`,
-          );
-        }
-
-        const idempotencySuffix = data.idempotencyKey
-          ? ` [idempotency:${data.idempotencyKey}]`
-          : "";
-
-        await this.repository.addEvent(tx, {
-          ticketId: id,
-          actorId: actor.userId,
-          action: WarehouseTicketEventAction.ITEM_RETURNED,
-          comment: `${item.productLabel}: ${row.returnedQuantity} returned to EWMS${idempotencySuffix}`,
-        });
-      }
-    });
-
-    const ticket = await this.repository.findById(id);
-    if (!ticket) {
-      throw new NotFoundError("Warehouse ticket not found");
+    if (warehouseId === 2) {
+      return roleName != null && w2Roles.includes(roleName);
     }
 
-    await notifyRequester({
-      requesterId: ticket.requesterId,
-      ticketId: ticket.id,
-      title: "Borrowed products returned",
-      message: `Ticket ${ticket.ticketCode}: returned quantities were recorded in EWMS.`,
-    });
-
-    if (isRequester) {
-      await notifyWarehouseTechsForReturn({
-        ticketId: ticket.id,
-        warehouseId: ticket.warehouseId,
-        ticketCode: ticket.ticketCode,
-        requesterName: formatUserName(ticket.requester ?? undefined),
-      });
-    }
-
-    return await this.mapTicket(ticket);
+    return false;
   }
 
   async processReturnReminders() {

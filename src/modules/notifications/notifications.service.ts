@@ -11,9 +11,15 @@ import db from "@/db";
 import { notificationDeliveryService } from "./notification-delivery.service";
 import { NotificationsRepository } from "./notifications.repository";
 import { NotificationAudience } from "@/constants/notification-audience.constants";
+import { PermissionsService } from "@/modules/permissions/permissions.service";
+import { WarehouseTicketsRepository } from "@/modules/warehouse-tickets/warehouse-tickets.repository";
+import { filterStaffNotificationsForUser } from "@/modules/warehouse-tickets/warehouse-tickets.notification-relevance";
+import { WAREHOUSE_TICKET_NOTIFICATION_REFERENCES } from "@/constants/warehouse-tickets.constants";
 
 export class NotificationsService {
   private readonly notificationsRepository: NotificationsRepository;
+  private readonly permissionsService = new PermissionsService();
+  private readonly warehouseTicketsRepository = new WarehouseTicketsRepository();
 
   /**
    * Create a new NotificationsService
@@ -207,9 +213,78 @@ export class NotificationsService {
     limit: number;
     unreadOnly?: boolean;
   }) {
-    return notificationDeliveryService.listUserNotifications({
-      ...params,
+    const result = await notificationDeliveryService.listUserNotifications({
+      userId: params.userId,
+      page: 1,
+      limit: Math.max(params.limit * 5, 100),
+      unreadOnly: params.unreadOnly,
       audience: NotificationAudience.STAFF,
+    });
+
+    const filtered = await this.filterRelevantStaffNotifications(
+      params.userId,
+      result.data,
+    );
+
+    const offset = (params.page - 1) * params.limit;
+
+    return {
+      data: filtered.slice(offset, offset + params.limit),
+      total: filtered.length,
+    };
+  }
+
+  async getStaffUnreadNotificationCount(userId: number) {
+    const result = await notificationDeliveryService.listUserNotifications({
+      userId,
+      page: 1,
+      limit: 200,
+      unreadOnly: true,
+      audience: NotificationAudience.STAFF,
+    });
+
+    const filtered = await this.filterRelevantStaffNotifications(
+      userId,
+      result.data,
+    );
+
+    return filtered.length;
+  }
+
+  private async filterRelevantStaffNotifications(
+    userId: number,
+    notifications: Awaited<
+      ReturnType<typeof notificationDeliveryService.listUserNotifications>
+    >["data"],
+  ) {
+    const accessProfile =
+      await this.permissionsService.getUserAccessProfile(userId);
+
+    const ticketIds = [
+      ...new Set(
+        notifications
+          .filter(
+            (notification) =>
+              (notification.referenceType ===
+                WAREHOUSE_TICKET_NOTIFICATION_REFERENCES.APPROVAL ||
+                notification.referenceType ===
+                  WAREHOUSE_TICKET_NOTIFICATION_REFERENCES.TICKET) &&
+              notification.referenceId != null,
+          )
+          .map((notification) => notification.referenceId as number),
+      ),
+    ];
+
+    const ticketContextById =
+      await this.warehouseTicketsRepository.findTicketNotificationContextByIds(
+        ticketIds,
+      );
+
+    return filterStaffNotificationsForUser({
+      userId,
+      notifications,
+      accessProfile,
+      ticketContextById,
     });
   }
 
@@ -236,20 +311,23 @@ export class NotificationsService {
   }
 
   async markAllMyNotificationsRead(userId: number) {
-    await notificationDeliveryService.markAllNotificationsRead(userId);
+    await notificationDeliveryService.markAllNotificationsRead(
+      userId,
+      NotificationAudience.CUSTOMER,
+    );
+  }
+
+  async markAllStaffNotificationsRead(userId: number) {
+    await notificationDeliveryService.markAllNotificationsRead(
+      userId,
+      NotificationAudience.STAFF,
+    );
   }
 
   async getMyUnreadNotificationCount(userId: number) {
     return notificationDeliveryService.getUnreadCount(
       userId,
       NotificationAudience.CUSTOMER,
-    );
-  }
-
-  async getStaffUnreadNotificationCount(userId: number) {
-    return notificationDeliveryService.getUnreadCount(
-      userId,
-      NotificationAudience.STAFF,
     );
   }
 }

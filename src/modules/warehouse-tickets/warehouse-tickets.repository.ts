@@ -22,6 +22,11 @@ import {
   warehouseTickets,
 } from "@/db/models";
 import {
+  WAREHOUSE_TICKET_BORROWED_STATUSES,
+  WAREHOUSE_TICKET_DELIVERY_STATUSES,
+  WAREHOUSE_TICKET_OPEN_STATUSES,
+} from "@/constants/warehouse-tickets.constants";
+import {
   createFilterConditions,
   createSearchCondition,
   createSortCondition,
@@ -63,12 +68,7 @@ export class WarehouseTicketsRepository {
 
   async countOpenTicketsByRequester(requesterId: number, tx?: TX) {
     const queryBuilder = tx ?? db;
-    const openStatuses = [
-      "pending_approval",
-      "approved",
-      "paused",
-      "ready_for_pickup",
-    ];
+    const openStatuses = [...WAREHOUSE_TICKET_OPEN_STATUSES];
 
     const [{ value }] = await queryBuilder
       .select({ value: count() })
@@ -119,6 +119,46 @@ export class WarehouseTicketsRepository {
       );
 
     return [...new Set(rows.map((row) => row.userId))];
+  }
+
+  async listWarehouseReceiverUserIds(
+    warehouseId: number,
+    excludeUserIds: number[] = [],
+  ) {
+    const warehouseEntity = warehouseId === 1 ? "warehouse_1" : "warehouse_2";
+    const [ticketingReceivers, warehouseReceivers] = await Promise.all([
+      this.listUserIdsByPermission("ticketing", "update"),
+      this.listUserIdsByPermission(warehouseEntity, "update"),
+    ]);
+
+    const warehouseSet = new Set(warehouseReceivers);
+    const excludeSet = new Set(excludeUserIds);
+
+    return ticketingReceivers.filter(
+      (userId) => warehouseSet.has(userId) && !excludeSet.has(userId),
+    );
+  }
+
+  async findTicketNotificationContextByIds(ticketIds: number[]) {
+    if (!ticketIds.length) {
+      return new Map<number, { requesterId: number; warehouseId: number }>();
+    }
+
+    const rows = await db
+      .select({
+        id: warehouseTickets.id,
+        requesterId: warehouseTickets.requesterId,
+        warehouseId: warehouseTickets.warehouseId,
+      })
+      .from(warehouseTickets)
+      .where(inArray(warehouseTickets.id, ticketIds));
+
+    return new Map(
+      rows.map((row) => [
+        row.id,
+        { requesterId: row.requesterId, warehouseId: row.warehouseId },
+      ]),
+    );
   }
 
   private getEntryProductCodeSql() {
@@ -294,7 +334,7 @@ export class WarehouseTicketsRepository {
       status?: string;
       warehouseId?: number;
       requesterId?: number;
-      queue?: "approvals" | "delivery" | "returns";
+      queue?: "approvals" | "approvals_history" | "delivery" | "returns" | "borrowed";
       warehouseTechWarehouseId?: number;
       [key: string]: unknown;
     };
@@ -305,7 +345,8 @@ export class WarehouseTicketsRepository {
     const searchableFields = ["ticketCode", "reason", "status"];
     const whereConditions = [];
 
-    const { queue, warehouseTechWarehouseId, ...restFilters } = filters ?? {};
+    const { queue, warehouseTechWarehouseId, approverId, ...restFilters } =
+      filters ?? {};
     const filterCondition = createFilterConditions(warehouseTickets, restFilters);
     if (filterCondition) {
       whereConditions.push(filterCondition);
@@ -317,8 +358,33 @@ export class WarehouseTicketsRepository {
       );
     }
 
+    if (queue === "approvals_history") {
+      whereConditions.push(
+        sql`${warehouseTickets.approverId} IS NOT NULL`,
+      );
+      if (approverId) {
+        whereConditions.push(eq(warehouseTickets.approverId, Number(approverId)));
+      }
+      whereConditions.push(
+        inArray(warehouseTickets.status, [
+          "approved",
+          "being_prepared",
+          "ready_for_pickup",
+          "received_borrowed",
+          "return_pending",
+          "partially_returned",
+          "closed",
+          "completed",
+          "rejected",
+          "cancelled",
+        ]),
+      );
+    }
+
     if (queue === "delivery") {
-      whereConditions.push(eq(warehouseTickets.status, "approved"));
+      whereConditions.push(
+        inArray(warehouseTickets.status, [...WAREHOUSE_TICKET_DELIVERY_STATUSES]),
+      );
       if (warehouseTechWarehouseId) {
         whereConditions.push(
           eq(warehouseTickets.warehouseId, warehouseTechWarehouseId),
@@ -327,12 +393,32 @@ export class WarehouseTicketsRepository {
     }
 
     if (queue === "returns") {
-      whereConditions.push(eq(warehouseTickets.status, "completed"));
+      whereConditions.push(
+        sql`(
+          ${warehouseTickets.status} = 'return_pending'
+          OR EXISTS (
+            SELECT 1 FROM ${warehouseTicketItems} AS return_items
+            WHERE return_items.ticket_id = ${warehouseTickets.id}
+              AND return_items.pending_return_quantity > 0
+          )
+        )`,
+      );
+      if (warehouseTechWarehouseId) {
+        whereConditions.push(
+          eq(warehouseTickets.warehouseId, warehouseTechWarehouseId),
+        );
+      }
+    }
+
+    if (queue === "borrowed") {
+      whereConditions.push(
+        inArray(warehouseTickets.status, [...WAREHOUSE_TICKET_BORROWED_STATUSES]),
+      );
       whereConditions.push(
         sql`EXISTS (
-          SELECT 1 FROM ${warehouseTicketItems} AS return_items
-          WHERE return_items.ticket_id = ${warehouseTickets.id}
-            AND return_items.transferred_quantity > return_items.returned_quantity
+          SELECT 1 FROM ${warehouseTicketItems} AS borrow_items
+          WHERE borrow_items.ticket_id = ${warehouseTickets.id}
+            AND borrow_items.transferred_quantity > borrow_items.returned_quantity
         )`,
       );
       if (warehouseTechWarehouseId) {
@@ -469,6 +555,7 @@ export class WarehouseTicketsRepository {
     tx: TX,
     ticketId: number,
     idempotencyKey: string,
+    actions: string[] = ["item_returned", "return_initiated", "return_confirmed"],
   ) {
     const marker = `[idempotency:${idempotencyKey}]`;
     const [event] = await tx
@@ -477,7 +564,7 @@ export class WarehouseTicketsRepository {
       .where(
         and(
           eq(warehouseTicketEvents.ticketId, ticketId),
-          eq(warehouseTicketEvents.action, "item_returned"),
+          inArray(warehouseTicketEvents.action, actions),
           sql`${warehouseTicketEvents.comment} LIKE ${`%${marker}%`}`,
         ),
       )
@@ -524,6 +611,10 @@ export class WarehouseTicketsRepository {
       rejectedAt: string | null;
       confirmedAt: string | null;
       completedAt: string | null;
+      preparedAt: string | null;
+      preparedById: number | null;
+      releasedAt: string | null;
+      closedAt: string | null;
       borrowDueAt: string | null;
       lastReturnReminderAt: string | null;
       totalQuantity: number;
@@ -540,6 +631,106 @@ export class WarehouseTicketsRepository {
       .returning();
 
     return ticket;
+  }
+
+  async updateItemPrepared(
+    tx: TX,
+    itemId: number,
+    ticketId: number,
+    data: {
+      preparedQuantity: number;
+      shortageReason?: string | null;
+    },
+  ) {
+    const [item] = await tx
+      .update(warehouseTicketItems)
+      .set({
+        preparedQuantity: data.preparedQuantity,
+        shortageReason: data.shortageReason ?? null,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(
+        and(
+          eq(warehouseTicketItems.id, itemId),
+          eq(warehouseTicketItems.ticketId, ticketId),
+        ),
+      )
+      .returning();
+
+    return item;
+  }
+
+  async updateItemReceived(
+    tx: TX,
+    itemId: number,
+    ticketId: number,
+    receivedQuantity: number,
+  ) {
+    const [item] = await tx
+      .update(warehouseTicketItems)
+      .set({
+        transferredQuantity: receivedQuantity,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(
+        and(
+          eq(warehouseTicketItems.id, itemId),
+          eq(warehouseTicketItems.ticketId, ticketId),
+        ),
+      )
+      .returning();
+
+    return item;
+  }
+
+  async incrementItemPendingReturn(
+    tx: TX,
+    itemId: number,
+    ticketId: number,
+    increment: number,
+  ) {
+    const [item] = await tx
+      .update(warehouseTicketItems)
+      .set({
+        pendingReturnQuantity: sql`${warehouseTicketItems.pendingReturnQuantity} + ${increment}`,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(
+        and(
+          eq(warehouseTicketItems.id, itemId),
+          eq(warehouseTicketItems.ticketId, ticketId),
+          sql`${warehouseTicketItems.pendingReturnQuantity} + ${increment} <= ${warehouseTicketItems.transferredQuantity} - ${warehouseTicketItems.returnedQuantity}`,
+        ),
+      )
+      .returning();
+
+    return item;
+  }
+
+  async confirmItemPendingReturn(
+    tx: TX,
+    itemId: number,
+    ticketId: number,
+    confirmedQuantity: number,
+  ) {
+    const [item] = await tx
+      .update(warehouseTicketItems)
+      .set({
+        pendingReturnQuantity: sql`${warehouseTicketItems.pendingReturnQuantity} - ${confirmedQuantity}`,
+        returnedQuantity: sql`${warehouseTicketItems.returnedQuantity} + ${confirmedQuantity}`,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(
+        and(
+          eq(warehouseTicketItems.id, itemId),
+          eq(warehouseTicketItems.ticketId, ticketId),
+          sql`${warehouseTicketItems.pendingReturnQuantity} >= ${confirmedQuantity}`,
+          sql`${warehouseTicketItems.returnedQuantity} + ${confirmedQuantity} <= ${warehouseTicketItems.transferredQuantity}`,
+        ),
+      )
+      .returning();
+
+    return item;
   }
 
   async updateItemTransfer(
@@ -623,10 +814,11 @@ export class WarehouseTicketsRepository {
 
   async listOverdueBorrowTickets() {
     const now = new Date().toISOString();
+    const borrowStatuses = [...WAREHOUSE_TICKET_BORROWED_STATUSES];
 
     return db.query.warehouseTickets.findMany({
       where: and(
-        eq(warehouseTickets.status, "completed"),
+        inArray(warehouseTickets.status, borrowStatuses),
         sql`${warehouseTickets.borrowDueAt} IS NOT NULL`,
         sql`${warehouseTickets.borrowDueAt} <= ${now}`,
         sql`EXISTS (

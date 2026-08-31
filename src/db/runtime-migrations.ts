@@ -936,6 +936,42 @@ async function ensureAclRolesAndEntities() {
 
   await db.execute(
     sql.raw(`
+      ALTER TABLE "warehouse_tickets"
+        ADD COLUMN IF NOT EXISTS "prepared_at" timestamp,
+        ADD COLUMN IF NOT EXISTS "prepared_by_id" integer REFERENCES "users"("id"),
+        ADD COLUMN IF NOT EXISTS "released_at" timestamp,
+        ADD COLUMN IF NOT EXISTS "closed_at" timestamp
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
+      ALTER TABLE "warehouse_ticket_items"
+        ADD COLUMN IF NOT EXISTS "prepared_quantity" integer NOT NULL DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS "shortage_reason" text,
+        ADD COLUMN IF NOT EXISTS "pending_return_quantity" integer NOT NULL DEFAULT 0
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
+      UPDATE "warehouse_tickets"
+      SET "status" = 'received_borrowed'
+      WHERE "status" = 'completed'
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
+      UPDATE "warehouse_ticket_items"
+      SET "prepared_quantity" = "transferred_quantity"
+      WHERE "prepared_quantity" = 0
+        AND "transferred_quantity" > 0
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
       ALTER TABLE "orders"
         ADD COLUMN IF NOT EXISTS "client_platform" varchar(20)
     `),

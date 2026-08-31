@@ -17,6 +17,10 @@ router.openapi(routes.approve, handlers.approve);
 router.openapi(routes.pause, handlers.pause);
 router.openapi(routes.reject, handlers.reject);
 router.openapi(routes.resume, handlers.resume);
+router.openapi(routes.prepare, handlers.prepare);
+router.openapi(routes.confirmTakeout, handlers.confirmTakeout);
+router.openapi(routes.initiateReturn, handlers.initiateReturn);
+router.openapi(routes.confirmReturn, handlers.confirmReturn);
 router.openapi(routes.confirm, handlers.confirm);
 router.openapi(routes.complete, handlers.complete);
 

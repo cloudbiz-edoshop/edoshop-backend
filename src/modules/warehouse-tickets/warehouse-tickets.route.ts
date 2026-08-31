@@ -17,10 +17,14 @@ import commonQueryParamsSchema from "@/lib/openapi/schemas/query-params-schema";
 import { jwtHeaderSchema } from "@/lib/zod-schemas";
 
 import {
+  confirmTakeoutRequestSchema,
   confirmWarehouseTicketRequestSchema,
+  confirmReturnRequestSchema,
   createWarehouseTicketRequestSchema,
+  initiateReturnRequestSchema,
   listWarehouseTicketEntryOptionsSchema,
   listWarehouseTicketsResponseSchema,
+  prepareWarehouseTicketRequestSchema,
   returnWarehouseTicketRequestSchema,
   ticketActionCommentSchema,
   updateWarehouseTicketRequestSchema,
@@ -342,6 +346,162 @@ export const resume = createRoute({
   },
 });
 
+export const prepare = createRoute({
+  path: "/warehouse-tickets/:id/prepare",
+  method: "post",
+  tags,
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.TICKETING, operation: OperationType.UPDATE },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    params: idParams,
+    body: jsonContentRequired(
+      prepareWarehouseTicketRequestSchema,
+      "Ticket preparation",
+    ),
+  },
+  summary: "Treat and prepare warehouse ticket items",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(
+        warehouseTicketResponseSchema,
+        "Warehouse ticket prepared",
+      ),
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.FORBIDDEN,
+        HttpStatusCodes.NOT_FOUND,
+        HttpStatusCodes.UNPROCESSABLE_ENTITY,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      idParams,
+    ),
+  },
+});
+
+export const confirmTakeout = createRoute({
+  path: "/warehouse-tickets/:id/confirm-takeout",
+  method: "post",
+  tags,
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.TICKETING, operation: OperationType.UPDATE },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    params: idParams,
+    body: jsonContentRequired(
+      confirmTakeoutRequestSchema,
+      "Confirm takeout",
+    ),
+  },
+  summary: "Confirm requester takeout after pickup",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(
+        warehouseTicketResponseSchema,
+        "Takeout confirmed",
+      ),
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.FORBIDDEN,
+        HttpStatusCodes.NOT_FOUND,
+        HttpStatusCodes.UNPROCESSABLE_ENTITY,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      idParams,
+    ),
+  },
+});
+
+export const initiateReturn = createRoute({
+  path: "/warehouse-tickets/:id/initiate-return",
+  method: "post",
+  tags,
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.TICKETING, operation: OperationType.UPDATE },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    params: idParams,
+    body: jsonContentRequired(
+      initiateReturnRequestSchema,
+      "Initiate return",
+    ),
+  },
+  summary: "Requester initiates product return",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(
+        warehouseTicketResponseSchema,
+        "Return initiated",
+      ),
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.FORBIDDEN,
+        HttpStatusCodes.NOT_FOUND,
+        HttpStatusCodes.UNPROCESSABLE_ENTITY,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      idParams,
+    ),
+  },
+});
+
+export const confirmReturn = createRoute({
+  path: "/warehouse-tickets/:id/confirm-return",
+  method: "post",
+  tags,
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.TICKETING, operation: OperationType.UPDATE },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    params: idParams,
+    body: jsonContentRequired(
+      confirmReturnRequestSchema,
+      "Confirm return",
+    ),
+  },
+  summary: "Warehouse confirms product return",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(
+        warehouseTicketResponseSchema,
+        "Return confirmed",
+      ),
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.FORBIDDEN,
+        HttpStatusCodes.NOT_FOUND,
+        HttpStatusCodes.UNPROCESSABLE_ENTITY,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      idParams,
+    ),
+  },
+});
+
 export const confirm = createRoute({
   path: "/warehouse-tickets/:id/confirm",
   method: "post",
@@ -565,6 +725,10 @@ export type PauseRoute = typeof pause;
 export type RejectRoute = typeof reject;
 export type ResumeRoute = typeof resume;
 export type ConfirmRoute = typeof confirm;
+export type PrepareRoute = typeof prepare;
+export type ConfirmTakeoutRoute = typeof confirmTakeout;
+export type InitiateReturnRoute = typeof initiateReturn;
+export type ConfirmReturnRoute = typeof confirmReturn;
 export type CompleteRoute = typeof complete;
 export type GetSettingsRoute = typeof getSettings;
 export type UpdateSettingsRoute = typeof updateSettings;

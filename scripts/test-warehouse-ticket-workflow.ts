@@ -65,16 +65,19 @@ function itemSummary(ticket: Json) {
   return items.reduce(
     (summary, item) => ({
       requested: summary.requested + Number(item.quantity ?? 0),
-      issued: summary.issued + Number(item.transferredQuantity ?? 0),
+      prepared: summary.prepared + Number(item.preparedQuantity ?? 0),
+      issued: summary.issued + Number(item.receivedQuantity ?? item.transferredQuantity ?? 0),
       returned: summary.returned + Number(item.returnedQuantity ?? 0),
+      pendingReturn: summary.pendingReturn + Number(item.pendingReturnQuantity ?? 0),
       remaining:
         summary.remaining
         + Math.max(
           0,
-          Number(item.transferredQuantity ?? 0) - Number(item.returnedQuantity ?? 0),
+          Number(item.receivedQuantity ?? item.transferredQuantity ?? 0)
+            - Number(item.returnedQuantity ?? 0),
         ),
     }),
-    { requested: 0, issued: 0, returned: 0, remaining: 0 },
+    { requested: 0, prepared: 0, issued: 0, returned: 0, pendingReturn: 0, remaining: 0 },
   );
 }
 
@@ -210,51 +213,71 @@ async function main() {
     fail("Approved ticket appears in delivery queue", error);
   }
 
-  // TEST 3/4 — ISSUE ITEMS
+  // TEST 3/4 — PREPARE ITEMS
   try {
-    const confirmed = await request("POST", `/warehouse-tickets/${ticketId}/confirm`, {
+    const prepared = await request("POST", `/warehouse-tickets/${ticketId}/prepare`, {
       token: approverToken,
-      body: { items: [{ itemId, transferredQuantity: 10 }] },
+      body: { items: [{ itemId, preparedQuantity: 10 }] },
     });
-    const ticket = confirmed.data as Json;
+    const ticket = prepared.data as Json;
     assert(ticket.status === "ready_for_pickup", "Expected ready_for_pickup");
     const summary = itemSummary(ticket);
-    assert(summary.issued === 10 && summary.returned === 0 && summary.remaining === 10, "Issue quantities wrong");
-    pass("TEST 4 — Issue 10 items", `issued=${summary.issued}, remaining=${summary.remaining}`);
+    assert(summary.prepared === 10 && summary.issued === 0, "Prepare quantities wrong");
+    pass("TEST 4 — Prepare 10 items", `prepared=${summary.prepared}`);
   } catch (error) {
-    fail("TEST 4 — Issue 10 items", error);
+    fail("TEST 4 — Prepare 10 items", error);
   }
 
-  // TEST — collect / borrow
+  // TEST — confirm takeout / borrow
   try {
-    const completed = await request("POST", `/warehouse-tickets/${ticketId}/complete`, {
-      token: requesterToken,
+    const borrowed = await request("POST", `/warehouse-tickets/${ticketId}/confirm-takeout`, {
+      token: approverToken,
+      body: {},
     });
-    assert((completed.data as Json).status === "completed", "Expected completed");
-    pass("Requester marks ticket collected");
+    const ticket = borrowed.data as Json;
+    assert(ticket.status === "received_borrowed", "Expected received_borrowed");
+    const summary = itemSummary(ticket);
+    assert(summary.issued === 10 && summary.returned === 0 && summary.remaining === 10, "Takeout quantities wrong");
+    pass("Warehouse confirms takeout", `issued=${summary.issued}`);
   } catch (error) {
-    fail("Requester marks ticket collected", error);
+    fail("Warehouse confirms takeout", error);
   }
 
-  // TEST 5 — PARTIAL RETURN
+  // TEST 5 — PARTIAL RETURN (initiate + confirm)
   try {
-    const partial = await request("POST", `/warehouse-tickets/${ticketId}/return`, {
+    const initiated = await request("POST", `/warehouse-tickets/${ticketId}/initiate-return`, {
       token: requesterToken,
       body: {
         requesterId: (await login("manager1@gmail.com")).userId,
         idempotencyKey,
-        items: [{ itemId, returnedQuantity: 5 }],
+        items: [{ itemId, returnQuantity: 5 }],
       },
     });
-    const summary = itemSummary(partial.data as Json);
+    const initiatedTicket = initiated.data as Json;
+    assert(initiatedTicket.status === "return_pending", "Expected return_pending");
+    let summary = itemSummary(initiatedTicket);
+    assert(summary.pendingReturn === 5 && summary.returned === 0 && summary.remaining === 10, "Initiated return wrong");
+
+    const confirmed = await request("POST", `/warehouse-tickets/${ticketId}/confirm-return`, {
+      token: approverToken,
+      body: { items: [{ itemId, confirmedQuantity: 5 }] },
+    });
+    summary = itemSummary(confirmed.data as Json);
     assert(summary.returned === 5 && summary.remaining === 5, "Partial return quantities wrong");
     pass("TEST 5 — Partial return 5", `returned=${summary.returned}, remaining=${summary.remaining}`);
   } catch (error) {
     fail("TEST 5 — Partial return 5", error);
   }
 
-  // Returns queue
+  // Returns queue after initiate (create another pending return)
   try {
+    await request("POST", `/warehouse-tickets/${ticketId}/initiate-return`, {
+      token: requesterToken,
+      body: {
+        requesterId: (await login("manager1@gmail.com")).userId,
+        items: [{ itemId, returnQuantity: 1 }],
+      },
+    });
     const returnsQueue = await request(
       "GET",
       `/warehouse-tickets?page=1&limit=20&filters=${encodeURIComponent(JSON.stringify({ queue: "returns" }))}`,
@@ -262,9 +285,13 @@ async function main() {
     );
     const rows = (returnsQueue.data as Array<Json>) ?? [];
     assert(rows.some((row) => Number(row.id) === ticketId), "Missing from returns queue");
-    pass("Outstanding ticket appears in returns queue");
+    pass("Pending return appears in returns queue");
+    await request("POST", `/warehouse-tickets/${ticketId}/confirm-return`, {
+      token: approverToken,
+      body: { items: [{ itemId, confirmedQuantity: 1 }] },
+    });
   } catch (error) {
-    fail("Outstanding ticket appears in returns queue", error);
+    fail("Pending return appears in returns queue", error);
   }
 
   // TEST 8 — INVALID RETURNS
@@ -274,11 +301,11 @@ async function main() {
     ["return -1", -1, 422],
   ] as const) {
     try {
-      await request("POST", `/warehouse-tickets/${ticketId}/return`, {
+      await request("POST", `/warehouse-tickets/${ticketId}/initiate-return`, {
         token: requesterToken,
         body: {
           requesterId: (await login("manager1@gmail.com")).userId,
-          items: [{ itemId, returnedQuantity: qty }],
+          items: [{ itemId, returnQuantity: qty }],
         },
         expectStatus: status,
       });
@@ -290,12 +317,12 @@ async function main() {
 
   // TEST 10 — DUPLICATE SUBMISSION
   try {
-    await request("POST", `/warehouse-tickets/${ticketId}/return`, {
+    await request("POST", `/warehouse-tickets/${ticketId}/initiate-return`, {
       token: requesterToken,
       body: {
         requesterId: (await login("manager1@gmail.com")).userId,
         idempotencyKey,
-        items: [{ itemId, returnedQuantity: 1 }],
+        items: [{ itemId, returnQuantity: 1 }],
       },
       expectStatus: 400,
     });
@@ -304,24 +331,33 @@ async function main() {
     fail("TEST 10 — Duplicate return blocked by idempotency key", error);
   }
 
-  // TEST 6 — FINAL RETURN (3 more => total 8, then 2 more => 10)
+  // TEST 6 — FINAL RETURN (2 more => total 8, then 2 more => 10)
   try {
-    await request("POST", `/warehouse-tickets/${ticketId}/return`, {
+    await request("POST", `/warehouse-tickets/${ticketId}/initiate-return`, {
       token: requesterToken,
       body: {
         requesterId: (await login("manager1@gmail.com")).userId,
-        items: [{ itemId, returnedQuantity: 3 }],
+        items: [{ itemId, returnQuantity: 2 }],
       },
     });
-    const finalReturn = await request("POST", `/warehouse-tickets/${ticketId}/return`, {
+    await request("POST", `/warehouse-tickets/${ticketId}/confirm-return`, {
+      token: approverToken,
+      body: { items: [{ itemId, confirmedQuantity: 2 }] },
+    });
+    await request("POST", `/warehouse-tickets/${ticketId}/initiate-return`, {
       token: requesterToken,
       body: {
         requesterId: (await login("manager1@gmail.com")).userId,
-        items: [{ itemId, returnedQuantity: 2 }],
+        items: [{ itemId, returnQuantity: 2 }],
       },
+    });
+    const finalReturn = await request("POST", `/warehouse-tickets/${ticketId}/confirm-return`, {
+      token: approverToken,
+      body: { items: [{ itemId, confirmedQuantity: 2 }] },
     });
     const summary = itemSummary(finalReturn.data as Json);
     assert(summary.returned === 10 && summary.remaining === 0, "Final return quantities wrong");
+    assert((finalReturn.data as Json).status === "closed", "Expected closed status");
     pass("TEST 6/7 — Multiple partial returns complete", `returned=${summary.returned}, remaining=${summary.remaining}`);
   } catch (error) {
     fail("TEST 6/7 — Multiple partial returns complete", error);

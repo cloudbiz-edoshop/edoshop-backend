@@ -2,12 +2,16 @@ import type {
   ApproveRoute,
   CompleteRoute,
   ConfirmRoute,
+  ConfirmReturnRoute,
+  ConfirmTakeoutRoute,
   CreateRoute,
   GetOneRoute,
   GetSettingsRoute,
+  InitiateReturnRoute,
   ListRoute,
   PatchRoute,
   PauseRoute,
+  PrepareRoute,
   RejectRoute,
   RemoveRoute,
   ResumeRoute,
@@ -168,6 +172,69 @@ export const resume: AppRouteHandler<ResumeRoute> = async (c) => {
 
   return c.json(
     successResponse<WarehouseTicketResponse>(ticket, "Ticket resumed"),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const prepare: AppRouteHandler<PrepareRoute> = async (c) => {
+  const { id } = c.req.valid("param");
+  const data = c.req.valid("json");
+  const ticket = await warehouseTicketsService.prepareTicket(
+    id,
+    data,
+    getActor(c),
+  );
+
+  return c.json(
+    successResponse<WarehouseTicketResponse>(
+      ticket,
+      "Ticket prepared for pickup",
+    ),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const confirmTakeout: AppRouteHandler<ConfirmTakeoutRoute> = async (c) => {
+  const { id } = c.req.valid("param");
+  const data = c.req.valid("json") ?? {};
+  const ticket = await warehouseTicketsService.confirmTakeout(
+    id,
+    data,
+    getActor(c),
+  );
+
+  return c.json(
+    successResponse<WarehouseTicketResponse>(ticket, "Takeout confirmed"),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const initiateReturn: AppRouteHandler<InitiateReturnRoute> = async (c) => {
+  const { id } = c.req.valid("param");
+  const data = c.req.valid("json");
+  const ticket = await warehouseTicketsService.initiateReturn(
+    id,
+    data,
+    getActor(c),
+  );
+
+  return c.json(
+    successResponse<WarehouseTicketResponse>(ticket, "Return initiated"),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const confirmReturn: AppRouteHandler<ConfirmReturnRoute> = async (c) => {
+  const { id } = c.req.valid("param");
+  const data = c.req.valid("json");
+  const ticket = await warehouseTicketsService.confirmReturn(
+    id,
+    data,
+    getActor(c),
+  );
+
+  return c.json(
+    successResponse<WarehouseTicketResponse>(ticket, "Return confirmed"),
     HttpStatusCodes.OK,
   );
 };

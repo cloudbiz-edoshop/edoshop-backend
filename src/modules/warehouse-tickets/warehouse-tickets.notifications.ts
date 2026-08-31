@@ -3,8 +3,6 @@ import { NotificationAudience } from "@/constants/notification-audience.constant
 import {
   WAREHOUSE_TICKET_NOTIFICATION_REFERENCES,
   WAREHOUSE_TICKET_PERMISSIONS,
-  WAREHOUSE_TICKET_W1_TECH_ROLES,
-  WAREHOUSE_TICKET_W2_TECH_ROLES,
 } from "@/constants/warehouse-tickets.constants";
 import { NotificationDeliveryService } from "@/modules/notifications/notification-delivery.service";
 
@@ -129,21 +127,125 @@ export async function notifyWarehouseTechsForApprovedTicket(params: {
   warehouseId: number;
   ticketCode: string;
   requesterName: string;
+  requesterId: number;
 }) {
-  const roleNames =
-    params.warehouseId === 1
-      ? [...WAREHOUSE_TICKET_W1_TECH_ROLES]
-      : [...WAREHOUSE_TICKET_W2_TECH_ROLES];
-
-  const techIds =
-    await warehouseTicketsRepository.listUserIdsByRoleNames(roleNames);
+  const receiverIds =
+    await warehouseTicketsRepository.listWarehouseReceiverUserIds(
+      params.warehouseId,
+      [params.requesterId],
+    );
 
   await notifyWarehouseTicketUsers({
-    userIds: techIds,
+    userIds: receiverIds,
     title: "Approved warehouse ticket ready for delivery",
-    message: `Ticket ${params.ticketCode} from ${params.requesterName} has been approved. Transfer items out of EWMS and confirm when ready for pickup.`,
+    message: `Ticket ${params.ticketCode} from ${params.requesterName} has been approved. Treat the ticket and confirm when ready for pickup.`,
     notificationTypeId: NotificationTypeIds.REQUEST_APPROVED,
     actionUrl: `/warehouse/${params.warehouseId}/send-to-requester?ticketId=${params.ticketId}`,
+    referenceType: WAREHOUSE_TICKET_NOTIFICATION_REFERENCES.TICKET,
+    referenceId: params.ticketId,
+  });
+}
+
+export async function deactivateReturnPendingNotifications(ticketId: number) {
+  await notificationDeliveryService.deactivateNotificationsByReference({
+    referenceType: WAREHOUSE_TICKET_NOTIFICATION_REFERENCES.TICKET,
+    referenceId: ticketId,
+    titles: ["Return pending confirmation", "Return initiated"],
+  });
+}
+
+export async function notifyStaffForReturnInitiated(params: {
+  ticketId: number;
+  warehouseId: number;
+  ticketCode: string;
+  requesterId: number;
+  requesterName: string;
+}) {
+  const [receiverIds, approverIds] = await Promise.all([
+    warehouseTicketsRepository.listWarehouseReceiverUserIds(
+      params.warehouseId,
+      [params.requesterId],
+    ),
+    warehouseTicketsRepository
+      .listUserIdsByPermission(
+        WAREHOUSE_TICKET_PERMISSIONS.APPROVER_ENTITY,
+        WAREHOUSE_TICKET_PERMISSIONS.APPROVER_OPERATION,
+      )
+      .then((userIds) =>
+        userIds.filter((userId) => userId !== params.requesterId),
+      ),
+  ]);
+
+  const receiverIdSet = new Set(receiverIds);
+  const recipientIds = [
+    ...new Set([...receiverIds, ...approverIds]),
+  ];
+
+  await Promise.all(
+    recipientIds.map((userId) => {
+      const isReceiver = receiverIdSet.has(userId);
+      return notifyWarehouseTicketUsers({
+        userIds: [userId],
+        title: isReceiver
+          ? "Return pending confirmation"
+          : "Return initiated",
+        message: isReceiver
+          ? `${params.requesterName} initiated a return on ticket ${params.ticketCode}. Confirm receipt in EWMS.`
+          : `${params.requesterName} initiated a return on ticket ${params.ticketCode}.`,
+        notificationTypeId: NotificationTypeIds.WARNING,
+        actionUrl: isReceiver
+          ? `/warehouse-tickets/returns`
+          : `/warehouse-tickets/${params.ticketId}`,
+        referenceType: WAREHOUSE_TICKET_NOTIFICATION_REFERENCES.TICKET,
+        referenceId: params.ticketId,
+      });
+    }),
+  );
+}
+
+export async function notifyWarehouseTechsForReturnPending(params: {
+  ticketId: number;
+  warehouseId: number;
+  ticketCode: string;
+  requesterName: string;
+  requesterId: number;
+}) {
+  const receiverIds =
+    await warehouseTicketsRepository.listWarehouseReceiverUserIds(
+      params.warehouseId,
+      [params.requesterId],
+    );
+
+  await notifyWarehouseTicketUsers({
+    userIds: receiverIds,
+    title: "Return pending confirmation",
+    message: `${params.requesterName} initiated a return on ticket ${params.ticketCode}. Confirm receipt in EWMS.`,
+    notificationTypeId: NotificationTypeIds.WARNING,
+    actionUrl: `/warehouse-tickets/returns`,
+    referenceType: WAREHOUSE_TICKET_NOTIFICATION_REFERENCES.TICKET,
+    referenceId: params.ticketId,
+  });
+}
+
+export async function notifyApproversForReturnInitiated(params: {
+  ticketId: number;
+  ticketCode: string;
+  requesterId: number;
+  requesterName: string;
+}) {
+  const approverIds = (
+    await warehouseTicketsRepository.listUserIdsByPermission(
+      WAREHOUSE_TICKET_PERMISSIONS.APPROVER_ENTITY,
+      WAREHOUSE_TICKET_PERMISSIONS.APPROVER_OPERATION,
+    )
+  ).filter((userId) => userId !== params.requesterId);
+
+  await notifyWarehouseTicketUsers({
+    userIds: approverIds,
+    title: "Return initiated",
+    message: `${params.requesterName} initiated a return on ticket ${params.ticketCode}.`,
+    notificationTypeId: NotificationTypeIds.WARNING,
+    actionUrl: `/warehouse-tickets/${params.ticketId}`,
     referenceType: WAREHOUSE_TICKET_NOTIFICATION_REFERENCES.TICKET,
     referenceId: params.ticketId,
   });
@@ -154,17 +256,16 @@ export async function notifyWarehouseTechsForReturn(params: {
   warehouseId: number;
   ticketCode: string;
   requesterName: string;
+  requesterId: number;
 }) {
-  const roleNames =
-    params.warehouseId === 1
-      ? [...WAREHOUSE_TICKET_W1_TECH_ROLES]
-      : [...WAREHOUSE_TICKET_W2_TECH_ROLES];
-
-  const techIds =
-    await warehouseTicketsRepository.listUserIdsByRoleNames(roleNames);
+  const receiverIds =
+    await warehouseTicketsRepository.listWarehouseReceiverUserIds(
+      params.warehouseId,
+      [params.requesterId],
+    );
 
   await notifyWarehouseTicketUsers({
-    userIds: techIds,
+    userIds: receiverIds,
     title: "Borrowed products return recorded",
     message: `${params.requesterName} recorded a return on ticket ${params.ticketCode}. Review the return in EWMS if needed.`,
     notificationTypeId: NotificationTypeIds.WARNING,

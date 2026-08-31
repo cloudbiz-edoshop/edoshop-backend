@@ -9,6 +9,7 @@ import {
 import { getPreferenceKeyForNotificationType } from "@/constants/notification-type-preferences.constants";
 import { RecipientTypeIds } from "@/constants/recipient-types.constants";
 import { NotificationAudience } from "@/constants/notification-audience.constants";
+import { toUtcIsoString } from "@/lib/utc-timestamp";
 import db from "@/db";
 import {
   customers,
@@ -437,7 +438,18 @@ export class NotificationDeliveryService {
       .from(userNotificationDeliveries)
       .where(whereClause);
 
-    return { data: rows, total };
+    return {
+      data: rows.map((row) => ({
+        ...row,
+        sentAt: toUtcIsoString(row.sentAt) ?? row.sentAt,
+        readAt: row.readAt ? toUtcIsoString(row.readAt) : null,
+        createdAt: toUtcIsoString(row.createdAt) ?? row.createdAt,
+        deactivatedAt: row.deactivatedAt
+          ? toUtcIsoString(row.deactivatedAt)
+          : null,
+      })),
+      total,
+    };
   }
 
   async markNotificationRead(userId: number, deliveryId: number) {
@@ -458,20 +470,27 @@ export class NotificationDeliveryService {
     return updated ?? null;
   }
 
-  async markAllNotificationsRead(userId: number) {
+  async markAllNotificationsRead(
+    userId: number,
+    audience?: NotificationAudience,
+  ) {
+    const conditions = [
+      eq(userNotificationDeliveries.userId, userId),
+      eq(userNotificationDeliveries.channel, "webapp"),
+      eq(userNotificationDeliveries.isRead, false),
+    ];
+
+    if (audience) {
+      conditions.push(this.buildAudienceCondition(audience));
+    }
+
     await db
       .update(userNotificationDeliveries)
       .set({
         isRead: true,
         readAt: new Date().toISOString(),
       })
-      .where(
-        and(
-          eq(userNotificationDeliveries.userId, userId),
-          eq(userNotificationDeliveries.channel, "webapp"),
-          eq(userNotificationDeliveries.isRead, false),
-        ),
-      );
+      .where(and(...conditions));
   }
 
   async getUnreadCount(
@@ -498,6 +517,7 @@ export class NotificationDeliveryService {
     referenceType: string;
     referenceId: number;
     userIds?: number[];
+    titles?: string[];
   }) {
     const conditions = [
       eq(userNotificationDeliveries.referenceType, params.referenceType),
@@ -507,6 +527,10 @@ export class NotificationDeliveryService {
 
     if (params.userIds?.length) {
       conditions.push(inArray(userNotificationDeliveries.userId, params.userIds));
+    }
+
+    if (params.titles?.length) {
+      conditions.push(inArray(userNotificationDeliveries.title, params.titles));
     }
 
     await db

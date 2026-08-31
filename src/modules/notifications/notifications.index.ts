@@ -38,6 +38,10 @@ router.openapi(
 );
 router.openapi(routes.getStaffNotifications, handlers.getStaffNotifications);
 router.openapi(
+  routes.markAllStaffNotificationsRead,
+  handlers.markAllStaffNotificationsRead,
+);
+router.openapi(
   routes.markStaffNotificationRead,
   handlers.markStaffNotificationRead,
 );

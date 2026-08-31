@@ -40,6 +40,48 @@ export const transferTicketItemSchema = z.object({
   transferredQuantity: z.number().int().positive(),
 });
 
+export const prepareTicketItemSchema = z.object({
+  itemId: z.number().int().positive(),
+  preparedQuantity: z.number().int().min(0),
+  shortageReason: z.string().trim().optional().nullable(),
+});
+
+export const prepareWarehouseTicketRequestSchema = z.object({
+  items: z.array(prepareTicketItemSchema).min(1),
+});
+
+export const confirmTakeoutItemSchema = z.object({
+  itemId: z.number().int().positive(),
+  receivedQuantity: z.number().int().min(0).optional(),
+});
+
+export const confirmTakeoutRequestSchema = z
+  .object({
+    items: z.array(confirmTakeoutItemSchema).optional(),
+  })
+  .default({});
+
+export const initiateReturnItemSchema = z.object({
+  itemId: z.number().int().positive(),
+  returnQuantity: z.number().int().positive(),
+});
+
+export const initiateReturnRequestSchema = z.object({
+  requesterId: z.number().int().positive().optional(),
+  idempotencyKey: z.string().uuid().optional(),
+  items: z.array(initiateReturnItemSchema).min(1),
+});
+
+export const confirmReturnItemSchema = z.object({
+  itemId: z.number().int().positive(),
+  confirmedQuantity: z.number().int().min(0),
+});
+
+export const confirmReturnRequestSchema = z.object({
+  idempotencyKey: z.string().uuid().optional(),
+  items: z.array(confirmReturnItemSchema).min(1),
+});
+
 export const confirmWarehouseTicketRequestSchema = z
   .object({
     items: z.array(transferTicketItemSchema).optional(),
@@ -60,8 +102,13 @@ export const warehouseTicketItemResponseSchema = z.object({
   productLabel: z.string(),
   sku: z.string().nullable().optional(),
   quantity: z.number(),
+  preparedQuantity: z.number().optional(),
   transferredQuantity: z.number(),
+  receivedQuantity: z.number().optional(),
   returnedQuantity: z.number().optional(),
+  pendingReturnQuantity: z.number().optional(),
+  shortageReason: z.string().nullable().optional(),
+  outstandingQuantity: z.number().optional(),
   notes: z.string().nullable().optional(),
   imageUrl: z.string().nullable().optional(),
   createdAt: z.string(),
@@ -96,6 +143,11 @@ export const warehouseTicketResponseSchema = z.object({
   rejectedAt: z.string().nullable().optional(),
   confirmedAt: z.string().nullable().optional(),
   completedAt: z.string().nullable().optional(),
+  preparedAt: z.string().nullable().optional(),
+  preparedById: z.number().nullable().optional(),
+  releasedAt: z.string().nullable().optional(),
+  closedAt: z.string().nullable().optional(),
+  borrowDueAt: z.string().nullable().optional(),
   totalQuantity: z.number(),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -163,6 +215,12 @@ export const listWarehouseTicketEntryOptionsSchema = z.array(
 export type ConfirmWarehouseTicketRequest = z.infer<
   typeof confirmWarehouseTicketRequestSchema
 >;
+export type PrepareWarehouseTicketRequest = z.infer<
+  typeof prepareWarehouseTicketRequestSchema
+>;
+export type ConfirmTakeoutRequest = z.infer<typeof confirmTakeoutRequestSchema>;
+export type InitiateReturnRequest = z.infer<typeof initiateReturnRequestSchema>;
+export type ConfirmReturnRequest = z.infer<typeof confirmReturnRequestSchema>;
 export type CreateWarehouseTicketRequest = z.infer<
   typeof createWarehouseTicketRequestSchema
 >;
