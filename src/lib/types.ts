@@ -13,6 +13,7 @@ import type { PinoLogger } from "hono-pino";
 import type * as models from "@/db/models";
 
 import type { User } from "@/modules/users/users.schema";
+import type { TvDeviceTokenPayload } from "@/modules/tv-app/tv-app.auth.service";
 import { z } from "zod";
 
 export type Override<
@@ -30,6 +31,7 @@ export interface AppBindings {
     userAgent: string;
     permissions: string[];
     csrfToken: string;
+    tvDevicePayload: TvDeviceTokenPayload;
   };
 }
 

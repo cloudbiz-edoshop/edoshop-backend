@@ -3,6 +3,7 @@ import type { Database } from "@/db";
 import { EntityType, OperationType, RoleType } from "@/constants";
 import {
   buildPermissionKeys,
+  CMS_ENTITIES,
   DELIVERY_ENTITIES,
   DIALOGUE_ENTITIES,
   EWMS_MANAGEMENT_ENTITIES,
@@ -13,8 +14,10 @@ import {
   SETTINGS_ENTITIES,
   STANDARD_CRUD_OPERATIONS,
   STORE_ENTITIES,
+  TICKETING_CORE_ENTITIES,
   TICKETING_ENTITIES,
   TRACKING_ENTITIES,
+  TV_APP_ENTITIES,
 } from "@/constants/permissions.constants";
 
 import {
@@ -206,7 +209,7 @@ function getRolePermissionsFromTemplate(
       break;
     case RoleType.DIGITAL_MARKETER:
       templateKeys = buildPermissionKeys(
-        [...STORE_ENTITIES, ...TICKETING_ENTITIES],
+        [...STORE_ENTITIES, ...CMS_ENTITIES, ...TICKETING_CORE_ENTITIES, ...TV_APP_ENTITIES],
         STANDARD_CRUD_OPERATIONS,
       );
       break;

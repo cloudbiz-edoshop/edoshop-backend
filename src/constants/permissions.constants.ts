@@ -91,6 +91,14 @@ export const TICKETING_ENTITIES: EntityType[] = [
   ...TICKET_BORROW_LIMIT_ENTITIES,
 ];
 
+export const TV_APP_ENTITIES: EntityType[] = [
+  EntityType.TV_APP,
+  EntityType.TV_ADS,
+  EntityType.TV_DEVICES,
+  EntityType.TV_SETTINGS,
+  EntityType.TV_CATALOG,
+];
+
 export const ALL_ENTITY_TYPES = Object.values(EntityType);
 
 export const STANDARD_CRUD_OPERATIONS = [
@@ -113,7 +121,8 @@ export type AccessSection =
   | "ewms_w2"
   | "ewms_management"
   | "delivery"
-  | "ticketing";
+  | "ticketing"
+  | "tv_app";
 
 export const SECTION_ENTITY_MAP: Record<AccessSection, EntityType[]> = {
   settings: SETTINGS_ENTITIES,
@@ -127,6 +136,7 @@ export const SECTION_ENTITY_MAP: Record<AccessSection, EntityType[]> = {
   ewms_management: EWMS_MANAGEMENT_ENTITIES,
   delivery: DELIVERY_ENTITIES,
   ticketing: TICKETING_ENTITIES,
+  tv_app: TV_APP_ENTITIES,
 };
 
 export type PermissionPair = {

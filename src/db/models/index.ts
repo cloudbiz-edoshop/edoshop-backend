@@ -246,4 +246,17 @@ export {
   warehouseTicketItemsRelations,
   warehouseTicketsRelations,
 } from "./warehouse-tickets";
-export { default as warehouseTicketSettings } from "./warehouse-ticket-settings";
+export {
+  default as warehouseTicketSettings,
+} from "./warehouse-ticket-settings";
+export { default as tvSettings } from "./tv-settings";
+export { default as tvAds, tvAdsRelations } from "./tv-ads";
+export { default as tvDevices, tvDevicesRelations } from "./tv-devices";
+export {
+  default as tvDeviceRefreshTokens,
+  tvDeviceRefreshTokensRelations,
+} from "./tv-device-refresh-tokens";
+export {
+  default as tvCatalogSelections,
+  tvCatalogSelectionsRelations,
+} from "./tv-catalog-selections";

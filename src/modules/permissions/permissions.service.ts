@@ -16,6 +16,7 @@ import {
   STORE_ENTITIES,
   TICKETING_CORE_ENTITIES,
   TICKET_BORROW_LIMIT_ENTITIES,
+  TV_APP_ENTITIES,
   TRACKING_ENTITIES,
   type AccessSection,
   type PermissionPair,
@@ -160,6 +161,7 @@ export class PermissionsService {
       ewms_management: EntityType.EWMS_MANAGEMENT,
       delivery: EntityType.DELIVERY_PLANS,
       ticketing: EntityType.TICKETING,
+      tv_app: EntityType.TV_APP,
     };
 
     return Object.keys(SECTION_ENTITY_MAP).reduce(
@@ -272,7 +274,7 @@ export function getRolePermissionTemplate(roleName: RoleType) {
 
     case RoleType.DIGITAL_MARKETER:
       return buildPermissionKeys(
-        [...STORE_ENTITIES, ...CMS_ENTITIES, ...TICKETING_CORE_ENTITIES],
+        [...STORE_ENTITIES, ...CMS_ENTITIES, ...TICKETING_CORE_ENTITIES, ...TV_APP_ENTITIES],
         STANDARD_CRUD_OPERATIONS,
       );
 

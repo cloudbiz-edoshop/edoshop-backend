@@ -49,6 +49,11 @@ export enum EntityType {
   DELIVERY_PLANS = "delivery_plans",
   TAGS = "tags",
   ORDERS = "orders",
+  TV_APP = "tv_app",
+  TV_ADS = "tv_ads",
+  TV_DEVICES = "tv_devices",
+  TV_SETTINGS = "tv_settings",
+  TV_CATALOG = "tv_catalog",
 }
 
 /**
@@ -101,4 +106,9 @@ export const ENTITY_DESCRIPTIONS: Record<EntityType, string> = {
   [EntityType.DELIVERY_PLANS]: "Delivery Plans",
   [EntityType.TAGS]: "Tags",
   [EntityType.ORDERS]: "Orders",
+  [EntityType.TV_APP]: "TV App",
+  [EntityType.TV_ADS]: "TV Ads",
+  [EntityType.TV_DEVICES]: "TV Devices",
+  [EntityType.TV_SETTINGS]: "TV Settings",
+  [EntityType.TV_CATALOG]: "TV Catalog",
 };
