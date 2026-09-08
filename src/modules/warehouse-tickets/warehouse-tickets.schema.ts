@@ -5,13 +5,18 @@ import {
   WarehouseTicketStatus,
 } from "@/constants/warehouse-tickets.constants";
 
-export const warehouseTicketItemInputSchema = z.object({
-  entryId: z.number().int().positive("Product ID is required"),
-  productLabel: z.string().trim().optional(),
-  sku: z.string().trim().optional().nullable(),
-  quantity: z.number().int().positive("Quantity must be at least 1"),
-  notes: z.string().trim().optional().nullable(),
-});
+export const warehouseTicketItemInputSchema = z
+  .object({
+    entryId: z.number().int().positive().optional(),
+    productId: z.number().int().positive().optional(),
+    productLabel: z.string().trim().optional(),
+    sku: z.string().trim().optional().nullable(),
+    quantity: z.number().int().positive("Quantity must be at least 1"),
+    notes: z.string().trim().optional().nullable(),
+  })
+  .refine((item) => Boolean(item.entryId || item.productId), {
+    message: "Product is required",
+  });
 
 export const createWarehouseTicketRequestSchema = z.object({
   warehouseId: z.number().int().positive(),
@@ -48,6 +53,33 @@ export const prepareTicketItemSchema = z.object({
 
 export const prepareWarehouseTicketRequestSchema = z.object({
   items: z.array(prepareTicketItemSchema).min(1),
+});
+
+export const warehouseTicketTreatItemSchema = z.object({
+  itemId: z.number(),
+  entryId: z.number().nullable().optional(),
+  productLabel: z.string(),
+  sku: z.string().nullable().optional(),
+  imageUrl: z.string().nullable().optional(),
+  requestedQuantity: z.number(),
+  availableQuantity: z.number(),
+  canFulfillFull: z.boolean(),
+  isAvailable: z.boolean(),
+});
+
+export const warehouseTicketTreatContextSchema = z.object({
+  ticketId: z.number(),
+  ticketCode: z.string(),
+  warehouseId: z.number(),
+  warehouseName: z.string().nullable().optional(),
+  reason: z.string(),
+  status: z.string(),
+  requesterName: z.string(),
+  approverName: z.string().nullable().optional(),
+  approvedAt: z.string().nullable().optional(),
+  items: z.array(warehouseTicketTreatItemSchema),
+  totalRequested: z.number(),
+  totalAvailable: z.number(),
 });
 
 export const confirmTakeoutItemSchema = z.object({
@@ -190,7 +222,10 @@ export const updateWarehouseTicketSettingsSchema = z.object({
 export const warehouseTicketEntryOptionSchema = z.object({
   entryId: z.number(),
   productCode: z.string(),
+  productName: z.string().nullable().optional(),
+  storeProductId: z.number().nullable().optional(),
   label: z.string(),
+  searchText: z.string().optional(),
   description: z.string().nullable().optional(),
   imageUrl: z.string().nullable().optional(),
 });
@@ -211,6 +246,23 @@ export const returnWarehouseTicketRequestSchema = z.object({
 export const listWarehouseTicketEntryOptionsSchema = z.array(
   warehouseTicketEntryOptionSchema,
 );
+
+export const warehouseTicketCatalogProductOptionSchema = z.object({
+  productId: z.number(),
+  name: z.string(),
+  shortDescription: z.string().nullable().optional(),
+  productCode: z.string().nullable().optional(),
+  imageUrl: z.string().nullable().optional(),
+  entryId: z.number().nullable().optional(),
+  label: z.string(),
+});
+
+export const listWarehouseTicketCatalogProductsSchema = z.object({
+  data: z.array(warehouseTicketCatalogProductOptionSchema),
+  total: z.number(),
+  page: z.number(),
+  limit: z.number(),
+});
 
 export type ConfirmWarehouseTicketRequest = z.infer<
   typeof confirmWarehouseTicketRequestSchema
@@ -244,4 +296,7 @@ export type WarehouseTicketEntryOption = z.infer<
 >;
 export type ReturnWarehouseTicketRequest = z.infer<
   typeof returnWarehouseTicketRequestSchema
+>;
+export type WarehouseTicketTreatContext = z.infer<
+  typeof warehouseTicketTreatContextSchema
 >;

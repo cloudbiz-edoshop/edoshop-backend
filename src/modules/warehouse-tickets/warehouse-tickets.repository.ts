@@ -7,15 +7,20 @@ import {
   bundles,
   employees,
   entities,
+  directOrderProducts,
+  dropshippingProducts,
   entries,
   entryImages,
+  entryProducts,
   items,
   operations,
   packages,
   permissions,
+  products,
   roles,
   series,
   users,
+  variants,
   warehouseTicketEvents,
   warehouseTicketItems,
   warehouseTicketSettings,
@@ -161,6 +166,94 @@ export class WarehouseTicketsRepository {
     );
   }
 
+  private async resolveCatalogProductsByEntryIds(entryIds: number[]) {
+    if (entryIds.length === 0) {
+      return new Map<number, { productId: number; productName: string }>();
+    }
+
+    const rows = await db.execute(sql`
+      SELECT
+        e.id AS entry_id,
+        COALESCE(
+          (
+            SELECT p.id
+            FROM ${entryProducts} ep
+            INNER JOIN ${products} p ON p.id = ep.product_id
+            WHERE ep.entry_id = e.id
+            ORDER BY ep.id
+            LIMIT 1
+          ),
+          (
+            SELECT p.id
+            FROM ${directOrderProducts} dop
+            INNER JOIN ${products} p ON p.id = dop.product_id
+            INNER JOIN ${series} s ON s.id = dop.series_id
+            WHERE s.entry_id = e.id
+            ORDER BY dop.id
+            LIMIT 1
+          ),
+          (
+            SELECT p.id
+            FROM ${items} i
+            INNER JOIN ${variants} v ON v.item_id = i.id AND v.is_deleted = false
+            INNER JOIN ${products} p ON p.id = v.product_id
+            WHERE i.entry_id = e.id
+            ORDER BY v.id
+            LIMIT 1
+          )
+        ) AS product_id,
+        COALESCE(
+          (
+            SELECT p.name
+            FROM ${entryProducts} ep
+            INNER JOIN ${products} p ON p.id = ep.product_id
+            WHERE ep.entry_id = e.id
+            ORDER BY ep.id
+            LIMIT 1
+          ),
+          (
+            SELECT p.name
+            FROM ${directOrderProducts} dop
+            INNER JOIN ${products} p ON p.id = dop.product_id
+            INNER JOIN ${series} s ON s.id = dop.series_id
+            WHERE s.entry_id = e.id
+            ORDER BY dop.id
+            LIMIT 1
+          ),
+          (
+            SELECT p.name
+            FROM ${items} i
+            INNER JOIN ${variants} v ON v.item_id = i.id AND v.is_deleted = false
+            INNER JOIN ${products} p ON p.id = v.product_id
+            WHERE i.entry_id = e.id
+            ORDER BY v.id
+            LIMIT 1
+          )
+        ) AS product_name
+      FROM ${entries} e
+      WHERE e.id IN (${sql.join(entryIds.map((id) => sql`${id}`), sql`, `)})
+    `);
+
+    const catalogMap = new Map<number, { productId: number; productName: string }>();
+
+    for (const row of rows) {
+      const record = row as {
+        entry_id: number;
+        product_id: number | null;
+        product_name: string | null;
+      };
+
+      if (record.product_id && record.product_name) {
+        catalogMap.set(record.entry_id, {
+          productId: record.product_id,
+          productName: record.product_name,
+        });
+      }
+    }
+
+    return catalogMap;
+  }
+
   private getEntryProductCodeSql() {
     return sql<string>`COALESCE(
       (SELECT ${bundles.bundleCode} FROM ${bundles} WHERE ${bundles.entryId} = ${entries.id} LIMIT 1),
@@ -170,12 +263,140 @@ export class WarehouseTicketsRepository {
     )`;
   }
 
+  async findEntryIdForProductInWarehouse(
+    productId: number,
+    warehouseId: number,
+  ): Promise<number | null> {
+    const [row] = await db.execute(sql`
+      SELECT entry_id
+      FROM (
+        SELECT ep.entry_id, 1 AS priority, ep.id AS sort_order
+        FROM ${entryProducts} ep
+        INNER JOIN ${entries} e ON e.id = ep.entry_id
+        WHERE ep.product_id = ${productId}
+          AND e.warehouse_id = ${warehouseId}
+          AND e.is_deleted = false
+        UNION ALL
+        SELECT i.entry_id, 2 AS priority, v.id AS sort_order
+        FROM ${items} i
+        INNER JOIN ${variants} v ON v.item_id = i.id AND v.is_deleted = false
+        INNER JOIN ${entries} e ON e.id = i.entry_id
+        WHERE v.product_id = ${productId}
+          AND e.warehouse_id = ${warehouseId}
+          AND e.is_deleted = false
+        UNION ALL
+        SELECT s.entry_id, 3 AS priority, dop.id AS sort_order
+        FROM ${series} s
+        INNER JOIN ${directOrderProducts} dop ON dop.series_id = s.id
+        INNER JOIN ${entries} e ON e.id = s.entry_id
+        WHERE dop.product_id = ${productId}
+          AND e.warehouse_id = ${warehouseId}
+          AND e.is_deleted = false
+      ) AS matches
+      ORDER BY priority, sort_order
+      LIMIT 1
+    `);
+
+    const record = row as { entry_id?: number | null } | undefined;
+    return record?.entry_id ?? null;
+  }
+
+  async searchCatalogProducts(params: {
+    warehouseId?: number;
+    search?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    const { warehouseId, search, page = 1, limit = 50 } = params;
+    const whereConditions = [eq(products.isDeleted, false)];
+
+    const trimmedSearch = search?.trim();
+    if (trimmedSearch) {
+      const searchPattern = `%${trimmedSearch}%`;
+      whereConditions.push(
+        sql`(
+          ${products.name} ILIKE ${searchPattern}
+          OR COALESCE(${products.shortDescription}, '') ILIKE ${searchPattern}
+          OR CAST(${products.id} AS TEXT) ILIKE ${searchPattern}
+        )`,
+      );
+    }
+
+    const whereClause = and(...whereConditions);
+    const { limit: limitVal, offset } = getPaginationValues(page, limit);
+
+    const [{ value: total }] = await db
+      .select({ value: count() })
+      .from(products)
+      .where(whereClause);
+
+    const directOrderCodeSql = sql<string | null>`(
+      SELECT ${directOrderProducts.directOrderCode}
+      FROM ${directOrderProducts}
+      WHERE ${directOrderProducts.productId} = ${products.id}
+      ORDER BY ${directOrderProducts.id}
+      LIMIT 1
+    )`;
+
+    const dropshippingCodeSql = sql<string | null>`(
+      SELECT ${dropshippingProducts.dropshippingCode}
+      FROM ${dropshippingProducts}
+      WHERE ${dropshippingProducts.productId} = ${products.id}
+      ORDER BY ${dropshippingProducts.id}
+      LIMIT 1
+    )`;
+
+    const rows = await db
+      .select({
+        productId: products.id,
+        name: products.name,
+        shortDescription: products.shortDescription,
+        imageUrls: products.imageUrls,
+        directOrderCode: directOrderCodeSql.as("directOrderCode"),
+        dropshippingCode: dropshippingCodeSql.as("dropshippingCode"),
+      })
+      .from(products)
+      .where(whereClause)
+      .orderBy(desc(products.id))
+      .limit(limitVal)
+      .offset(offset);
+
+    const catalogRows = await Promise.all(
+      rows.map(async (row) => {
+        const imageUrls = Array.isArray(row.imageUrls)
+          ? row.imageUrls.filter((url): url is string => typeof url === "string")
+          : [];
+        const entryId =
+          warehouseId != null
+            ? await this.findEntryIdForProductInWarehouse(row.productId, warehouseId)
+            : null;
+
+        return {
+          productId: row.productId,
+          name: row.name,
+          shortDescription: row.shortDescription,
+          productCode: row.directOrderCode ?? row.dropshippingCode ?? null,
+          imageUrl: imageUrls[0] ?? null,
+          entryId,
+          label: row.name,
+        };
+      }),
+    );
+
+    return {
+      data: catalogRows,
+      total,
+      page,
+      limit: limitVal,
+    };
+  }
+
   async searchEntryOptions(params: {
     warehouseId: number;
     search?: string;
     limit?: number;
   }) {
-    const { warehouseId, search, limit = 20 } = params;
+    const { warehouseId, search, limit = 100 } = params;
     const productCodeSql = this.getEntryProductCodeSql();
     const imageUrlSql = sql<string | null>`(
       SELECT ${entryImages.url}
@@ -198,6 +419,38 @@ export class WarehouseTicketsRepository {
           ${productCodeSql} ILIKE ${searchPattern}
           OR CAST(${entries.id} AS TEXT) ILIKE ${searchPattern}
           OR COALESCE(${entries.description}, '') ILIKE ${searchPattern}
+          OR EXISTS (
+            SELECT 1
+            FROM ${entryProducts} ep
+            INNER JOIN ${products} p ON p.id = ep.product_id
+            WHERE ep.entry_id = ${entries.id}
+              AND (
+                p.name ILIKE ${searchPattern}
+                OR CAST(p.id AS TEXT) ILIKE ${searchPattern}
+              )
+          )
+          OR EXISTS (
+            SELECT 1
+            FROM ${items} i
+            INNER JOIN ${variants} v ON v.item_id = i.id AND v.is_deleted = false
+            INNER JOIN ${products} p ON p.id = v.product_id
+            WHERE i.entry_id = ${entries.id}
+              AND (
+                p.name ILIKE ${searchPattern}
+                OR CAST(p.id AS TEXT) ILIKE ${searchPattern}
+              )
+          )
+          OR EXISTS (
+            SELECT 1
+            FROM ${series} s
+            INNER JOIN ${directOrderProducts} dop ON dop.series_id = s.id
+            INNER JOIN ${products} p ON p.id = dop.product_id
+            WHERE s.entry_id = ${entries.id}
+              AND (
+                p.name ILIKE ${searchPattern}
+                OR CAST(p.id AS TEXT) ILIKE ${searchPattern}
+              )
+          )
         )`,
       );
     }
@@ -214,15 +467,36 @@ export class WarehouseTicketsRepository {
       .orderBy(desc(entries.createdAt))
       .limit(limit);
 
-    return rows.map((row) => ({
-      entryId: row.entryId,
-      productCode: row.productCode ?? `Entry ${row.entryId}`,
-      description: row.description,
-      imageUrl: row.imageUrl,
-      label: row.productCode
-        ? `${row.productCode} (Entry ${row.entryId})`
-        : `Entry ${row.entryId}`,
-    }));
+    const catalogMap = await this.resolveCatalogProductsByEntryIds(
+      rows.map((row) => row.entryId),
+    );
+
+    return rows.map((row) => {
+      const catalog = catalogMap.get(row.entryId);
+      const productCode = row.productCode ?? `Entry ${row.entryId}`;
+      const productName = catalog?.productName?.trim() || null;
+      const storeProductId = catalog?.productId ?? null;
+      const displayName = productName || row.description?.trim() || productCode;
+
+      return {
+        entryId: row.entryId,
+        productCode,
+        productName,
+        storeProductId,
+        description: row.description,
+        imageUrl: row.imageUrl,
+        label: displayName,
+        searchText: [
+          productName,
+          storeProductId ? String(storeProductId) : null,
+          productCode,
+          row.description,
+          String(row.entryId),
+        ]
+          .filter(Boolean)
+          .join(" "),
+      };
+    });
   }
 
   async findEntriesForTicket(entryIds: number[], warehouseId: number) {
@@ -254,6 +528,55 @@ export class WarehouseTicketsRepository {
           eq(entries.isDeleted, false),
         ),
       );
+  }
+
+  async getEntryAvailableQuantity(entryId: number, warehouseId: number) {
+    const entry = await db.query.entries.findFirst({
+      where: and(
+        eq(entries.id, entryId),
+        eq(entries.warehouseId, warehouseId),
+        eq(entries.isDeleted, false),
+      ),
+      columns: { id: true },
+    });
+
+    if (!entry) {
+      return 0;
+    }
+
+    const [itemCount] = await db
+      .select({ value: count() })
+      .from(items)
+      .where(eq(items.entryId, entryId));
+
+    if (itemCount.value > 0) {
+      return itemCount.value;
+    }
+
+    const [seriesCount] = await db
+      .select({ value: count() })
+      .from(series)
+      .where(eq(series.entryId, entryId));
+
+    if (seriesCount.value > 0) {
+      return seriesCount.value;
+    }
+
+    const [bundleCount] = await db
+      .select({ value: count() })
+      .from(bundles)
+      .where(eq(bundles.entryId, entryId));
+
+    if (bundleCount.value > 0) {
+      return bundleCount.value;
+    }
+
+    const [packageCount] = await db
+      .select({ value: count() })
+      .from(packages)
+      .where(eq(packages.entryId, entryId));
+
+    return packageCount.value > 0 ? packageCount.value : 0;
   }
 
   async getEntryImagesByIds(entryIds: number[]) {
@@ -354,7 +677,7 @@ export class WarehouseTicketsRepository {
 
     if (queue === "approvals") {
       whereConditions.push(
-        inArray(warehouseTickets.status, ["pending_approval", "paused"]),
+        eq(warehouseTickets.status, "pending_approval"),
       );
     }
 

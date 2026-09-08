@@ -23,6 +23,7 @@ import {
   createWarehouseTicketRequestSchema,
   initiateReturnRequestSchema,
   listWarehouseTicketEntryOptionsSchema,
+  listWarehouseTicketCatalogProductsSchema,
   listWarehouseTicketsResponseSchema,
   prepareWarehouseTicketRequestSchema,
   returnWarehouseTicketRequestSchema,
@@ -31,6 +32,7 @@ import {
   updateWarehouseTicketSettingsSchema,
   warehouseTicketResponseSchema,
   warehouseTicketSettingsSchema,
+  warehouseTicketTreatContextSchema,
 } from "./warehouse-tickets.schema";
 
 const tags = ["Warehouse Tickets"];
@@ -100,6 +102,39 @@ export const create = createRoute({
         HttpStatusCodes.INTERNAL_SERVER_ERROR,
       ],
       z.object({}),
+    ),
+  },
+});
+
+export const getTreatContext = createRoute({
+  path: "/warehouse-tickets/:id/treat-context",
+  method: "get",
+  tags,
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.TICKETING, operation: OperationType.UPDATE },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    params: idParams,
+  },
+  summary: "Get ticket treat/preparation context with EWMS availability",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(warehouseTicketTreatContextSchema),
+      "Ticket treat context",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.FORBIDDEN,
+        HttpStatusCodes.NOT_FOUND,
+        HttpStatusCodes.UNPROCESSABLE_ENTITY,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      idParams,
     ),
   },
 });
@@ -655,7 +690,7 @@ export const searchEntryOptions = createRoute({
     query: z.object({
       warehouseId: z.coerce.number().int().positive(),
       search: z.string().optional(),
-      limit: z.coerce.number().int().positive().max(50).optional(),
+      limit: z.coerce.number().int().positive().max(200).optional(),
     }),
   },
   summary: "Search EWMS products for warehouse ticket form",
@@ -663,6 +698,43 @@ export const searchEntryOptions = createRoute({
     [HttpStatusCodes.OK]: jsonContent(
       createSuccessResponseSchema(listWarehouseTicketEntryOptionsSchema),
       "Warehouse ticket entry options",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.FORBIDDEN,
+        HttpStatusCodes.UNPROCESSABLE_ENTITY,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      z.object({}),
+    ),
+  },
+});
+
+export const searchCatalogProducts = createRoute({
+  path: "/warehouse-tickets/catalog-products",
+  method: "get",
+  tags,
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.TICKETING, operation: OperationType.CREATE },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    query: z.object({
+      warehouseId: z.coerce.number().int().positive().optional(),
+      search: z.string().optional(),
+      page: z.coerce.number().int().positive().optional(),
+      limit: z.coerce.number().int().positive().max(100).optional(),
+    }),
+  },
+  summary: "Search catalog products for warehouse ticket form",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(listWarehouseTicketCatalogProductsSchema),
+      "Catalog products for warehouse tickets",
     ),
     ...commonErrorResponses(
       [
@@ -718,6 +790,7 @@ export const returnTicket = createRoute({
 export type ListRoute = typeof list;
 export type CreateRoute = typeof create;
 export type GetOneRoute = typeof getOne;
+export type GetTreatContextRoute = typeof getTreatContext;
 export type PatchRoute = typeof update;
 export type RemoveRoute = typeof remove;
 export type ApproveRoute = typeof approve;
@@ -733,4 +806,5 @@ export type CompleteRoute = typeof complete;
 export type GetSettingsRoute = typeof getSettings;
 export type UpdateSettingsRoute = typeof updateSettings;
 export type SearchEntryOptionsRoute = typeof searchEntryOptions;
+export type SearchCatalogProductsRoute = typeof searchCatalogProducts;
 export type ReturnTicketRoute = typeof returnTicket;

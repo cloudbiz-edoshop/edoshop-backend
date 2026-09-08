@@ -6,6 +6,7 @@ import type {
   ConfirmTakeoutRoute,
   CreateRoute,
   GetOneRoute,
+  GetTreatContextRoute,
   GetSettingsRoute,
   InitiateReturnRoute,
   ListRoute,
@@ -16,6 +17,7 @@ import type {
   RemoveRoute,
   ResumeRoute,
   SearchEntryOptionsRoute,
+  SearchCatalogProductsRoute,
   ReturnTicketRoute,
   UpdateSettingsRoute,
 } from "./warehouse-tickets.route";
@@ -23,6 +25,7 @@ import type {
 import type {
   ListWarehouseTicketsResponse,
   WarehouseTicketResponse,
+  WarehouseTicketTreatContext,
 } from "./warehouse-tickets.schema";
 import type { AppRouteHandler } from "@/lib/types";
 import type { AppContext } from "@/lib/types";
@@ -66,12 +69,7 @@ export const list: AppRouteHandler<ListRoute> = async (c) => {
 
   return c.json(
     successResponseWithPagination<ListWarehouseTicketsResponse>(
-      result.data.map((ticket) => ({
-        ...ticket,
-        status: ticket.status as WarehouseTicketResponse["status"],
-        pausedFromStatus:
-          ticket.pausedFromStatus as WarehouseTicketResponse["pausedFromStatus"],
-      })),
+      result.data,
       pagination,
       result.searchableFields,
     ),
@@ -89,6 +87,21 @@ export const create: AppRouteHandler<CreateRoute> = async (c) => {
       STANDARD_MESSAGES.SUCCESS.CREATED,
     ),
     HttpStatusCodes.CREATED,
+  );
+};
+
+export const getTreatContext: AppRouteHandler<GetTreatContextRoute> = async (
+  c,
+) => {
+  const { id } = c.req.valid("param");
+  const context = await warehouseTicketsService.getTreatContext(
+    id,
+    getActor(c),
+  );
+
+  return c.json(
+    successResponse<WarehouseTicketTreatContext>(context),
+    HttpStatusCodes.OK,
   );
 };
 
@@ -297,6 +310,20 @@ export const searchEntryOptions: AppRouteHandler<SearchEntryOptionsRoute> = asyn
   });
 
   return c.json(successResponse(options), HttpStatusCodes.OK);
+};
+
+export const searchCatalogProducts: AppRouteHandler<SearchCatalogProductsRoute> = async (
+  c,
+) => {
+  const { warehouseId, search, page, limit } = c.req.valid("query");
+  const result = await warehouseTicketsService.searchCatalogProducts({
+    warehouseId,
+    search,
+    page,
+    limit,
+  });
+
+  return c.json(successResponse(result), HttpStatusCodes.OK);
 };
 
 export const returnTicket: AppRouteHandler<ReturnTicketRoute> = async (c) => {

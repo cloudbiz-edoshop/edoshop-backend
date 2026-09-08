@@ -140,7 +140,7 @@ export async function notifyWarehouseTechsForApprovedTicket(params: {
     title: "Approved warehouse ticket ready for delivery",
     message: `Ticket ${params.ticketCode} from ${params.requesterName} has been approved. Treat the ticket and confirm when ready for pickup.`,
     notificationTypeId: NotificationTypeIds.REQUEST_APPROVED,
-    actionUrl: `/warehouse/${params.warehouseId}/send-to-requester?ticketId=${params.ticketId}`,
+    actionUrl: `/warehouse-tickets/${params.ticketId}/treat`,
     referenceType: WAREHOUSE_TICKET_NOTIFICATION_REFERENCES.TICKET,
     referenceId: params.ticketId,
   });

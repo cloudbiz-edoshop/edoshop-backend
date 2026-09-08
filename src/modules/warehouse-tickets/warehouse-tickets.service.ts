@@ -8,6 +8,7 @@ import type {
   UpdateWarehouseTicketRequest,
   UpdateWarehouseTicketSettingsRequest,
   WarehouseTicketResponse,
+  WarehouseTicketTreatContext,
 } from "./warehouse-tickets.schema";
 import {
   WAREHOUSE_TICKET_LIMITS,
@@ -93,9 +94,9 @@ export class WarehouseTicketsService {
       );
     }
 
-    const entryIds = items.map((item) => item.entryId);
-    const uniqueEntryIds = new Set(entryIds);
-    if (uniqueEntryIds.size !== entryIds.length) {
+    const productKeys = items.map((item) => item.productId ?? item.entryId);
+    const uniqueProductKeys = new Set(productKeys);
+    if (uniqueProductKeys.size !== productKeys.length) {
       throw new ValidationError("Each product can only be added once per ticket");
     }
 
@@ -113,31 +114,75 @@ export class WarehouseTicketsService {
     items: CreateWarehouseTicketRequest["items"],
     warehouseId: number,
   ) {
-    const entryIds = items.map((item) => item.entryId);
-    const entries = await this.repository.findEntriesForTicket(
-      entryIds,
-      warehouseId,
-    );
+    const entryBackedItems = items.filter((item) => item.entryId && !item.productId);
+    const entryIds = entryBackedItems.map((item) => item.entryId!);
+    const entries = entryIds.length
+      ? await this.repository.findEntriesForTicket(entryIds, warehouseId)
+      : [];
     const entryMap = new Map(entries.map((entry) => [entry.id, entry]));
 
-    return items.map((item) => {
-      const entry = entryMap.get(item.entryId);
-      if (!entry) {
-        throw new ValidationError(
-          `Product ${item.entryId} was not found in the selected warehouse`,
-        );
-      }
+    return Promise.all(
+      items.map(async (item) => {
+        if (item.productId) {
+          const product = await db.query.products.findFirst({
+            where: (productsTable, { and, eq }) =>
+              and(
+                eq(productsTable.id, item.productId!),
+                eq(productsTable.isDeleted, false),
+              ),
+          });
 
-      const productCode = entry.productCode ?? `Entry ${entry.id}`;
+          if (!product) {
+            throw new ValidationError(`Product ${item.productId} was not found`);
+          }
 
-      return {
-        entryId: item.entryId,
-        productLabel: item.productLabel?.trim() || productCode,
-        sku: item.sku?.trim() || productCode,
-        quantity: item.quantity,
-        notes: item.notes?.trim() || null,
-      };
-    });
+          const entryId = await this.repository.findEntryIdForProductInWarehouse(
+            item.productId,
+            warehouseId,
+          );
+
+          const directProduct = await db.query.directOrderProducts.findFirst({
+            where: (directOrderProductsTable, { eq }) =>
+              eq(directOrderProductsTable.productId, item.productId!),
+          });
+
+          const dropshipProduct = await db.query.dropshippingProducts.findFirst({
+            where: (dropshippingProductsTable, { eq }) =>
+              eq(dropshippingProductsTable.productId, item.productId!),
+          });
+
+          const productCode =
+            directProduct?.directOrderCode ??
+            dropshipProduct?.dropshippingCode ??
+            String(item.productId);
+
+          return {
+            entryId: entryId ?? null,
+            productLabel: item.productLabel?.trim() || product.name,
+            sku: item.sku?.trim() || productCode,
+            quantity: item.quantity,
+            notes: item.notes?.trim() || null,
+          };
+        }
+
+        const entry = entryMap.get(item.entryId!);
+        if (!entry) {
+          throw new ValidationError(
+            `Product ${item.entryId} was not found in the selected warehouse`,
+          );
+        }
+
+        const productCode = entry.productCode ?? `Entry ${entry.id}`;
+
+        return {
+          entryId: item.entryId!,
+          productLabel: item.productLabel?.trim() || productCode,
+          sku: item.sku?.trim() || productCode,
+          quantity: item.quantity,
+          notes: item.notes?.trim() || null,
+        };
+      }),
+    );
   }
 
   private enrichItem(item: TicketItemRecord) {
@@ -271,11 +316,25 @@ export class WarehouseTicketsService {
     ticketRequesterId: number,
     actor: ActorContext,
   ) {
-    if (ticketRequesterId === actor.userId) {
-      throw new ForbiddenError(
-        "You cannot approve or reject your own ticket. Another approver must review it.",
-      );
+    if (ticketRequesterId !== actor.userId) {
+      return;
     }
+
+    if (actor.isAdmin) {
+      return;
+    }
+
+    const accessProfile = await this.permissionsService.getUserAccessProfile(
+      actor.userId,
+    );
+
+    if (accessProfile.isSuperAdmin || accessProfile.isAdminRole) {
+      return;
+    }
+
+    throw new ForbiddenError(
+      "You cannot approve or reject your own ticket. Another approver must review it.",
+    );
   }
 
   private assertWarehouseTechRole(
@@ -368,6 +427,15 @@ export class WarehouseTicketsService {
     return this.repository.searchEntryOptions(params);
   }
 
+  async searchCatalogProducts(params: {
+    warehouseId?: number;
+    search?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    return this.repository.searchCatalogProducts(params);
+  }
+
   async createTicket(
     data: CreateWarehouseTicketRequest,
     actor: ActorContext,
@@ -445,7 +513,106 @@ export class WarehouseTicketsService {
     filters?: Record<string, unknown>;
   }) {
     await this.processReturnReminders().catch(() => undefined);
-    return this.repository.list(params);
+    const result = await this.repository.list(params);
+    const data = await Promise.all(
+      result.data.map((ticket) => this.mapTicket(ticket)),
+    );
+
+    return {
+      ...result,
+      data,
+    };
+  }
+
+  async getTreatContext(
+    id: number,
+    actor: ActorContext,
+  ): Promise<WarehouseTicketTreatContext> {
+    let ticket = await this.repository.findById(id);
+    if (!ticket) {
+      throw new NotFoundError("Warehouse ticket not found");
+    }
+
+    const allowedStatuses = [
+      WarehouseTicketStatus.APPROVED,
+      WarehouseTicketStatus.BEING_PREPARED,
+    ];
+    if (!allowedStatuses.includes(ticket.status as WarehouseTicketStatus)) {
+      throw new ValidationError(
+        "Only approved tickets waiting for preparation can be treated",
+      );
+    }
+
+    const roleName = await this.getActorRoleName(actor);
+    this.assertWarehouseTechRole(ticket.warehouseId, roleName, actor.isAdmin);
+
+    if (ticket.status === WarehouseTicketStatus.APPROVED) {
+      await db.transaction(async (tx) => {
+        await this.repository.updateTicket(tx, id, {
+          status: WarehouseTicketStatus.BEING_PREPARED,
+          warehouseTechId: actor.userId,
+          updatedBy: actor.userId,
+        });
+        await this.repository.addEvent(tx, {
+          ticketId: id,
+          actorId: actor.userId,
+          action: WarehouseTicketEventAction.UPDATED,
+          previousStatus: WarehouseTicketStatus.APPROVED,
+          newStatus: WarehouseTicketStatus.BEING_PREPARED,
+          comment: "Receiver started treating the ticket",
+        });
+      });
+      ticket = (await this.repository.findById(id))!;
+    }
+
+    const treatItems = await Promise.all(
+      (ticket.items ?? []).map(async (item) => {
+        const entryId = item.entryId ?? null;
+        const availableQuantity = entryId
+          ? await this.repository.getEntryAvailableQuantity(
+              entryId,
+              ticket.warehouseId,
+            )
+          : 0;
+        const requestedQuantity = item.quantity;
+        const canFulfillFull = availableQuantity >= requestedQuantity;
+
+        return {
+          itemId: item.id,
+          entryId,
+          productLabel: item.productLabel,
+          sku: item.sku ?? null,
+          imageUrl: item.imageUrl ?? null,
+          requestedQuantity,
+          availableQuantity,
+          canFulfillFull,
+          isAvailable: availableQuantity > 0,
+        };
+      }),
+    );
+
+    return {
+      ticketId: ticket.id,
+      ticketCode: ticket.ticketCode,
+      warehouseId: ticket.warehouseId,
+      warehouseName: ticket.warehouse?.name ?? null,
+      reason: ticket.reason,
+      status: ticket.status,
+      requesterName: formatUserName(ticket.requester ?? undefined),
+      approverName: ticket.approver
+        ? formatUserName(ticket.approver)
+        : null,
+      approvedAt: ticket.approvedAt ?? null,
+      items: treatItems,
+      totalRequested: treatItems.reduce(
+        (sum, row) => sum + row.requestedQuantity,
+        0,
+      ),
+      totalAvailable: treatItems.reduce(
+        (sum, row) => sum + Math.min(row.availableQuantity, row.requestedQuantity),
+        0,
+      ),
+    };
   }
 
   async updateTicket(
@@ -554,13 +721,8 @@ export class WarehouseTicketsService {
     await this.assertTicketApprover(actor);
     await this.assertNotSelfApprover(existing.requesterId, actor);
 
-    if (
-      ![
-        WarehouseTicketStatus.PENDING_APPROVAL,
-        WarehouseTicketStatus.PAUSED,
-      ].includes(existing.status as WarehouseTicketStatus)
-    ) {
-      throw new ValidationError("Only pending or paused tickets can be approved");
+    if (existing.status !== WarehouseTicketStatus.PENDING_APPROVAL) {
+      throw new ValidationError("Only pending tickets can be approved");
     }
 
     const now = new Date().toISOString();
