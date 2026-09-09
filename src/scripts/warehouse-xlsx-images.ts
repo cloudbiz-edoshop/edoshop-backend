@@ -1,6 +1,6 @@
-import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
+import AdmZip from "adm-zip";
 import * as XLSX from "xlsx";
 
 import {
@@ -17,11 +17,21 @@ type ImageAnchor = {
   mediaPath: string;
 };
 
+const zipCache = new Map<string, AdmZip>();
+
+const getZip = (xlsxPath: string) => {
+  let zip = zipCache.get(xlsxPath);
+  if (!zip) {
+    zip = new AdmZip(xlsxPath);
+    zipCache.set(xlsxPath, zip);
+  }
+  return zip;
+};
+
 const readZipEntry = (xlsxPath: string, entryPath: string) => {
   try {
-    return execFileSync("unzip", ["-p", xlsxPath, entryPath], {
-      maxBuffer: 64 * 1024 * 1024,
-    });
+    const entry = getZip(xlsxPath).getEntry(entryPath);
+    return entry ? entry.getData() : null;
   } catch {
     return null;
   }

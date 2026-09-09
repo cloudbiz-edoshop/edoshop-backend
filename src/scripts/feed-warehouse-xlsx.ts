@@ -1,4 +1,6 @@
 /* eslint-disable no-console */
+import "dotenv/config";
+
 /**
  * Fast warehouse spreadsheet feed:
  * 1) import products that are not in DB yet
