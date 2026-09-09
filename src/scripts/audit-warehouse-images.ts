@@ -13,14 +13,14 @@ import {
   loadWorkbookRowsByReference,
   normalizeLegacyReference,
 } from "./warehouse-import-utils";
-
-const defaultXlsxPath =
-  "/Users/mc/Downloads/Stock Disponible Warehouse 1 (1).xlsx";
+import {
+  assertWarehouseXlsxExists,
+  resolveWarehouseXlsxPath,
+} from "./warehouse-xlsx-path";
 
 const args = process.argv.slice(2);
-const fileArgIndex = args.findIndex((arg) => arg === "--file");
-const xlsxPath =
-  fileArgIndex >= 0 ? resolve(args[fileArgIndex + 1] || "") : defaultXlsxPath;
+const xlsxPath = resolveWarehouseXlsxPath(args);
+assertWarehouseXlsxExists(xlsxPath);
 
 const isRealImageUrl = (url: string) =>
   /^https?:\/\//i.test(url)

@@ -8,13 +8,16 @@
  *   npm run products:feed-warehouse-xlsx -- --local
  *   npm run products:feed-warehouse-xlsx -- --prod
  *   npm run products:feed-warehouse-xlsx -- --local --prod
+ *   npm run products:feed-warehouse-xlsx -- --prod --file /app/data/imports/warehouse-stock.xlsx
  */
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const defaultXlsxPath =
-  "/Users/mc/Downloads/Stock Disponible Warehouse 1 (1).xlsx";
+import {
+  assertWarehouseXlsxExists,
+  resolveWarehouseXlsxPath,
+} from "./warehouse-xlsx-path";
 
 const scriptDir = resolve(fileURLToPath(import.meta.url), "..");
 const backendRoot = resolve(scriptDir, "../..");
@@ -24,9 +27,9 @@ const dryRun = args.includes("--dry-run");
 const runLocal = args.includes("--local") || !args.includes("--prod");
 const runProd = args.includes("--prod") || !args.includes("--local");
 
-const fileArgIndex = args.findIndex((arg) => arg === "--file");
-const xlsxPath =
-  fileArgIndex >= 0 ? resolve(args[fileArgIndex + 1] || "") : defaultXlsxPath;
+const xlsxPath = resolveWarehouseXlsxPath(args);
+assertWarehouseXlsxExists(xlsxPath);
+console.log(`Using spreadsheet: ${xlsxPath}`);
 
 const localDatabaseUrl =
   process.env.LOCAL_DATABASE_URL || "postgresql://mc@localhost:5432/edoshop";

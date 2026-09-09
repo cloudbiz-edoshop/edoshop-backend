@@ -1,19 +1,19 @@
 /* eslint-disable no-console */
-import { resolve } from "node:path";
-
 import {
   createVariantsForProduct,
   loadDirectOrderProductIdsByCode,
   loadWorkbookRowsByReference,
   updateImportedProductMetadata,
 } from "./warehouse-import-utils";
+import {
+  assertWarehouseXlsxExists,
+  resolveWarehouseXlsxPath,
+} from "./warehouse-xlsx-path";
 
-const defaultXlsxPath =
-  "/Users/mc/Downloads/Stock Disponible Warehouse 1 (1).xlsx";
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
-const fileArgIndex = args.findIndex((arg) => arg === "--file");
-const xlsxPath = fileArgIndex >= 0 ? resolve(args[fileArgIndex + 1] || "") : defaultXlsxPath;
+const xlsxPath = resolveWarehouseXlsxPath(args);
+assertWarehouseXlsxExists(xlsxPath);
 
 async function main() {
   console.log(`Reading workbook: ${xlsxPath}`);

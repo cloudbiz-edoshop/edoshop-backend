@@ -24,6 +24,10 @@ import {
   parsePrice,
   truncate,
 } from "./warehouse-import-utils";
+import {
+  assertWarehouseXlsxExists,
+  resolveWarehouseXlsxPath,
+} from "./warehouse-xlsx-path";
 
 const DEFAULT_TAG_ID = 1;
 const DEFAULT_USER_ID = 1;
@@ -40,15 +44,13 @@ type IdMappingRow = {
   imageFileHint: string;
 };
 
-const defaultXlsxPath =
-  "/Users/mc/Downloads/Stock Disponible Warehouse 1 (1).xlsx";
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const defaultOutputDir = resolve(scriptDir, "../../data/imports");
 
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
-const fileArgIndex = args.findIndex((arg) => arg === "--file");
-const xlsxPath = fileArgIndex >= 0 ? resolve(args[fileArgIndex + 1] || "") : defaultXlsxPath;
+const xlsxPath = resolveWarehouseXlsxPath(args);
+assertWarehouseXlsxExists(xlsxPath);
 const outputArgIndex = args.findIndex((arg) => arg === "--output");
 const outputDir = outputArgIndex >= 0
   ? resolve(args[outputArgIndex + 1] || "")

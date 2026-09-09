@@ -10,3 +10,4 @@ tools/minio/data/
 .env.*
 !.env.example
 .env.test
+data/imports/*.xlsx

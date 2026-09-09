@@ -1,6 +1,4 @@
 /* eslint-disable no-console */
-import { resolve } from "node:path";
-
 import { eq, inArray } from "drizzle-orm";
 
 import { storageService } from "@/common/services/storage.service";
@@ -13,9 +11,11 @@ import {
   loadWorkbookImagesByReference,
 } from "./warehouse-xlsx-images";
 import { loadDirectOrderProductIdsByCode } from "./warehouse-import-utils";
+import {
+  assertWarehouseXlsxExists,
+  resolveWarehouseXlsxPath,
+} from "./warehouse-xlsx-path";
 
-const defaultXlsxPath =
-  "/Users/mc/Downloads/Stock Disponible Warehouse 1 (1).xlsx";
 const UPLOAD_CONCURRENCY = 8;
 
 const isRealImageUrl = (url: string) =>
@@ -25,9 +25,8 @@ const isRealImageUrl = (url: string) =>
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
 const force = args.includes("--force");
-const fileArgIndex = args.findIndex((arg) => arg === "--file");
-const xlsxPath =
-  fileArgIndex >= 0 ? resolve(args[fileArgIndex + 1] || "") : defaultXlsxPath;
+const xlsxPath = resolveWarehouseXlsxPath(args);
+assertWarehouseXlsxExists(xlsxPath);
 
 const runPool = async <T>(
   items: T[],
