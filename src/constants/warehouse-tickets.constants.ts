@@ -71,10 +71,23 @@ export const WAREHOUSE_TICKET_DELIVERY_STATUSES = [
   WarehouseTicketStatus.READY_FOR_PICKUP,
 ] as const;
 
+export const WAREHOUSE_TICKET_TAKEOUT_STATUSES = [
+  WarehouseTicketStatus.READY_FOR_PICKUP,
+] as const;
+
 export const WAREHOUSE_TICKET_BORROWED_STATUSES = [
   WarehouseTicketStatus.RECEIVED_BORROWED,
   WarehouseTicketStatus.PARTIALLY_RETURNED,
   WarehouseTicketStatus.COMPLETED,
+] as const;
+
+/** Borrowed-products queue: active and fully returned tickets with issued quantities. */
+export const WAREHOUSE_TICKET_BORROWED_HISTORY_STATUSES = [
+  WarehouseTicketStatus.RECEIVED_BORROWED,
+  WarehouseTicketStatus.PARTIALLY_RETURNED,
+  WarehouseTicketStatus.RETURN_PENDING,
+  WarehouseTicketStatus.COMPLETED,
+  WarehouseTicketStatus.CLOSED,
 ] as const;
 
 export const WAREHOUSE_TICKET_LIMITS = {

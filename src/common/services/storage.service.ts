@@ -101,17 +101,33 @@ export class StorageService {
     return fileNameOrUrl;
   }
 
-  async uploadFile(file: File, fileName: string): Promise<string> {
+  async uploadBuffer(
+    buffer: Buffer,
+    fileName: string,
+    contentType: string,
+  ): Promise<string> {
     try {
-      const buffer = Buffer.from(await file.arrayBuffer());
       await withTimeout(
-        this.client.putObject(this.bucketName, fileName, buffer, file.size, {
-          "Content-Type": file.type,
+        this.client.putObject(this.bucketName, fileName, buffer, buffer.length, {
+          "Content-Type": contentType,
         }),
         "File upload",
       );
 
       return this.getPublicUrl(fileName);
+    } catch (error) {
+      console.error("Upload error:", error);
+      if (error instanceof AppError) {
+        throw error;
+      }
+      throw new AppError("Failed to upload file", 500);
+    }
+  }
+
+  async uploadFile(file: File, fileName: string): Promise<string> {
+    try {
+      const buffer = Buffer.from(await file.arrayBuffer());
+      return this.uploadBuffer(buffer, fileName, file.type || "application/octet-stream");
     } catch (error) {
       console.error("Upload error:", error);
       if (error instanceof AppError) {

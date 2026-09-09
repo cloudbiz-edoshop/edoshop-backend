@@ -3,10 +3,19 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { eq } from "drizzle-orm";
+
 import { StoreIds } from "@/constants/stores.constants";
 import db from "@/db";
 import { directOrderProducts, productCategories, products, productTags } from "@/db/models";
 
+import { storageService } from "@/common/services/storage.service";
+
+import {
+  getImageContentType,
+  getImageExtension,
+  loadWorkbookImagesByReference,
+} from "./warehouse-xlsx-images";
 import {
   buildSpecifications,
   createVariantsForProduct,
@@ -31,7 +40,8 @@ type IdMappingRow = {
   imageFileHint: string;
 };
 
-const defaultXlsxPath = "/Users/mc/Downloads/Stock Disponible Warehouse 1.xlsx";
+const defaultXlsxPath =
+  "/Users/mc/Downloads/Stock Disponible Warehouse 1 (1).xlsx";
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const defaultOutputDir = resolve(scriptDir, "../../data/imports");
 
@@ -98,6 +108,7 @@ const writeMappingFiles = (mapping: IdMappingRow[]) => {
 async function main() {
   console.log(`Reading workbook: ${xlsxPath}`);
   const rowsByReference = loadWorkbookRowsByReference(xlsxPath);
+  const imagesByReference = loadWorkbookImagesByReference(xlsxPath);
   const rows = [...rowsByReference.values()];
   console.log(`Parsed ${rows.length} unique warehouse products.`);
 
@@ -202,6 +213,29 @@ async function main() {
         colorCache,
         sizeCache,
       });
+
+      const imageBuffers = imagesByReference.get(row.legacyReference) ?? [];
+      const imageUrls: string[] = [];
+      for (const [imageIndex, buffer] of imageBuffers.entries()) {
+        const extension = getImageExtension(buffer);
+        const fileName = `${product.id}-${imageIndex + 1}.${extension}`;
+        const url = await storageService.uploadBuffer(
+          buffer,
+          fileName,
+          getImageContentType(extension),
+        );
+        imageUrls.push(url);
+      }
+
+      if (imageUrls.length) {
+        await db
+          .update(products)
+          .set({
+            imageUrls,
+            updatedAt: new Date().toISOString(),
+          })
+          .where(eq(products.id, product.id));
+      }
 
       mapping.push({
         legacyReference: row.legacyReference,

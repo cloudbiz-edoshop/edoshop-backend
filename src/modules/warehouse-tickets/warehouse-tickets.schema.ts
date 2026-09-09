@@ -124,6 +124,7 @@ export const warehouseTicketUserSchema = z.object({
   id: z.number(),
   firstName: z.string().nullable().optional(),
   lastName: z.string().nullable().optional(),
+  fullName: z.string().nullable().optional(),
   email: z.string().nullable().optional(),
 });
 

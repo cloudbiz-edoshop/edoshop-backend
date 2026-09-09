@@ -27,9 +27,11 @@ import {
   warehouseTickets,
 } from "@/db/models";
 import {
+  WAREHOUSE_TICKET_BORROWED_HISTORY_STATUSES,
   WAREHOUSE_TICKET_BORROWED_STATUSES,
   WAREHOUSE_TICKET_DELIVERY_STATUSES,
   WAREHOUSE_TICKET_OPEN_STATUSES,
+  WAREHOUSE_TICKET_TAKEOUT_STATUSES,
 } from "@/constants/warehouse-tickets.constants";
 import {
   createFilterConditions,
@@ -126,22 +128,47 @@ export class WarehouseTicketsRepository {
     return [...new Set(rows.map((row) => row.userId))];
   }
 
+  async listStandaloneAdminUserIds() {
+    const rows = await db
+      .select({ userId: users.id })
+      .from(users)
+      .where(and(eq(users.isAdmin, true), eq(users.isDeleted, false)));
+
+    return rows.map((row) => row.userId);
+  }
+
   async listWarehouseReceiverUserIds(
     warehouseId: number,
     excludeUserIds: number[] = [],
   ) {
     const warehouseEntity = warehouseId === 1 ? "warehouse_1" : "warehouse_2";
-    const [ticketingReceivers, warehouseReceivers] = await Promise.all([
+    const [
+      ticketingReceivers,
+      warehouseUpdateReceivers,
+      warehouseReadReceivers,
+      standaloneAdminIds,
+    ] = await Promise.all([
       this.listUserIdsByPermission("ticketing", "update"),
       this.listUserIdsByPermission(warehouseEntity, "update"),
+      this.listUserIdsByPermission(warehouseEntity, "read"),
+      this.listStandaloneAdminUserIds(),
     ]);
 
-    const warehouseSet = new Set(warehouseReceivers);
+    const warehouseSet = new Set([
+      ...warehouseUpdateReceivers,
+      ...warehouseReadReceivers,
+    ]);
     const excludeSet = new Set(excludeUserIds);
 
-    return ticketingReceivers.filter(
+    const permissionBasedReceivers = ticketingReceivers.filter(
       (userId) => warehouseSet.has(userId) && !excludeSet.has(userId),
     );
+
+    const adminReceivers = standaloneAdminIds.filter(
+      (userId) => !excludeSet.has(userId),
+    );
+
+    return [...new Set([...permissionBasedReceivers, ...adminReceivers])];
   }
 
   async findTicketNotificationContextByIds(ticketIds: number[]) {
@@ -657,7 +684,7 @@ export class WarehouseTicketsRepository {
       status?: string;
       warehouseId?: number;
       requesterId?: number;
-      queue?: "approvals" | "approvals_history" | "delivery" | "returns" | "borrowed";
+      queue?: "approvals" | "approvals_history" | "delivery" | "takeout" | "returns" | "borrowed";
       warehouseTechWarehouseId?: number;
       [key: string]: unknown;
     };
@@ -715,6 +742,17 @@ export class WarehouseTicketsRepository {
       }
     }
 
+    if (queue === "takeout") {
+      whereConditions.push(
+        inArray(warehouseTickets.status, [...WAREHOUSE_TICKET_TAKEOUT_STATUSES]),
+      );
+      if (warehouseTechWarehouseId) {
+        whereConditions.push(
+          eq(warehouseTickets.warehouseId, warehouseTechWarehouseId),
+        );
+      }
+    }
+
     if (queue === "returns") {
       whereConditions.push(
         sql`(
@@ -735,13 +773,15 @@ export class WarehouseTicketsRepository {
 
     if (queue === "borrowed") {
       whereConditions.push(
-        inArray(warehouseTickets.status, [...WAREHOUSE_TICKET_BORROWED_STATUSES]),
+        inArray(warehouseTickets.status, [
+          ...WAREHOUSE_TICKET_BORROWED_HISTORY_STATUSES,
+        ]),
       );
       whereConditions.push(
         sql`EXISTS (
           SELECT 1 FROM ${warehouseTicketItems} AS borrow_items
           WHERE borrow_items.ticket_id = ${warehouseTickets.id}
-            AND borrow_items.transferred_quantity > borrow_items.returned_quantity
+            AND borrow_items.transferred_quantity > 0
         )`,
       );
       if (warehouseTechWarehouseId) {
@@ -768,6 +808,29 @@ export class WarehouseTicketsRepository {
       sortBy,
       sortOrder,
     );
+    const borrowHistoryActiveFirstOrder = sql`(
+      CASE
+        WHEN ${warehouseTickets.status} = 'closed' THEN 1
+        WHEN NOT EXISTS (
+          SELECT 1 FROM ${warehouseTicketItems} AS borrow_sort_items
+          WHERE borrow_sort_items.ticket_id = ${warehouseTickets.id}
+            AND (
+              borrow_sort_items.transferred_quantity > borrow_sort_items.returned_quantity
+              OR borrow_sort_items.pending_return_quantity > 0
+            )
+        ) THEN 1
+        ELSE 0
+      END
+    )`;
+    const orderBy =
+      queue === "borrowed"
+        ? [
+            sql`${borrowHistoryActiveFirstOrder} asc`,
+            sortCondition ?? desc(warehouseTickets.updatedAt),
+          ]
+        : sortCondition
+          ? [sortCondition]
+          : [desc(warehouseTickets.createdAt)];
 
     return await db.transaction(async (tx) => {
       const [{ value: totalCount }] = await tx
@@ -779,9 +842,7 @@ export class WarehouseTicketsRepository {
         where: whereClause,
         limit: limitVal,
         offset,
-        orderBy: sortCondition
-          ? [sortCondition]
-          : [desc(warehouseTickets.createdAt)],
+        orderBy,
         with: {
           requester: true,
           approver: true,

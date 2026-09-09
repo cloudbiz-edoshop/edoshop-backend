@@ -14,10 +14,11 @@ const warehouseTicketsRepository = new WarehouseTicketsRepository();
 const formatUserName = (user?: {
   firstName?: string | null;
   lastName?: string | null;
+  fullName?: string | null;
   email?: string | null;
 }) => {
-  const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(" ");
-  return fullName || user?.email || "Team member";
+  const name = [user?.firstName, user?.lastName].filter(Boolean).join(" ");
+  return name || user?.fullName || user?.email || "Team member";
 };
 
 export function formatNotificationTimestamp(date = new Date()) {

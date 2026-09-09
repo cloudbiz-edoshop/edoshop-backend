@@ -8,7 +8,8 @@ import {
   updateImportedProductMetadata,
 } from "./warehouse-import-utils";
 
-const defaultXlsxPath = "/Users/mc/Downloads/Stock Disponible Warehouse 1.xlsx";
+const defaultXlsxPath =
+  "/Users/mc/Downloads/Stock Disponible Warehouse 1 (1).xlsx";
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
 const fileArgIndex = args.findIndex((arg) => arg === "--file");
