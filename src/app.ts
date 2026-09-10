@@ -138,9 +138,10 @@ const routes = [
 ] as const;
 // Register the index route
 app.route("/", index);
-// Register all other routes
+// Register all other routes (/v1 primary, /api/v1 alias for tv.edoshop.online)
 for (const route of routes) {
   app.route("/v1", route);
+  app.route("/api/v1", route);
 }
 
 export type AppType = (typeof routes)[number];
