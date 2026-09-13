@@ -78,6 +78,11 @@ if (appConfig.isProduction) {
   app.use("/reset-password", authRateLimiter);
   app.use("/change-password-by-phone", authRateLimiter);
   app.use("/refresh-token", authRateLimiter);
+  // TV-device authentication endpoints (both route prefixes are supported).
+  app.use("/v1/auth/token", authRateLimiter);
+  app.use("/v1/auth/refresh", authRateLimiter);
+  app.use("/api/v1/auth/token", authRateLimiter);
+  app.use("/api/v1/auth/refresh", authRateLimiter);
 }
 
 // Do not apply CSRF protection for all environments - Not needed for now

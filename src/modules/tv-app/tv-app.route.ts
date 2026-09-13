@@ -431,7 +431,7 @@ export const listVideos = createRoute({
 });
 
 export const authToken = createRoute({
-  path: "/tv/auth/token",
+  path: "/auth/token",
   method: "post",
   tags,
   request: {
@@ -448,7 +448,7 @@ export const authToken = createRoute({
 });
 
 export const authRefresh = createRoute({
-  path: "/tv/auth/refresh",
+  path: "/auth/refresh",
   method: "post",
   tags,
   request: {
@@ -465,7 +465,7 @@ export const authRefresh = createRoute({
 });
 
 export const getMagazineVersion = createRoute({
-  path: "/tv/magazine/version",
+  path: "/magazine/version",
   method: "get",
   tags,
   middleware: [tvDeviceMiddleware()] as const,
@@ -480,7 +480,7 @@ export const getMagazineVersion = createRoute({
 });
 
 export const getMagazineFeed = createRoute({
-  path: "/tv/magazine/feed",
+  path: "/magazine/feed",
   method: "get",
   tags,
   middleware: [tvDeviceMiddleware()] as const,
