@@ -1,110 +1,61 @@
-# EDOSHOP TV API v1
+# EDOSHOP TV API v1 Update
 
-Target base URL:
+A dedicated TV API endpoint has been prepared for the EDOSHOP TV Magazine application.
 
-`https://tv.edoshop.online/api/v1`
+## Base URL
 
-The Roku app should keep this value as its base URL and append only the child paths below.
+https://tv.edoshop.online/api/v1
 
-## TV device endpoints
+## TV Client Endpoints
 
-### Authenticate device
+- POST /auth/token
+- POST /auth/refresh
+- GET /magazine/version
+- GET /magazine/feed
 
-`POST /auth/token`
+## Authentication
 
-Full URL:
+The TV app uses device-specific authentication.
 
-`https://tv.edoshop.online/api/v1/auth/token`
+Each TV device receives:
+- deviceKey
+- deviceSecret
 
-Request JSON:
+The authentication endpoint returns a short-lived access token and refresh token.
 
-```json
-{
-  "deviceKey": "<registered-device-key>",
-  "deviceSecret": "<device-secret-issued-on-registration>"
-}
-```
+Protected endpoints require:
 
-Successful response data contains:
+Authorization: Bearer <accessToken>
 
-```json
-{
-  "accessToken": "...",
-  "refreshToken": "...",
-  "expiresIn": 900,
-  "tokenType": "Bearer"
-}
-```
+## Security
 
-### Refresh device token
+- No shared permanent API key is used.
+- Device access can be disabled or revoked individually.
+- Refresh tokens are rotated.
+- TV access is read-only.
+- Customer, order, payment, admin, and employee data are not exposed to the TV app.
 
-`POST /auth/refresh`
+## Deployment
 
-Full URL:
+The TV API is deployed separately from the main EDOSHOP API at:
 
-`https://tv.edoshop.online/api/v1/auth/refresh`
+https://tv.edoshop.online
 
-Request JSON:
+The service uses the `feature/tv-api-v1` branch during testing.
 
-```json
-{
-  "refreshToken": "..."
-}
-```
+## Current Status
 
-A successful refresh rotates the refresh token and returns a new access token + refresh token pair.
+The endpoint:
 
-### Check magazine version
+GET /api/v1/magazine/version
 
-`GET /magazine/version`
+is reachable and correctly returns HTTP 401 when no valid TV device token is supplied.
 
-Full URL:
+This confirms the domain, routing, backend service, and TV authentication middleware are working.
 
-`https://tv.edoshop.online/api/v1/magazine/version`
-
-Header:
-
-`Authorization: Bearer <accessToken>`
-
-The Roku app should call this lightweight endpoint before downloading the full magazine feed.
-
-### Download magazine feed
-
-`GET /magazine/feed`
-
-Full URL:
-
-`https://tv.edoshop.online/api/v1/magazine/feed`
-
-Header:
-
-`Authorization: Bearer <accessToken>`
-
-The feed is read-only and is built from existing EDOSHOP products, discounts, banners, TV ads, TV settings, and the How EDOSHOP Works video configuration.
-
-## Admin endpoints remain under `/tv/...`
-
-The Admin Panel/backend management routes remain unchanged, for example:
-
-- `GET /api/v1/tv/overview`
-- `GET/PATCH /api/v1/tv/settings`
-- `GET/POST/PATCH/DELETE /api/v1/tv/ads...`
-- `GET/POST/PATCH /api/v1/tv/devices...`
-- `GET/PATCH /api/v1/tv/catalog`
-- `GET /api/v1/tv/how-it-works-videos`
-
-These routes use normal EDOSHOP admin JWT + role/permission middleware and are not Roku-device endpoints.
-
-## Security behavior already present
-
-- Each TV is registered as an individual device.
-- Device secrets are Argon2 hashed in the database.
-- Device authentication returns a short-lived 15-minute access token.
-- Refresh tokens are hashed at rest and rotated on refresh.
-- Disabled/revoked TVs are rejected before protected TV feed access.
-- Device access scope is read-only (`tv:read`).
-- No shared permanent Roku API key is used.
-
-## Deployment note
-
-`tv.edoshop.online` must reverse-proxy to this backend service without stripping `/api/v1`. HTTPS should terminate at Cloudflare/Traefik as already used by EDOSHOP.
+The next step is to register the first TV device and validate:
+- device authentication
+- token refresh
+- magazine version retrieval
+- magazine feed retrieval
+- device revocation
