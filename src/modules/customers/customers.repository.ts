@@ -6,7 +6,7 @@ import { and, count, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { constraintAndMessages } from "@/constants";
 
 import db from "@/db";
-import { customers, users } from "@/db/models";
+import { customers, retailers, users } from "@/db/models";
 import {
   createFilterConditions,
   createSearchCondition,
@@ -154,7 +154,26 @@ export class CustomersRepository {
       },
     });
 
-    return result;
+    if (!result) {
+      return result;
+    }
+
+    const [retailer] = await db
+      .select({
+        id: retailers.id,
+        shopName: retailers.shopName,
+        retailerCode: retailers.retailerCode,
+        status: retailers.status,
+      })
+      .from(retailers)
+      .where(eq(retailers.userId, result.userId))
+      .limit(1);
+
+    return {
+      ...result,
+      retailer: retailer ?? null,
+      shopName: retailer?.shopName ?? null,
+    };
   }
 
   /**

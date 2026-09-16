@@ -116,6 +116,10 @@ export class DiscountsRepository {
       minimumPurchaseAmount?: string;
       seriesId?: number | null;
       productId?: number | null;
+      targetScope?: string | null;
+      section?: string | null;
+      categoryId?: number | null;
+      productIds?: number[];
       isActive: boolean;
       startsAt?: Date;
       endsAt?: Date;
@@ -145,6 +149,10 @@ export class DiscountsRepository {
       minimumPurchaseAmount?: string;
       seriesId?: number | null;
       productId?: number | null;
+      targetScope?: string | null;
+      section?: string | null;
+      categoryId?: number | null;
+      productIds?: number[];
       isActive: boolean;
       startsAt?: Date | null;
       endsAt?: Date | null;

@@ -54,6 +54,7 @@ import warehouseTransfers from "@/modules/warehouse-transfers/warehouse-transfer
 import warehouseTickets from "@/modules/warehouse-tickets/warehouse-tickets.index";
 import warehouses from "@/modules/warehouses/warehouses.index";
 import tvApp from "@/modules/tv-app/tv-app.index";
+import promoBanners from "@/modules/promo-banners/promo-banners.index";
 
 const app = createApp();
 
@@ -105,6 +106,7 @@ const routes = [
   warehouseTickets,
   warehouses,
   tvApp,
+  promoBanners,
   rayons,
   attributes,
   colors,

@@ -12,15 +12,76 @@ import db from "@/db";
 import { DiscountsRepository } from "./discounts.repository";
 
 const resolveTargetIds = (data: {
-  targetType?: "series" | "product";
+  targetType?: "all" | "section" | "category" | "products" | "series" | "product";
   seriesId?: number;
   productId?: number;
+  section?: string;
+  categoryId?: number;
+  productIds?: number[];
 }) => {
   if (data.targetType === "product") {
-    return { seriesId: null, productId: data.productId ?? null };
+    return {
+      seriesId: null,
+      productId: data.productId ?? null,
+      targetScope: "product",
+      section: null,
+      categoryId: null,
+      productIds: data.productId ? [data.productId] : [],
+    };
   }
 
-  return { seriesId: data.seriesId ?? null, productId: null };
+  if (data.targetType === "products") {
+    return {
+      seriesId: null,
+      productId: data.productIds?.[0] ?? null,
+      targetScope: "products",
+      section: null,
+      categoryId: null,
+      productIds: data.productIds ?? [],
+    };
+  }
+
+  if (data.targetType === "section") {
+    return {
+      seriesId: null,
+      productId: null,
+      targetScope: "section",
+      section: data.section ?? null,
+      categoryId: null,
+      productIds: [],
+    };
+  }
+
+  if (data.targetType === "category") {
+    return {
+      seriesId: null,
+      productId: null,
+      targetScope: "category",
+      section: null,
+      categoryId: data.categoryId ?? null,
+      productIds: [],
+    };
+  }
+
+  if (data.targetType === "all") {
+    return {
+      seriesId: null,
+      productId: null,
+      targetScope: "all",
+      section: null,
+      categoryId: null,
+      productIds: [],
+    };
+  }
+
+  return {
+    seriesId: data.seriesId ?? null,
+    productId: null,
+    targetScope: "series",
+    section: null,
+    categoryId: null,
+    productIds: [],
+  };
 };
 
 const resolveEndsAt = (data: {
@@ -80,6 +141,10 @@ export class DiscountsService {
         endsAt: resolveEndsAt(data),
         seriesId: targetIds.seriesId,
         productId: targetIds.productId,
+        targetScope: targetIds.targetScope,
+        section: targetIds.section,
+        categoryId: targetIds.categoryId,
+        productIds: targetIds.productIds,
         updatedBy: data.createdBy,
         createdBy: data.createdBy,
       });
@@ -117,16 +182,24 @@ export class DiscountsService {
 
     const targetType =
       data.targetType ??
+      existingDiscount.targetScope ??
       (existingDiscount.productId ? "product" : "series");
-    const targetIds = data.targetType || data.seriesId || data.productId
+    const targetIds = data.targetType || data.seriesId || data.productId || data.productIds || data.section || data.categoryId
       ? resolveTargetIds({
           targetType,
           seriesId: data.seriesId,
           productId: data.productId,
+          section: data.section,
+          categoryId: data.categoryId,
+          productIds: data.productIds,
         })
       : {
           seriesId: existingDiscount.seriesId,
           productId: existingDiscount.productId,
+          targetScope: existingDiscount.targetScope,
+          section: existingDiscount.section,
+          categoryId: existingDiscount.categoryId,
+          productIds: existingDiscount.productIds || [],
         };
 
     const updateData: Record<string, unknown> = {
@@ -142,6 +215,10 @@ export class DiscountsService {
       startsAt: data.startsAt ? new Date(data.startsAt) : undefined,
       seriesId: targetIds.seriesId,
       productId: targetIds.productId,
+      targetScope: targetIds.targetScope,
+      section: targetIds.section,
+      categoryId: targetIds.categoryId,
+      productIds: targetIds.productIds,
       updatedBy: data.updatedBy,
     };
 

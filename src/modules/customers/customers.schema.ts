@@ -21,11 +21,27 @@ const createCustomerBaseSchema = z.object({
   countryId: idSchema.describe("Country ID"),
   address: streetAddressSchema.describe("Customer address"),
   accountType: z.enum(["customer", "retailer"]).optional().default("customer"),
+  shopName: z.string().trim().min(1).max(255).optional(),
 });
 
-export const createCustomerRequestSchema = createCustomerBaseSchema.extend({
-  password: passwordSchema.describe("Customer password"),
-});
+const requireShopNameForRetailer = (
+  data: { accountType?: string; shopName?: string },
+  ctx: z.RefinementCtx,
+) => {
+  if (data.accountType === "retailer" && !data.shopName?.trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Shop name is required for retailer accounts",
+      path: ["shopName"],
+    });
+  }
+};
+
+export const createCustomerRequestSchema = createCustomerBaseSchema
+  .extend({
+    password: passwordSchema.describe("Customer password"),
+  })
+  .superRefine(requireShopNameForRetailer);
 
 export type CreateCustomerRequest = z.infer<typeof createCustomerRequestSchema>;
 
@@ -42,7 +58,8 @@ export const publicCustomerSignupRequestSchema = z.object({
     .describe("Customer town, area, or reference point"),
   password: z.string().min(8).describe("Customer password"),
   accountType: z.enum(["customer", "retailer"]).optional().default("customer"),
-});
+  shopName: z.string().trim().min(1).max(255).optional(),
+}).superRefine(requireShopNameForRetailer);
 
 export type PublicCustomerSignupRequest = z.infer<
   typeof publicCustomerSignupRequestSchema
@@ -72,7 +89,7 @@ export type CreateCustomerResponse = z.infer<
 >;
 
 export const updateCustomerRequestSchema =
-  createCustomerBaseSchema.partial();
+  createCustomerBaseSchema.partial().superRefine(requireShopNameForRetailer);
 
 export type UpdateCustomerRequest = z.infer<typeof updateCustomerRequestSchema>;
 

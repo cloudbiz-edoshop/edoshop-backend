@@ -222,7 +222,10 @@ export class CustomersService {
       throw new AppError("Customer could not be fetched after creation");
     }
     if (customerData.accountType === "retailer") {
-      await this.retailersService.becomeRetailer(customer.userId);
+      await this.retailersService.becomeRetailer(
+        customer.userId,
+        customerData.shopName,
+      );
     }
     await notificationDeliveryService.initializeUserPreferences(customer.userId);
     return customerWithAddresses as CreateCustomerResponse;
@@ -297,7 +300,10 @@ export class CustomersService {
     });
 
     if (customerData.accountType === "retailer") {
-      await this.retailersService.becomeRetailer(customer.userId);
+      await this.retailersService.becomeRetailer(
+        customer.userId,
+        customerData.shopName,
+      );
     }
 
     await notificationDeliveryService.initializeUserPreferences(customer.userId);
@@ -449,6 +455,14 @@ export class CustomersService {
         }
       }
     });
+
+    if (customerData.accountType === "retailer") {
+      await this.retailersService.becomeRetailer(
+        customer.userId,
+        customerData.shopName,
+      );
+    }
+
     // fetch customer with addresses
     const customerWithAddresses = await this.customerRepository.findById(
       customer.id,

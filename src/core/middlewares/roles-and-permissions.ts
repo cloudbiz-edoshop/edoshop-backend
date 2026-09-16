@@ -45,26 +45,10 @@ export const rolesAndPermissionsMiddleware = (
       `Checking permissions for ${path} ${method} with permissions: ${JSON.stringify(permissions)}, checkType: ${checkType}`,
     );
 
-    if (isAdmin) {
-      const permissionsService = new PermissionsService();
-      const accessProfile = await permissionsService.getUserAccessProfile(user.id);
-      const hasPermission =
-        checkType === "ALL"
-          ? permissions.every(({ entity, operation }) =>
-              permissionsService.hasPermission(
-                accessProfile,
-                entity,
-                operation,
-              ),
-            )
-          : permissionsService.hasAnyPermission(accessProfile, permissions);
+    const permissionsService = new PermissionsService();
+    const accessProfile = await permissionsService.getUserAccessProfile(user.id);
 
-      if (!hasPermission) {
-        throw new HTTPException(HttpStatusCodes.FORBIDDEN, {
-          message: "Super Admin does not have this permission",
-        });
-      }
-
+    if (isAdmin || accessProfile.isSuperAdmin || accessProfile.isAdminRole) {
       return next();
     }
 

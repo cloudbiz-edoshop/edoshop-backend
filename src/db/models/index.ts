@@ -260,3 +260,7 @@ export {
   default as tvCatalogSelections,
   tvCatalogSelectionsRelations,
 } from "./tv-catalog-selections";
+export {
+  default as promoBanners,
+  promoBannersRelations,
+} from "./promo-banners";

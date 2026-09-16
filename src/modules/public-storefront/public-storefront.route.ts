@@ -11,6 +11,7 @@ import {
   publicCategorySchema,
   publicCustomerSchema,
   publicDiscountSchema,
+  publicPromoBannerSchema,
   publicFaqSchema,
   publicFilterSchema,
   publicNewArrivalProductSchema,
@@ -84,6 +85,18 @@ export const listProducts = publicListRoute(
   publicProductSchema,
   "Public products",
 );
+
+export const getPromoBanner = createRoute({
+  path: "/public/promo-banner",
+  method: "get",
+  tags,
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(publicPromoBannerSchema.nullable()),
+      "Active promo banner",
+    ),
+  },
+});
 
 export const listDiscounts = publicListRoute(
   "/public/discounts",
@@ -160,6 +173,7 @@ export type ListCategoriesRoute = typeof listCategories;
 export type ListNewArrivalProductsRoute = typeof listNewArrivalProducts;
 export type ListProductsRoute = typeof listProducts;
 export type ListDiscountsRoute = typeof listDiscounts;
+export type GetPromoBannerRoute = typeof getPromoBanner;
 export type ListReviewsRoute = typeof listReviews;
 export type ListCustomersRoute = typeof listCustomers;
 export type ListRetailersRoute = typeof listRetailers;

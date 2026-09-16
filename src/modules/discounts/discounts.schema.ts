@@ -7,10 +7,22 @@ const discountRateSchema = z.coerce
   .min(0, "Discount rate must be a percentage value between 0 and 100")
   .max(100, "Discount rate must be a percentage value between 0 and 100");
 
+export const discountTargetTypes = [
+  "all",
+  "section",
+  "category",
+  "products",
+  "series",
+  "product",
+] as const;
+
 export const discountFieldsSchema = z.object({
-  targetType: z.enum(["series", "product"]).default("series"),
+  targetType: z.enum(discountTargetTypes).default("products"),
   seriesId: z.coerce.number().int().positive().optional(),
   productId: z.coerce.number().int().positive().optional(),
+  section: z.string().optional(),
+  categoryId: z.coerce.number().int().positive().optional(),
+  productIds: z.array(z.coerce.number().int().positive()).optional(),
   discountRate: discountRateSchema,
   name: z.string().optional(),
   description: z.string().optional(),
@@ -42,6 +54,30 @@ const refineCreateDiscount = (data: DiscountFields, ctx: z.RefinementCtx) => {
       code: z.ZodIssueCode.custom,
       message: "Product is required for product discounts",
       path: ["productId"],
+    });
+  }
+
+  if (data.targetType === "section" && !data.section) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Section is required for section discounts",
+      path: ["section"],
+    });
+  }
+
+  if (data.targetType === "category" && !data.categoryId) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Category is required for category discounts",
+      path: ["categoryId"],
+    });
+  }
+
+  if (data.targetType === "products" && !data.productIds?.length) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Select at least one product",
+      path: ["productIds"],
     });
   }
 

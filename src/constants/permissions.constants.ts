@@ -122,7 +122,8 @@ export type AccessSection =
   | "ewms_management"
   | "delivery"
   | "ticketing"
-  | "tv_app";
+  | "tv_app"
+  | "best_deals";
 
 export const SECTION_ENTITY_MAP: Record<AccessSection, EntityType[]> = {
   settings: SETTINGS_ENTITIES,
@@ -137,6 +138,11 @@ export const SECTION_ENTITY_MAP: Record<AccessSection, EntityType[]> = {
   delivery: DELIVERY_ENTITIES,
   ticketing: TICKETING_ENTITIES,
   tv_app: TV_APP_ENTITIES,
+  best_deals: [
+    EntityType.DISCOUNTS,
+    EntityType.NEW_ARRIVALS,
+    EntityType.PROMOTIONS,
+  ],
 };
 
 export type PermissionPair = {

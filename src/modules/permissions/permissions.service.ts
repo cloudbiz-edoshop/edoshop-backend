@@ -71,7 +71,7 @@ export class PermissionsService {
 
     return {
       isSuperAdmin: false,
-      isAdminRole: role.name.toLowerCase() === RoleType.ADMIN,
+      isAdminRole: isAdminRoleName(role.name),
       role: {
         id: role.id,
         name: role.name,
@@ -102,7 +102,7 @@ export class PermissionsService {
   }
 
   canAccessSection(accessProfile: UserAccessProfile, section: AccessSection) {
-    if (accessProfile.isSuperAdmin) {
+    if (accessProfile.isSuperAdmin || accessProfile.isAdminRole) {
       return true;
     }
 
@@ -162,6 +162,7 @@ export class PermissionsService {
       delivery: EntityType.DELIVERY_PLANS,
       ticketing: EntityType.TICKETING,
       tv_app: EntityType.TV_APP,
+      best_deals: EntityType.DISCOUNTS,
     };
 
     return Object.keys(SECTION_ENTITY_MAP).reduce(
@@ -188,6 +189,15 @@ export class PermissionsService {
       {} as Record<AccessSection, boolean>,
     );
   }
+}
+
+function isAdminRoleName(name?: string | null) {
+  const normalized = String(name || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+
+  return normalized === RoleType.ADMIN || normalized === "administrator";
 }
 
 export function getRolePermissionTemplate(roleName: RoleType) {

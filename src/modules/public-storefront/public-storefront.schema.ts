@@ -124,7 +124,12 @@ export const publicProductSchema = publicNewArrivalProductSchema
 
 export const publicDiscountSchema = z.object({
   id: z.number(),
-  seriesId: z.number(),
+  seriesId: z.number().nullable().optional(),
+  productId: z.number().nullable().optional(),
+  targetScope: z.string().nullable().optional(),
+  section: z.string().nullable().optional(),
+  categoryId: z.number().nullable().optional(),
+  productIds: z.array(z.number()).optional(),
   discountRate: z.union([z.string(), z.number()]),
   name: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
@@ -132,6 +137,15 @@ export const publicDiscountSchema = z.object({
   startsAt: z.string().nullable().optional(),
   endsAt: z.string().nullable().optional(),
   discountValue: z.union([z.string(), z.number()]).nullable().optional(),
+});
+
+export const publicPromoBannerSchema = z.object({
+  id: z.number(),
+  text: z.string(),
+  backgroundColor: z.enum(["yellow", "red"]),
+  isActive: z.boolean(),
+  startsAt: z.string().nullable().optional(),
+  endsAt: z.string().nullable().optional(),
 });
 
 export const publicReviewSchema = z.object({

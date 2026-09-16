@@ -26,6 +26,7 @@ import { ProductsService } from "@/modules/products/products.service";
 import { PaymentMethodService } from "@/modules/payment-methods/payment-methods.service";
 import { RetailersService } from "@/modules/retailers/retailers.service";
 import { ReviewsService } from "@/modules/reviews/reviews.service";
+import { promoBannersService } from "@/modules/promo-banners/promo-banners.service";
 
 const bannersService = new BannersService();
 const aboutUsService = new AboutUsService();
@@ -382,6 +383,10 @@ export const listDiscounts = async (c: any) => {
     id: discount.id,
     seriesId: discount.seriesId,
     productId: discount.productId,
+    targetScope: discount.targetScope,
+    section: discount.section,
+    categoryId: discount.categoryId,
+    productIds: discount.productIds || [],
     discountRate: discount.discountValue,
     name: discount.name,
     description: discount.description,
@@ -399,6 +404,14 @@ export const listDiscounts = async (c: any) => {
     params.page,
     params.limit,
     "Public discounts retrieved successfully",
+  );
+};
+
+export const getPromoBanner = async (c: any) => {
+  const banner = await promoBannersService.getActivePublic();
+  return c.json(
+    successResponse(banner, "Promo banner retrieved successfully"),
+    HttpStatusCodes.OK,
   );
 };
 

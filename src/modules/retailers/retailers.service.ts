@@ -144,6 +144,17 @@ export class RetailersService {
   async becomeRetailer(userId: number, shop?: string) {
     const existingRetailer = await this.retailerRepository.findByUserId(userId);
     if (existingRetailer) {
+      if (shop && shop !== existingRetailer.shopName) {
+        await db.transaction(async (tx) => {
+          await this.retailerRepository.update(tx, existingRetailer.id, {
+            shopName: shop,
+          } as any);
+        });
+        return {
+          ...existingRetailer,
+          shopName: shop,
+        } as CreateRetailerResponse;
+      }
       return existingRetailer as CreateRetailerResponse;
     }
 

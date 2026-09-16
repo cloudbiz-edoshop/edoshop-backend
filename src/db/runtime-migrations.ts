@@ -1175,4 +1175,32 @@ async function ensurePredefinedRolePermissions() {
       .values(rows.slice(index, index + 100))
       .onConflictDoNothing();
   }
+
+  await db.execute(
+    sql.raw(`
+      ALTER TABLE "discounts"
+      ADD COLUMN IF NOT EXISTS "target_scope" varchar(32) DEFAULT 'product',
+      ADD COLUMN IF NOT EXISTS "section" varchar(64),
+      ADD COLUMN IF NOT EXISTS "category_id" integer,
+      ADD COLUMN IF NOT EXISTS "product_ids" jsonb DEFAULT '[]'::jsonb
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
+      CREATE TABLE IF NOT EXISTS "promo_banners" (
+        "id" serial PRIMARY KEY,
+        "text" varchar(255) NOT NULL,
+        "background_color" varchar(16) NOT NULL DEFAULT 'yellow',
+        "is_active" boolean NOT NULL DEFAULT false,
+        "starts_at" timestamp,
+        "ends_at" timestamp,
+        "display_duration_hours" integer,
+        "created_at" timestamp NOT NULL DEFAULT now(),
+        "updated_at" timestamp NOT NULL DEFAULT now(),
+        "created_by" integer REFERENCES "users"("id"),
+        "updated_by" integer REFERENCES "users"("id")
+      )
+    `),
+  );
 }
