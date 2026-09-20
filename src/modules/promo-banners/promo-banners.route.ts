@@ -17,9 +17,9 @@ import commonQueryParamsSchema from "@/lib/openapi/schemas/query-params-schema";
 import { jwtHeaderSchema } from "@/lib/zod-schemas";
 
 import {
-  createPromoBannerRequestSchema,
+  createPromoBannerCardsRequestSchema,
   promoBannerResponseSchema,
-  updatePromoBannerRequestSchema,
+  updatePromoBannerCardsRequestSchema,
 } from "./promo-banners.schema";
 
 const tags = ["Promo Banners"];
@@ -62,7 +62,7 @@ export const create = createRoute({
   ] as const,
   request: {
     headers: jwtHeaderSchema,
-    body: jsonContentRequired(createPromoBannerRequestSchema, "Promo banner"),
+    body: jsonContentRequired(createPromoBannerCardsRequestSchema, "Promo banner"),
   },
   summary: "Create promo banner",
   responses: {
@@ -114,7 +114,7 @@ export const patch = createRoute({
   request: {
     headers: jwtHeaderSchema,
     params: idParams,
-    body: jsonContentRequired(updatePromoBannerRequestSchema, "Promo banner"),
+    body: jsonContentRequired(updatePromoBannerCardsRequestSchema, "Promo banner"),
   },
   summary: "Update promo banner",
   responses: {

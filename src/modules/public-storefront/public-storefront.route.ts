@@ -12,6 +12,7 @@ import {
   publicCustomerSchema,
   publicDiscountSchema,
   publicPromoBannerSchema,
+  publicPromoCardsSchema,
   publicFaqSchema,
   publicFilterSchema,
   publicNewArrivalProductSchema,
@@ -95,6 +96,18 @@ export const getPromoBanner = createRoute({
     [HttpStatusCodes.OK]: jsonContent(
       createSuccessResponseSchema(publicPromoBannerSchema.nullable()),
       "Active promo banner",
+    ),
+  },
+});
+
+export const getPromoCards = createRoute({
+  path: "/public/promo-cards",
+  method: "get",
+  tags,
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(publicPromoCardsSchema),
+      "Active home promo cards",
     ),
   },
 });

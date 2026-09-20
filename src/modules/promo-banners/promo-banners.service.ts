@@ -1,6 +1,7 @@
-import { count, desc, eq, inArray, sql } from "drizzle-orm";
+import { count, desc, eq, inArray, or, sql } from "drizzle-orm";
 
 import db from "@/db";
+import type { PromoBannerCard } from "@/db/models/promo-banners";
 import { promoBanners } from "@/db/models";
 import { NotFoundError } from "@/core/errors";
 
@@ -13,6 +14,11 @@ const toIso = (value?: Date | string | null) =>
   value ? new Date(value).toISOString() : null;
 
 const hoursToMs = (hours: number) => hours * 60 * 60 * 1000;
+
+const parseCards = (value: unknown): PromoBannerCard[] => {
+  if (!Array.isArray(value)) return [];
+  return value.filter((card) => card && typeof card === "object") as PromoBannerCard[];
+};
 
 const resolveSchedule = (data: {
   startsAt?: string | null;
@@ -60,7 +66,9 @@ const isPubliclyVisible = (
 
 const serialize = (row: typeof promoBanners.$inferSelect) => ({
   id: row.id,
-  text: row.text,
+  name: row.name,
+  text: row.text || "",
+  cards: parseCards(row.cards),
   backgroundColor: (row.backgroundColor === "red" ? "red" : "yellow") as
     | "yellow"
     | "red",
@@ -72,11 +80,19 @@ const serialize = (row: typeof promoBanners.$inferSelect) => ({
   updatedAt: toIso(row.updatedAt),
 });
 
+const isCardSetPayload = (
+  data: CreatePromoBannerRequest | UpdatePromoBannerRequest,
+) => "cards" in data && Array.isArray(data.cards);
+
 export class PromoBannersService {
   async list(params: { page: number; limit: number; search?: string }) {
     const offset = (params.page - 1) * params.limit;
-    const where = params.search?.trim()
-      ? sql`${promoBanners.text} ILIKE ${`%${params.search.trim()}%`}`
+    const search = params.search?.trim();
+    const where = search
+      ? or(
+          sql`${promoBanners.text} ILIKE ${`%${search}%`}`,
+          sql`${promoBanners.name} ILIKE ${`%${search}%`}`,
+        )
       : undefined;
 
     const [{ value: total }] = await db
@@ -114,11 +130,18 @@ export class PromoBannersService {
     }
 
     const schedule = resolveSchedule(data);
+    const cardSet = isCardSetPayload(data);
+
     const [row] = await db
       .insert(promoBanners)
       .values({
-        text: data.text,
-        backgroundColor: data.backgroundColor,
+        name: cardSet && "name" in data ? data.name : null,
+        text: cardSet ? "" : "text" in data ? data.text : "",
+        cards: cardSet && "cards" in data ? data.cards : [],
+        backgroundColor:
+          cardSet ? "yellow" : "backgroundColor" in data
+            ? (data.backgroundColor ?? "yellow")
+            : "yellow",
         isActive: data.isActive ?? false,
         startsAt: schedule.startsAt,
         endsAt: schedule.endsAt,
@@ -146,11 +169,17 @@ export class PromoBannersService {
       data.endsAt !== undefined ||
       data.displayDurationHours !== undefined;
     const schedule = shouldReschedule ? resolveSchedule(data) : null;
+    const cardSet = isCardSetPayload(data);
 
     const [row] = await db
       .update(promoBanners)
       .set({
+        ...(data.name !== undefined && { name: data.name }),
         ...(data.text !== undefined && { text: data.text }),
+        ...(cardSet && {
+          cards: data.cards,
+          text: "",
+        }),
         ...(data.backgroundColor !== undefined && {
           backgroundColor: data.backgroundColor,
         }),
@@ -176,16 +205,33 @@ export class PromoBannersService {
     await db.delete(promoBanners).where(inArray(promoBanners.id, ids));
   }
 
-  async getActivePublic() {
-    const now = new Date();
-    const rows = await db
+  private findActiveVisible(now = new Date()) {
+    return db
       .select()
       .from(promoBanners)
       .where(eq(promoBanners.isActive, true))
-      .orderBy(desc(promoBanners.updatedAt));
+      .orderBy(desc(promoBanners.updatedAt))
+      .then((rows) => rows.find((item) => isPubliclyVisible(item, now)));
+  }
 
-    const row = rows.find((item) => isPubliclyVisible(item, now));
-    return row ? serialize(row) : null;
+  async getActivePublic() {
+    const row = await this.findActiveVisible();
+    if (!row) return null;
+    const serialized = serialize(row);
+    if (!serialized.text.trim() || serialized.cards.length) return null;
+    return serialized;
+  }
+
+  async getActivePublicCards() {
+    const row = await this.findActiveVisible();
+    if (!row) return null;
+    const serialized = serialize(row);
+    if (!serialized.cards.length) return null;
+    return {
+      id: serialized.id,
+      name: serialized.name,
+      cards: serialized.cards,
+    };
   }
 }
 

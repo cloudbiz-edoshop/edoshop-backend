@@ -15,6 +15,7 @@ router
   .openapi(routes.listProducts, handlers.listProducts as any)
   .openapi(routes.listDiscounts, handlers.listDiscounts as any)
   .openapi(routes.getPromoBanner, handlers.getPromoBanner as any)
+  .openapi(routes.getPromoCards, handlers.getPromoCards as any)
   .openapi(routes.listReviews, handlers.listReviews as any)
   .openapi(routes.listTestimonials, handlers.listTestimonials as any)
   .openapi(routes.listCustomers, handlers.listCustomers as any)

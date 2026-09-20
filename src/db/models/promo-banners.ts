@@ -2,18 +2,31 @@ import { relations } from "drizzle-orm";
 import {
   boolean,
   integer,
+  jsonb,
   pgTable,
   serial,
   timestamp,
   varchar,
 } from "drizzle-orm/pg-core";
+
+export type PromoBannerCard = {
+  mediaType: "image" | "video";
+  imageUrl?: string;
+  videoUrl?: string;
+  title: string;
+  subtitle?: string;
+  linkUrl?: string;
+  ctaLabel?: string;
+};
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 
 import { users } from "./users";
 
 export const promoBanners = pgTable("promo_banners", {
   id: serial("id").primaryKey(),
-  text: varchar("text", { length: 255 }).notNull(),
+  name: varchar("name", { length: 255 }),
+  text: varchar("text", { length: 255 }).notNull().default(""),
+  cards: jsonb("cards").$type<PromoBannerCard[]>().notNull().default([]),
   backgroundColor: varchar("background_color", { length: 16 })
     .notNull()
     .default("yellow"),

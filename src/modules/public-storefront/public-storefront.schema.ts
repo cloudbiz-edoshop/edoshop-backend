@@ -149,6 +149,24 @@ export const publicPromoBannerSchema = z.object({
   endsAt: z.string().nullable().optional(),
 });
 
+export const publicPromoCardSchema = z.object({
+  mediaType: z.enum(["image", "video"]),
+  imageUrl: z.string().optional(),
+  videoUrl: z.string().optional(),
+  title: z.string(),
+  subtitle: z.string().optional(),
+  linkUrl: z.string().optional(),
+  ctaLabel: z.string().optional(),
+});
+
+export const publicPromoCardsSchema = z
+  .object({
+    id: z.number(),
+    name: z.string().nullable().optional(),
+    cards: z.array(publicPromoCardSchema),
+  })
+  .nullable();
+
 export const publicReviewSchema = z.object({
   id: z.number(),
   productId: z.number(),

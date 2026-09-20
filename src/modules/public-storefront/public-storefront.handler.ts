@@ -418,6 +418,14 @@ export const getPromoBanner = async (c: any) => {
   );
 };
 
+export const getPromoCards = async (c: any) => {
+  const cards = await promoBannersService.getActivePublicCards();
+  return c.json(
+    successResponse(cards, "Promo cards retrieved successfully"),
+    HttpStatusCodes.OK,
+  );
+};
+
 export const listReviews = async (c: any) => {
   const params = getListParams(c);
   const result = await reviewsService.listReviews({
