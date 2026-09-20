@@ -16,8 +16,12 @@ CREATE TABLE IF NOT EXISTS "package_packaging_videos" (
 CREATE INDEX IF NOT EXISTS "package_packaging_videos_package_id_idx"
   ON "package_packaging_videos" ("package_id");
 
-INSERT INTO "notification_types" ("id", "name", "description", "created_by", "updated_by")
-SELECT 15, 'packaging_video_ready', 'Packaging video ready for customer review', 1, 1
+WITH actor AS (
+  SELECT "id" FROM "users" ORDER BY "id" LIMIT 1
+)
+INSERT INTO "notification_types" ("id", "name", "description", "createdBy", "updatedBy")
+SELECT 15, 'packaging_video_ready', 'Packaging video ready for customer review', actor."id", actor."id"
+FROM actor
 WHERE NOT EXISTS (
   SELECT 1 FROM "notification_types" WHERE "id" = 15
 );

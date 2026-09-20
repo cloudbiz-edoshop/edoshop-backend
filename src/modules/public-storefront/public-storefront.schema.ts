@@ -137,6 +137,7 @@ export const publicDiscountSchema = z.object({
   startsAt: z.string().nullable().optional(),
   endsAt: z.string().nullable().optional(),
   discountValue: z.union([z.string(), z.number()]).nullable().optional(),
+  retailerOnly: z.boolean().optional(),
 });
 
 export const publicPromoBannerSchema = z.object({
@@ -156,6 +157,15 @@ export const publicReviewSchema = z.object({
   reviewDate: z.string(),
   statusId: z.number().nullable().optional(),
   customerName: z.string().nullable().optional(),
+  imageUrl: z.string().nullable().optional(),
+});
+
+export const publicTestimonialSchema = z.object({
+  id: z.number(),
+  order: z.number(),
+  authorName: z.string(),
+  authorTitle: z.string(),
+  testimonial: z.string(),
   imageUrl: z.string().nullable().optional(),
 });
 

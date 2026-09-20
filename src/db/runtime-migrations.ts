@@ -16,11 +16,31 @@ import {
 import { getRolePermissionTemplate } from "@/modules/permissions/permissions.service";
 import nextGroupPackageCode from "@/db/functions/next-group-package-code";
 
-export async function ensureRuntimeMigrations() {
+async function ensureDiscountColumns() {
   await db.execute(
     sql.raw(`
-      INSERT INTO "package_statuses" ("name", "description", "created_by", "updated_by")
-      SELECT 'Grouped', 'Package is part of a group package (GPKG).', 1, 1
+      ALTER TABLE "discounts"
+      ADD COLUMN IF NOT EXISTS "target_scope" varchar(32) DEFAULT 'product',
+      ADD COLUMN IF NOT EXISTS "section" varchar(64),
+      ADD COLUMN IF NOT EXISTS "category_id" integer,
+      ADD COLUMN IF NOT EXISTS "product_ids" jsonb DEFAULT '[]'::jsonb,
+      ADD COLUMN IF NOT EXISTS "retailer_only" boolean NOT NULL DEFAULT false,
+      ADD COLUMN IF NOT EXISTS "retailer_id" integer
+    `),
+  );
+}
+
+export async function ensureRuntimeMigrations() {
+  await ensureDiscountColumns();
+
+  await db.execute(
+    sql.raw(`
+      WITH actor AS (
+        SELECT "id" FROM "users" ORDER BY "id" LIMIT 1
+      )
+      INSERT INTO "package_statuses" ("name", "description", "createdBy", "updatedBy")
+      SELECT 'Grouped', 'Package is part of a group package (GPKG).', actor."id", actor."id"
+      FROM actor
       WHERE NOT EXISTS (
         SELECT 1 FROM "package_statuses" WHERE "name" = 'Grouped'
       )
@@ -192,7 +212,7 @@ export async function ensureRuntimeMigrations() {
       WITH actor AS (
         SELECT "id" FROM "users" ORDER BY "id" LIMIT 1
       )
-      INSERT INTO "colors" ("name", "description", "is_predefined", "created_by", "updated_by")
+      INSERT INTO "colors" ("name", "description", "is_predefined", "createdBy", "updatedBy")
       SELECT seed."name", seed."description", true, actor."id", actor."id"
       FROM (
         VALUES
@@ -214,8 +234,8 @@ export async function ensureRuntimeMigrations() {
       ON CONFLICT ("name") DO UPDATE SET
         "description" = EXCLUDED."description",
         "is_predefined" = true,
-        "updated_by" = EXCLUDED."updated_by",
-        "updated_at" = now()
+        "updatedBy" = EXCLUDED."updatedBy",
+        "updatedAt" = now()
     `),
   );
 
@@ -224,7 +244,7 @@ export async function ensureRuntimeMigrations() {
       WITH actor AS (
         SELECT "id" FROM "users" ORDER BY "id" LIMIT 1
       )
-      INSERT INTO "sizes" ("name", "description", "is_predefined", "created_by", "updated_by")
+      INSERT INTO "sizes" ("name", "description", "is_predefined", "createdBy", "updatedBy")
       SELECT seed."name", seed."description", true, actor."id", actor."id"
       FROM (
         VALUES
@@ -239,8 +259,8 @@ export async function ensureRuntimeMigrations() {
       ON CONFLICT ("name") DO UPDATE SET
         "description" = EXCLUDED."description",
         "is_predefined" = true,
-        "updated_by" = EXCLUDED."updated_by",
-        "updated_at" = now()
+        "updatedBy" = EXCLUDED."updatedBy",
+        "updatedAt" = now()
     `),
   );
 
@@ -335,7 +355,7 @@ export async function ensureRuntimeMigrations() {
       SET "source_bundle_id" = b."id"
       FROM "bundles" AS b
       WHERE tb."source_bundle_id" IS NULL
-        AND tb."bundle_code" = b."bundle_code"
+        AND tb."bundle_code" = b."bundleCode"
     `),
   );
 
@@ -485,7 +505,7 @@ export async function ensureRuntimeMigrations() {
 
   await db.execute(
     sql.raw(`
-      INSERT INTO "permissions" ("role_id", "entity_id", "operation_id")
+      INSERT INTO "permissions" ("roleId", "entityId", "operationId")
       SELECT
         roles."id",
         entities."id",
@@ -499,9 +519,9 @@ export async function ensureRuntimeMigrations() {
         AND NOT EXISTS (
           SELECT 1
           FROM "permissions" AS existing
-          WHERE existing."role_id" = roles."id"
-            AND existing."entity_id" = entities."id"
-            AND existing."operation_id" = operations."id"
+          WHERE existing."roleId" = roles."id"
+            AND existing."entityId" = entities."id"
+            AND existing."operationId" = operations."id"
         )
     `),
   );
@@ -632,13 +652,13 @@ export async function ensureRuntimeMigrations() {
       UPDATE "about-us"
       SET "images" = jsonb_build_array(
         jsonb_build_object(
-          'imageUrl', "image_url",
+          'imageUrl', "imageUrl",
           'displayStyle', 'single',
           'sortOrder', 0
         )
       )
       WHERE ("images" IS NULL OR "images" = '[]'::jsonb)
-        AND COALESCE("image_url", '') <> ''
+        AND COALESCE("imageUrl", '') <> ''
     `),
   );
 
@@ -803,7 +823,7 @@ async function ensureAclRolesAndEntities() {
         WITH actor AS (
           SELECT "id" FROM "users" ORDER BY "id" LIMIT 1
         )
-        INSERT INTO "roles" ("name", "description", "created_by", "updated_by")
+        INSERT INTO "roles" ("name", "description", "createdBy", "updatedBy")
         SELECT '${name}', '${description}', actor."id", actor."id"
         FROM actor
         WHERE NOT EXISTS (
@@ -815,7 +835,7 @@ async function ensureAclRolesAndEntities() {
 
   await db.execute(
     sql.raw(`
-      INSERT INTO "permissions" ("role_id", "entity_id", "operation_id")
+      INSERT INTO "permissions" ("roleId", "entityId", "operationId")
       SELECT roles."id", entities."id", operations."id"
       FROM "roles" AS roles
       CROSS JOIN "entities" AS entities
@@ -828,17 +848,17 @@ async function ensureAclRolesAndEntities() {
         AND lower(operations."name") IN ('create', 'read', 'update', 'delete')
         AND NOT EXISTS (
           SELECT 1 FROM "permissions" AS existing
-          WHERE existing."role_id" = roles."id"
-            AND existing."entity_id" = entities."id"
-            AND existing."operation_id" = operations."id"
+          WHERE existing."roleId" = roles."id"
+            AND existing."entityId" = entities."id"
+            AND existing."operationId" = operations."id"
         )
-      ON CONFLICT (role_id, entity_id, operation_id) DO NOTHING
+      ON CONFLICT ("roleId", "entityId", "operationId") DO NOTHING
     `),
   );
 
   await db.execute(
     sql.raw(`
-      INSERT INTO "permissions" ("role_id", "entity_id", "operation_id")
+      INSERT INTO "permissions" ("roleId", "entityId", "operationId")
       SELECT roles."id", entities."id", operations."id"
       FROM "roles" AS roles
       CROSS JOIN "entities" AS entities
@@ -853,17 +873,17 @@ async function ensureAclRolesAndEntities() {
         AND lower(operations."name") = 'read'
         AND NOT EXISTS (
           SELECT 1 FROM "permissions" AS existing
-          WHERE existing."role_id" = roles."id"
-            AND existing."entity_id" = entities."id"
-            AND existing."operation_id" = operations."id"
+          WHERE existing."roleId" = roles."id"
+            AND existing."entityId" = entities."id"
+            AND existing."operationId" = operations."id"
         )
-      ON CONFLICT (role_id, entity_id, operation_id) DO NOTHING
+      ON CONFLICT ("roleId", "entityId", "operationId") DO NOTHING
     `),
   );
 
   await db.execute(
     sql.raw(`
-      INSERT INTO "permissions" ("role_id", "entity_id", "operation_id")
+      INSERT INTO "permissions" ("roleId", "entityId", "operationId")
       SELECT roles."id", entities."id", operations."id"
       FROM "roles" AS roles
       CROSS JOIN "entities" AS entities
@@ -878,17 +898,17 @@ async function ensureAclRolesAndEntities() {
         AND lower(operations."name") IN ('create', 'read', 'update', 'delete')
         AND NOT EXISTS (
           SELECT 1 FROM "permissions" AS existing
-          WHERE existing."role_id" = roles."id"
-            AND existing."entity_id" = entities."id"
-            AND existing."operation_id" = operations."id"
+          WHERE existing."roleId" = roles."id"
+            AND existing."entityId" = entities."id"
+            AND existing."operationId" = operations."id"
         )
-      ON CONFLICT (role_id, entity_id, operation_id) DO NOTHING
+      ON CONFLICT ("roleId", "entityId", "operationId") DO NOTHING
     `),
   );
 
   await db.execute(
     sql.raw(`
-      INSERT INTO "permissions" ("role_id", "entity_id", "operation_id")
+      INSERT INTO "permissions" ("roleId", "entityId", "operationId")
       SELECT roles."id", entities."id", operations."id"
       FROM "roles" AS roles
       CROSS JOIN "entities" AS entities
@@ -903,17 +923,17 @@ async function ensureAclRolesAndEntities() {
         AND lower(operations."name") IN ('create', 'read', 'update', 'delete')
         AND NOT EXISTS (
           SELECT 1 FROM "permissions" AS existing
-          WHERE existing."role_id" = roles."id"
-            AND existing."entity_id" = entities."id"
-            AND existing."operation_id" = operations."id"
+          WHERE existing."roleId" = roles."id"
+            AND existing."entityId" = entities."id"
+            AND existing."operationId" = operations."id"
         )
-      ON CONFLICT (role_id, entity_id, operation_id) DO NOTHING
+      ON CONFLICT ("roleId", "entityId", "operationId") DO NOTHING
     `),
   );
 
   await db.execute(
     sql.raw(`
-      INSERT INTO "permissions" ("role_id", "entity_id", "operation_id")
+      INSERT INTO "permissions" ("roleId", "entityId", "operationId")
       SELECT roles."id", entities."id", operations."id"
       FROM "roles" AS roles
       CROSS JOIN "entities" AS entities
@@ -923,17 +943,17 @@ async function ensureAclRolesAndEntities() {
         AND lower(operations."name") IN ('create', 'read', 'update', 'delete')
         AND NOT EXISTS (
           SELECT 1 FROM "permissions" AS existing
-          WHERE existing."role_id" = roles."id"
-            AND existing."entity_id" = entities."id"
-            AND existing."operation_id" = operations."id"
+          WHERE existing."roleId" = roles."id"
+            AND existing."entityId" = entities."id"
+            AND existing."operationId" = operations."id"
         )
-      ON CONFLICT (role_id, entity_id, operation_id) DO NOTHING
+      ON CONFLICT ("roleId", "entityId", "operationId") DO NOTHING
     `),
   );
 
   await db.execute(
     sql.raw(`
-      INSERT INTO "permissions" ("role_id", "entity_id", "operation_id")
+      INSERT INTO "permissions" ("roleId", "entityId", "operationId")
       SELECT roles."id", entities."id", operations."id"
       FROM "roles" AS roles
       CROSS JOIN "entities" AS entities
@@ -949,17 +969,17 @@ async function ensureAclRolesAndEntities() {
         AND lower(operations."name") IN ('create', 'read', 'update', 'delete')
         AND NOT EXISTS (
           SELECT 1 FROM "permissions" AS existing
-          WHERE existing."role_id" = roles."id"
-            AND existing."entity_id" = entities."id"
-            AND existing."operation_id" = operations."id"
+          WHERE existing."roleId" = roles."id"
+            AND existing."entityId" = entities."id"
+            AND existing."operationId" = operations."id"
         )
-      ON CONFLICT (role_id, entity_id, operation_id) DO NOTHING
+      ON CONFLICT ("roleId", "entityId", "operationId") DO NOTHING
     `),
   );
 
   await db.execute(
     sql.raw(`
-      INSERT INTO "permissions" ("role_id", "entity_id", "operation_id")
+      INSERT INTO "permissions" ("roleId", "entityId", "operationId")
       SELECT roles."id", entities."id", operations."id"
       FROM "roles" AS roles
       CROSS JOIN "entities" AS entities
@@ -973,11 +993,11 @@ async function ensureAclRolesAndEntities() {
         AND lower(operations."name") IN ('create', 'read', 'update', 'delete')
         AND NOT EXISTS (
           SELECT 1 FROM "permissions" AS existing
-          WHERE existing."role_id" = roles."id"
-            AND existing."entity_id" = entities."id"
-            AND existing."operation_id" = operations."id"
+          WHERE existing."roleId" = roles."id"
+            AND existing."entityId" = entities."id"
+            AND existing."operationId" = operations."id"
         )
-      ON CONFLICT (role_id, entity_id, operation_id) DO NOTHING
+      ON CONFLICT ("roleId", "entityId", "operationId") DO NOTHING
     `),
   );
 
@@ -1088,6 +1108,47 @@ async function ensureAclRolesAndEntities() {
 
   await db.execute(
     sql.raw(`
+      DO $$
+      DECLARE
+        r RECORD;
+        new_name text;
+        target_tables text[] := ARRAY[
+          'entries', 'orders', 'packages', 'customers', 'users', 'warehouses'
+        ];
+      BEGIN
+        FOR r IN
+          SELECT c.table_name, c.column_name
+          FROM information_schema.columns c
+          WHERE c.table_schema = 'public'
+            AND c.table_name = ANY(target_tables)
+            AND c.column_name ~ '[A-Z]'
+        LOOP
+          new_name := lower(
+            regexp_replace(r.column_name, '([a-z0-9])([A-Z])', E'\\\\1_\\\\2', 'g')
+          );
+          IF new_name = lower(r.column_name) THEN
+            CONTINUE;
+          END IF;
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns c2
+            WHERE c2.table_schema = 'public'
+              AND c2.table_name = r.table_name
+              AND c2.column_name = new_name
+          ) THEN
+            EXECUTE format(
+              'ALTER TABLE %I RENAME COLUMN %I TO %I',
+              r.table_name,
+              r.column_name,
+              new_name
+            );
+          END IF;
+        END LOOP;
+      END $$;
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
       ALTER TABLE "orders"
         ADD COLUMN IF NOT EXISTS "client_platform" varchar(20)
     `),
@@ -1150,9 +1211,11 @@ async function ensurePredefinedRolePermissions() {
   // grants before inserting the current template so revoked access cannot
   // survive an application upgrade.
   if (predefinedRoleIds.length > 0) {
-    await db
-      .delete(permissions)
-      .where(inArray(permissions.roleId, predefinedRoleIds));
+    await db.execute(
+      sql.raw(
+        `DELETE FROM "permissions" WHERE "roleId" IN (${predefinedRoleIds.join(",")})`,
+      ),
+    );
   }
 
   const rows = predefinedRoles.flatMap((roleName) => {
@@ -1170,21 +1233,26 @@ async function ensurePredefinedRolePermissions() {
   });
 
   for (let index = 0; index < rows.length; index += 100) {
-    await db
-      .insert(permissions)
-      .values(rows.slice(index, index + 100))
-      .onConflictDoNothing();
-  }
+    const chunk = rows.slice(index, index + 100);
+    if (!chunk.length) {
+      continue;
+    }
 
-  await db.execute(
-    sql.raw(`
-      ALTER TABLE "discounts"
-      ADD COLUMN IF NOT EXISTS "target_scope" varchar(32) DEFAULT 'product',
-      ADD COLUMN IF NOT EXISTS "section" varchar(64),
-      ADD COLUMN IF NOT EXISTS "category_id" integer,
-      ADD COLUMN IF NOT EXISTS "product_ids" jsonb DEFAULT '[]'::jsonb
-    `),
-  );
+    const valuesSql = chunk
+      .map(
+        (row) =>
+          `(${row.roleId}, ${row.entityId}, ${row.operationId}, now(), now())`,
+      )
+      .join(",\n");
+
+    await db.execute(
+      sql.raw(`
+        INSERT INTO "permissions" ("roleId", "entityId", "operationId", "createdAt", "updatedAt")
+        VALUES ${valuesSql}
+        ON CONFLICT ("roleId", "entityId", "operationId") DO NOTHING
+      `),
+    );
+  }
 
   await db.execute(
     sql.raw(`

@@ -33,6 +33,8 @@ export const discountFieldsSchema = z.object({
   startsAt: z.string().datetime().optional(),
   endsAt: z.string().datetime().optional(),
   discountValue: z.coerce.number().min(0).optional(),
+  retailerOnly: z.boolean().optional().default(false),
+  retailerId: z.coerce.number().int().positive().optional(),
 });
 
 type DiscountFields = z.infer<typeof discountFieldsSchema>;
@@ -88,6 +90,24 @@ const refineCreateDiscount = (data: DiscountFields, ctx: z.RefinementCtx) => {
       path: ["endsAt"],
     });
   }
+
+  if (data.retailerOnly) {
+    if (data.targetType !== "all" && data.targetType !== "series") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Retailer discounts apply to all products or a series only",
+        path: ["targetType"],
+      });
+    }
+
+    if (data.discountRate > 50) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Retailer discounts cannot exceed 50%",
+        path: ["discountRate"],
+      });
+    }
+  }
 };
 
 const refineUpdateDiscount = (
@@ -140,3 +160,27 @@ export type GetDiscountResponse = z.infer<typeof getDiscountResponseSchema>;
 
 export const listDiscountsResponseSchema = z.array(getDiscountResponseSchema);
 export type ListDiscountsResponse = z.infer<typeof listDiscountsResponseSchema>;
+
+export const discountFormOptionsResponseSchema = z.object({
+  categories: z.array(
+    z.object({
+      id: z.number(),
+      name: z.string(),
+    }),
+  ),
+  products: z.array(
+    z.object({
+      id: z.number(),
+      name: z.string(),
+    }),
+  ),
+  series: z.array(
+    z.object({
+      id: z.number(),
+      seriesCode: z.string(),
+    }),
+  ),
+});
+export type DiscountFormOptionsResponse = z.infer<
+  typeof discountFormOptionsResponseSchema
+>;

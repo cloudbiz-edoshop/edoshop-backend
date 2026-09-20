@@ -4,6 +4,7 @@ import * as routes from "@/modules/discounts/discounts.route";
 
 const router = createRouter();
 
+router.openapi(routes.formOptions, handlers.formOptions);
 router.openapi(routes.list, handlers.list);
 router.openapi(routes.create, handlers.create);
 router.openapi(routes.getOne, handlers.getOne);

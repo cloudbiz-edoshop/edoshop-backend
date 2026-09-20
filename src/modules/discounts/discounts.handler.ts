@@ -1,5 +1,6 @@
 import type {
   CreateRoute,
+  FormOptionsRoute,
   GetOneRoute,
   ListRoute,
   PatchRoute,
@@ -8,6 +9,7 @@ import type {
 
 import type {
   CreateDiscountResponse,
+  DiscountFormOptionsResponse,
   GetDiscountResponse,
   ListDiscountsResponse,
 } from "./discounts.schema";
@@ -53,6 +55,15 @@ export const list: AppRouteHandler<ListRoute> = async (c) => {
       pagination,
       result.searchableFields,
     ),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const formOptions: AppRouteHandler<FormOptionsRoute> = async (c) => {
+  const options = await discountsService.getFormOptions();
+
+  return c.json(
+    successResponse<DiscountFormOptionsResponse>(options),
     HttpStatusCodes.OK,
   );
 };

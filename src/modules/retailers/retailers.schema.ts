@@ -83,3 +83,33 @@ export type GetRetailerResponse = z.infer<typeof getRetailerResponseSchema>;
 export const listRetailersResponseSchema = z.array(getRetailerResponseSchema);
 
 export type ListRetailersResponse = z.infer<typeof listRetailersResponseSchema>;
+
+export const retailerCreateDiscountRequestSchema = z
+  .object({
+    targetType: z.enum(["all", "series"]).default("all"),
+    seriesId: z.coerce.number().int().positive().optional(),
+    discountRate: z.coerce.number().min(0).max(50),
+    isPermanent: z.boolean().optional().default(true),
+    endsAt: z.string().datetime().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.targetType === "series" && !data.seriesId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Series is required",
+        path: ["seriesId"],
+      });
+    }
+
+    if (!data.isPermanent && !data.endsAt) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Expiration date and time is required",
+        path: ["endsAt"],
+      });
+    }
+  });
+
+export type RetailerCreateDiscountRequest = z.infer<
+  typeof retailerCreateDiscountRequestSchema
+>;

@@ -48,7 +48,7 @@ export const rolesAndPermissionsMiddleware = (
     const permissionsService = new PermissionsService();
     const accessProfile = await permissionsService.getUserAccessProfile(user.id);
 
-    if (isAdmin || accessProfile.isSuperAdmin || accessProfile.isAdminRole) {
+    if (isAdmin || accessProfile.isSuperAdmin) {
       return next();
     }
 

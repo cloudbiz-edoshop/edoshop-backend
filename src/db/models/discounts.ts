@@ -36,6 +36,8 @@ export const discounts = pgTable("discounts", {
   section: varchar("section", { length: 64 }),
   categoryId: integer("category_id"),
   productIds: jsonb("product_ids").$type<number[]>().default([]),
+  retailerOnly: boolean("retailer_only").default(false).notNull(),
+  retailerId: integer("retailer_id"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at"),
   createdBy: integer("created_by").references(() => users.id),

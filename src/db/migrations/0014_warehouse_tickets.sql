@@ -60,7 +60,7 @@ WHERE NOT EXISTS (
   SELECT 1 FROM "entities" WHERE "name" = 'ticketing'
 );
 
-INSERT INTO "permissions" ("role_id", "entity_id", "operation_id")
+INSERT INTO "permissions" ("roleId", "entityId", "operationId")
 SELECT
   roles."id",
   entities."id",
@@ -82,7 +82,7 @@ WHERE entities."name" = 'ticketing'
   AND NOT EXISTS (
     SELECT 1
     FROM "permissions" AS existing
-    WHERE existing."role_id" = roles."id"
-      AND existing."entity_id" = entities."id"
-      AND existing."operation_id" = operations."id"
+    WHERE existing."roleId" = roles."id"
+      AND existing."entityId" = entities."id"
+      AND existing."operationId" = operations."id"
   );

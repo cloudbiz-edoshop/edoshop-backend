@@ -80,7 +80,10 @@ export class ReviewsRepository {
 
   async findByProductId(productId: number) {
     return await db.query.reviews.findMany({
-      where: eq(reviews.productId, productId),
+      where: and(
+        eq(reviews.productId, productId),
+        eq(reviews.statusId, ReviewStatusIds.APPROVED),
+      ),
       with: {
         product: true,
         status: true,

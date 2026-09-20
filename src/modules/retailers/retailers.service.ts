@@ -7,7 +7,7 @@ import type {
 import type { NewRetailer } from "@/db/models/retailers";
 import { generateUsername } from "@/common";
 import { AddressTypeIds } from "@/constants";
-import { NotFoundError, ValidationError } from "@/core/errors";
+import { ForbiddenError, NotFoundError, ValidationError } from "@/core/errors";
 import { AppError } from "@/core/errors/app-error";
 import { eq } from "drizzle-orm";
 
@@ -225,6 +225,21 @@ export class RetailersService {
       shopName: retailer.shopName,
       status: retailer.status,
     };
+  }
+
+  async requireApprovedRetailer(userId: number) {
+    const retailer = await this.retailerRepository.findByUserId(userId);
+    if (!retailer) {
+      throw new NotFoundError("Retailer profile not found");
+    }
+
+    if (!retailer.status) {
+      throw new ForbiddenError(
+        "Your retailer account must be approved before managing discounts",
+      );
+    }
+
+    return retailer;
   }
 
   /**

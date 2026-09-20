@@ -19,6 +19,7 @@ import { jwtHeaderSchema } from "@/lib/zod-schemas";
 import {
   createDiscountRequestSchema,
   createDiscountResponseSchema,
+  discountFormOptionsResponseSchema,
   getDiscountResponseSchema,
   listDiscountsResponseSchema,
   updateDiscountRequestSchema,
@@ -55,6 +56,36 @@ export const list = createRoute({
         HttpStatusCodes.INTERNAL_SERVER_ERROR,
       ],
       commonQueryParamsSchema,
+    ),
+  },
+});
+
+export const formOptions = createRoute({
+  path: "/discounts/form-options",
+  method: "get",
+  tags,
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.DISCOUNTS, operation: OperationType.READ },
+    ]),
+  ] as const,
+  request: { headers: jwtHeaderSchema },
+  summary: "Discount form dropdown options",
+  description:
+    "Categories, products, and series for the admin discount form (uses discounts read permission).",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(discountFormOptionsResponseSchema),
+      "Discount form options",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.FORBIDDEN,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      z.object({}),
     ),
   },
 });
@@ -197,6 +228,7 @@ export const remove = createRoute({
 });
 
 export type ListRoute = typeof list;
+export type FormOptionsRoute = typeof formOptions;
 export type CreateRoute = typeof create;
 export type GetOneRoute = typeof getOne;
 export type PatchRoute = typeof update;

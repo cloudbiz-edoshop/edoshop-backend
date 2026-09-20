@@ -19,6 +19,7 @@ import {
   publicProductSchema,
   publicRetailerSchema,
   publicReviewSchema,
+  publicTestimonialSchema,
   subscribeNewsletterRequestSchema,
   subscribeNewsletterResponseSchema,
   publicCreateReviewRequestSchema,
@@ -108,6 +109,12 @@ export const listReviews = publicListRoute(
   "/public/reviews",
   publicReviewSchema,
   "Public reviews",
+);
+
+export const listTestimonials = publicListRoute(
+  "/public/testimonials",
+  publicTestimonialSchema,
+  "Public CMS testimonials",
 );
 
 export const listCustomers = publicListRoute(

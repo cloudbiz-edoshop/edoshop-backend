@@ -3,6 +3,7 @@ import { z } from "@hono/zod-openapi";
 import { StoreIds } from "@/constants/stores.constants";
 import { productsSchema } from "@/db/models/products";
 import { seriesSchema } from "@/db/models/series";
+import commonQueryParamsSchema from "@/lib/openapi/schemas/query-params-schema";
 
 export const getAllGroupCriteriaTypesResponseSchema = z.array(z.object({
   id: z.number(),
@@ -241,12 +242,12 @@ export const paginatedProductsResponseSchema = z.object({
   searchableFields: z.array(z.string()),
 });
 
-export const productsQueryParamsSchema = z.object({
-  search: z.string().optional().describe("Search term for product fields"),
-  page: z.number().min(1, "Page must be a positive number").optional().default(1),
-  limit: z.number().min(1, "Limit must be a positive number").max(100, "Limit cannot exceed 100").optional().default(10),
-  sortBy: z.string().optional().default("createdAt"),
-  sortOrder: z.enum(["asc", "desc"]).optional().default("desc"),
+export const productsQueryParamsSchema = commonQueryParamsSchema.extend({
+  limit: z.coerce
+    .number()
+    .min(1, "Limit must be a positive number")
+    .max(500, "Limit cannot exceed 500")
+    .default(10),
   filters: z
     .string()
     .optional()

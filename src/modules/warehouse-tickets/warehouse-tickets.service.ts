@@ -328,7 +328,7 @@ export class WarehouseTicketsService {
       actor.userId,
     );
 
-    if (accessProfile.isSuperAdmin || accessProfile.isAdminRole) {
+    if (accessProfile.isSuperAdmin) {
       return;
     }
 

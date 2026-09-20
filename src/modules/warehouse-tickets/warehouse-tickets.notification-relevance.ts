@@ -31,7 +31,7 @@ const REQUESTER_NOTIFICATION_TITLES = new Set([
 ]);
 
 function hasApproverAccess(profile: UserAccessProfile) {
-  if (profile.isSuperAdmin || profile.isAdminRole) {
+  if (profile.isSuperAdmin) {
     return true;
   }
 
@@ -43,12 +43,8 @@ function hasApproverAccess(profile: UserAccessProfile) {
 }
 
 function hasReceiverAccess(profile: UserAccessProfile, warehouseId?: number | null) {
-  if (profile.isSuperAdmin || profile.isAdminRole) {
+  if (profile.isSuperAdmin) {
     return true;
-  }
-
-  if (!permissionsService.hasPermission(profile, "ticketing", "update")) {
-    return false;
   }
 
   if (!warehouseId) {

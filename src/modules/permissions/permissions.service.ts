@@ -247,46 +247,79 @@ export function getRolePermissionTemplate(roleName: RoleType) {
       );
 
     case RoleType.W1_TECH:
-      return buildPermissionKeys(
-        [...STORE_ENTITIES, ...EWMS_W1_ENTITIES, ...TICKETING_CORE_ENTITIES],
-        STANDARD_CRUD_OPERATIONS,
-      );
+      return [
+        ...buildPermissionKeys(
+          [...STORE_ENTITIES, ...EWMS_W1_ENTITIES],
+          STANDARD_CRUD_OPERATIONS,
+        ),
+        ...buildPermissionKeys(
+          [EntityType.TICKETING],
+          [OperationType.READ, OperationType.UPDATE],
+        ),
+      ];
 
     case RoleType.W2_TECH:
-      return buildPermissionKeys(
-        [...STORE_ENTITIES, ...EWMS_W2_ENTITIES, ...TICKETING_CORE_ENTITIES],
-        STANDARD_CRUD_OPERATIONS,
-      );
+      return [
+        ...buildPermissionKeys(
+          [...STORE_ENTITIES, ...EWMS_W2_ENTITIES],
+          STANDARD_CRUD_OPERATIONS,
+        ),
+        ...buildPermissionKeys(
+          [EntityType.TICKETING],
+          [OperationType.READ, OperationType.UPDATE],
+        ),
+      ];
 
     case RoleType.CUSTOMER_SERVICE:
-      return buildPermissionKeys(
-        [
-          ...DIALOGUE_ENTITIES,
-          ...CMS_ENTITIES,
-          ...NOTIFICATION_ENTITIES,
-          ...TRACKING_ENTITIES,
-        ],
-        STANDARD_CRUD_OPERATIONS,
-      );
+      return [
+        ...buildPermissionKeys(
+          [
+            ...DIALOGUE_ENTITIES,
+            ...CMS_ENTITIES,
+            ...NOTIFICATION_ENTITIES,
+            ...TRACKING_ENTITIES,
+          ],
+          STANDARD_CRUD_OPERATIONS,
+        ),
+        ...buildPermissionKeys(
+          [EntityType.TICKETING],
+          [OperationType.CREATE, OperationType.READ, OperationType.UPDATE],
+        ),
+      ];
 
     case RoleType.WAREHOUSE_SUPERVISOR:
-      return buildPermissionKeys(
-        [
-          ...STORE_ENTITIES,
-          ...EWMS_W1_ENTITIES,
-          ...EWMS_W2_ENTITIES,
-          ...EWMS_MANAGEMENT_ENTITIES,
-          ...DELIVERY_ENTITIES,
-          ...TICKETING_CORE_ENTITIES,
-        ],
-        STANDARD_CRUD_OPERATIONS,
-      );
+      return [
+        ...buildPermissionKeys(
+          [
+            ...STORE_ENTITIES,
+            ...EWMS_W1_ENTITIES,
+            ...EWMS_W2_ENTITIES,
+            ...EWMS_MANAGEMENT_ENTITIES,
+            ...DELIVERY_ENTITIES,
+          ],
+          STANDARD_CRUD_OPERATIONS,
+        ),
+        ...buildPermissionKeys(
+          [EntityType.TICKETING],
+          [OperationType.READ, OperationType.UPDATE],
+        ),
+        ...buildPermissionKeys(
+          [EntityType.TICKET_APPROVER],
+          [OperationType.READ, OperationType.UPDATE],
+        ),
+      ];
 
     case RoleType.DIGITAL_MARKETER:
-      return buildPermissionKeys(
-        [...STORE_ENTITIES, ...CMS_ENTITIES, ...TICKETING_CORE_ENTITIES, ...TV_APP_ENTITIES],
-        STANDARD_CRUD_OPERATIONS,
-      );
+      return [
+        ...buildPermissionKeys(
+          [...STORE_ENTITIES, ...CMS_ENTITIES, ...TV_APP_ENTITIES],
+          STANDARD_CRUD_OPERATIONS,
+        ),
+        ...buildPermissionKeys(
+          [EntityType.TICKETING],
+          [OperationType.CREATE, OperationType.READ, OperationType.UPDATE],
+        ),
+      ];
 
     case RoleType.MANAGER: {
       const systemEntities = [

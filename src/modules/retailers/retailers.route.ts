@@ -21,8 +21,10 @@ import {
   currentRetailerResponseSchema,
   getRetailerResponseSchema,
   listRetailersResponseSchema,
+  retailerCreateDiscountRequestSchema,
   updateRetailerRequestSchema,
 } from "./retailers.schema";
+import { createDiscountResponseSchema } from "@/modules/discounts/discounts.schema";
 
 const tags = ["Retailers"];
 
@@ -267,3 +269,115 @@ export type GetCurrentRetailerRoute = typeof getCurrentRetailer;
 export type GetOneRoute = typeof getOne;
 export type PatchRoute = typeof patch;
 export type RemoveManyRoute = typeof removeMany;
+
+export const listMyDiscountSeriesOptions = createRoute({
+  path: "/retailers/me/discounts/series-options",
+  method: "get",
+  tags,
+  summary: "Series list for retailer discount form",
+  request: { headers: jwtHeaderSchema },
+  middleware: [jwtMiddleware()] as const,
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(
+        z.object({
+          series: z.array(
+            z.object({
+              id: z.number(),
+              seriesCode: z.string(),
+            }),
+          ),
+        }),
+      ),
+      "Series options",
+    ),
+    ...commonErrorResponses(
+      [HttpStatusCodes.UNAUTHORIZED, HttpStatusCodes.FORBIDDEN, HttpStatusCodes.NOT_FOUND],
+      z.object({}),
+    ),
+  },
+});
+
+export const listMyDiscounts = createRoute({
+  path: "/retailers/me/discounts",
+  method: "get",
+  tags,
+  summary: "List current retailer discounts",
+  request: {
+    headers: jwtHeaderSchema,
+    query: commonQueryParamsSchema,
+  },
+  middleware: [jwtMiddleware()] as const,
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchemaWithPagination(
+        z.array(createDiscountResponseSchema),
+        "Retailer discounts",
+      ),
+      "Retailer discounts",
+    ),
+    ...commonErrorResponses(
+      [HttpStatusCodes.UNAUTHORIZED, HttpStatusCodes.FORBIDDEN, HttpStatusCodes.NOT_FOUND],
+      commonQueryParamsSchema,
+    ),
+  },
+});
+
+export const createMyDiscount = createRoute({
+  path: "/retailers/me/discounts",
+  method: "post",
+  tags,
+  summary: "Create a retailer-only discount",
+  request: {
+    headers: jwtHeaderSchema,
+    body: jsonContentRequired(
+      retailerCreateDiscountRequestSchema,
+      "Retailer discount",
+    ),
+  },
+  middleware: [jwtMiddleware()] as const,
+  responses: {
+    [HttpStatusCodes.CREATED]: jsonContent(
+      createSuccessResponseSchema(
+        createDiscountResponseSchema,
+        "Discount created",
+      ),
+      "Discount created",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.FORBIDDEN,
+        HttpStatusCodes.NOT_FOUND,
+        HttpStatusCodes.UNPROCESSABLE_ENTITY,
+      ],
+      retailerCreateDiscountRequestSchema,
+    ),
+  },
+});
+
+export const deleteMyDiscount = createRoute({
+  path: "/retailers/me/discounts/{id}",
+  method: "delete",
+  tags,
+  summary: "Delete a retailer-owned discount",
+  request: {
+    headers: jwtHeaderSchema,
+    params: idParams,
+  },
+  middleware: [jwtMiddleware()] as const,
+  responses: {
+    [HttpStatusCodes.NO_CONTENT]: {
+      description: "Discount deleted",
+    },
+    ...commonErrorResponses(
+      [HttpStatusCodes.UNAUTHORIZED, HttpStatusCodes.FORBIDDEN, HttpStatusCodes.NOT_FOUND],
+      idParams,
+    ),
+  },
+});
+
+export type ListMyDiscountSeriesOptionsRoute = typeof listMyDiscountSeriesOptions;
+export type ListMyDiscountsRoute = typeof listMyDiscounts;
+export type CreateMyDiscountRoute = typeof createMyDiscount;
+export type DeleteMyDiscountRoute = typeof deleteMyDiscount;

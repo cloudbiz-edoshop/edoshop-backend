@@ -1,5 +1,9 @@
-INSERT INTO "package_statuses" ("name", "description", "created_by", "updated_by")
-SELECT 'Grouped', 'Package is part of a group package (GPKG).', 1, 1
+WITH actor AS (
+  SELECT "id" FROM "users" ORDER BY "id" LIMIT 1
+)
+INSERT INTO "package_statuses" ("name", "description", "createdBy", "updatedBy")
+SELECT 'Grouped', 'Package is part of a group package (GPKG).', actor."id", actor."id"
+FROM actor
 WHERE NOT EXISTS (
   SELECT 1 FROM "package_statuses" WHERE "name" = 'Grouped'
 );

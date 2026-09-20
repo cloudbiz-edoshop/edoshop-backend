@@ -10,6 +10,9 @@ import { AppError } from "@/core/errors/app-error";
 import db from "@/db";
 
 import { DiscountsRepository } from "./discounts.repository";
+import { CategoriesService } from "../categories/categories.service";
+import { ProductsService } from "../products/products.service";
+import { EntriesService } from "../entries/entries.service";
 
 const resolveTargetIds = (data: {
   targetType?: "all" | "section" | "category" | "products" | "series" | "product";
@@ -145,6 +148,8 @@ export class DiscountsService {
         section: targetIds.section,
         categoryId: targetIds.categoryId,
         productIds: targetIds.productIds,
+        retailerOnly: Boolean(data.retailerOnly),
+        retailerId: data.retailerId ?? null,
         updatedBy: data.createdBy,
         createdBy: data.createdBy,
       });
@@ -219,6 +224,10 @@ export class DiscountsService {
       section: targetIds.section,
       categoryId: targetIds.categoryId,
       productIds: targetIds.productIds,
+      retailerOnly:
+        data.retailerOnly !== undefined
+          ? Boolean(data.retailerOnly)
+          : undefined,
       updatedBy: data.updatedBy,
     };
 
@@ -297,5 +306,90 @@ export class DiscountsService {
       limit: 100,
       filters: { seriesId },
     });
+  }
+
+  async createRetailerDiscount(
+    retailerId: number,
+    userId: number,
+    data: {
+      targetType: "all" | "series";
+      seriesId?: number;
+      discountRate: number;
+      isPermanent?: boolean;
+      endsAt?: string;
+    },
+  ) {
+    if (data.discountRate > 50) {
+      throw new AppError("Retailer discounts cannot exceed 50%");
+    }
+
+    return this.createDiscount({
+      targetType: data.targetType === "series" ? "series" : "all",
+      seriesId: data.targetType === "series" ? data.seriesId : undefined,
+      discountRate: data.discountRate,
+      isPermanent: data.isPermanent ?? true,
+      endsAt: data.endsAt,
+      retailerOnly: true,
+      retailerId,
+      name: `Retailer discount ${data.discountRate}%`,
+      createdBy: userId,
+    });
+  }
+
+  async listRetailerDiscounts(retailerId: number, params: { page?: number; limit?: number }) {
+    return this.discountsRepository.list({
+      page: params.page ?? 1,
+      limit: params.limit ?? 50,
+      filters: { retailerId },
+    });
+  }
+
+  async deleteRetailerDiscount(
+    retailerId: number,
+    discountId: number,
+  ): Promise<void> {
+    const discount = await this.discountsRepository.findById(discountId);
+    if (!discount || discount.retailerId !== retailerId) {
+      throw new NotFoundError("Discount not found");
+    }
+
+    await this.deleteDiscount(discountId);
+  }
+
+  async getFormOptions() {
+    const categoriesService = new CategoriesService();
+    const productsService = new ProductsService();
+    const entriesService = new EntriesService();
+
+    const [categoriesResult, productsResult, series] = await Promise.all([
+      categoriesService.listCategories({
+        page: 1,
+        limit: 500,
+        sortBy: "name",
+        sortOrder: "asc",
+      }),
+      productsService.listProducts({
+        page: 1,
+        limit: 500,
+        sortBy: "name",
+        sortOrder: "asc",
+      }),
+      entriesService.getAllSeriesIds(),
+    ]);
+
+    return {
+      categories: (categoriesResult.data ?? []).map((category) => ({
+        id: category.id,
+        name: category.name,
+      })),
+      products: (productsResult.data ?? []).map((product) => ({
+        id: product.id,
+        name: product.name || `Product #${product.id}`,
+      })),
+      series: (series ?? []).map((item) => ({
+        id: item.id,
+        seriesCode: item.seriesCode,
+      })),
+    };
   }
 }

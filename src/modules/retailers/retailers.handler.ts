@@ -1,8 +1,12 @@
 import type {
   BecomeRetailerRoute,
+  CreateMyDiscountRoute,
   CreateRoute,
+  DeleteMyDiscountRoute,
   GetCurrentRetailerRoute,
   GetOneRoute,
+  ListMyDiscountSeriesOptionsRoute,
+  ListMyDiscountsRoute,
   ListRoute,
   PatchRoute,
   RemoveManyRoute,
@@ -29,9 +33,11 @@ import {
 } from "@/lib/customer-contact-privacy";
 
 import { PermissionsService } from "../permissions/permissions.service";
+import { DiscountsService } from "../discounts/discounts.service";
 import { RetailersService } from "./retailers.service";
 
 const retailersService = new RetailersService();
+const discountsService = new DiscountsService();
 const permissionsService = new PermissionsService();
 
 async function canViewCustomerContact(userId: number) {
@@ -173,6 +179,64 @@ export const removeMany: AppRouteHandler<RemoveManyRoute> = async (c) => {
   const deletedBy = payload.userId;
   // Use retailers service to delete multiple retailers
   await retailersService.deleteRetailers(ids, deletedBy);
+
+  return c.body(null, HttpStatusCodes.NO_CONTENT);
+};
+
+export const listMyDiscountSeriesOptions: AppRouteHandler<
+  ListMyDiscountSeriesOptionsRoute
+> = async (c) => {
+  const payload = c.get("accessTokenPayload");
+  await retailersService.requireApprovedRetailer(payload.userId);
+  const options = await discountsService.getFormOptions();
+
+  return c.json(
+    successResponse({ series: options.series }, STANDARD_MESSAGES.SUCCESS),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const listMyDiscounts: AppRouteHandler<ListMyDiscountsRoute> = async (c) => {
+  const payload = c.get("accessTokenPayload");
+  const retailer = await retailersService.requireApprovedRetailer(payload.userId);
+  const queryParams = c.req.valid("query");
+  const { page, limit } = queryParams;
+
+  const result = await discountsService.listRetailerDiscounts(retailer.id, {
+    page,
+    limit,
+  });
+  const pagination = createPagination(result.total, page, limit);
+
+  return c.json(
+    successResponseWithPagination(result.data, pagination, result.searchableFields),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const createMyDiscount: AppRouteHandler<CreateMyDiscountRoute> = async (c) => {
+  const payload = c.get("accessTokenPayload");
+  const retailer = await retailersService.requireApprovedRetailer(payload.userId);
+  const data = c.req.valid("json");
+
+  const discount = await discountsService.createRetailerDiscount(
+    retailer.id,
+    payload.userId,
+    data,
+  );
+
+  return c.json(
+    successResponse(discount, "Discount created successfully"),
+    HttpStatusCodes.CREATED,
+  );
+};
+
+export const deleteMyDiscount: AppRouteHandler<DeleteMyDiscountRoute> = async (c) => {
+  const payload = c.get("accessTokenPayload");
+  const retailer = await retailersService.requireApprovedRetailer(payload.userId);
+  const { id } = c.req.valid("param");
+
+  await discountsService.deleteRetailerDiscount(retailer.id, id);
 
   return c.body(null, HttpStatusCodes.NO_CONTENT);
 };

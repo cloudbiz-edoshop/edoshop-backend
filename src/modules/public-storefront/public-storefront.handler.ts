@@ -26,6 +26,7 @@ import { ProductsService } from "@/modules/products/products.service";
 import { PaymentMethodService } from "@/modules/payment-methods/payment-methods.service";
 import { RetailersService } from "@/modules/retailers/retailers.service";
 import { ReviewsService } from "@/modules/reviews/reviews.service";
+import { TestimonialsService } from "@/modules/testimonials/testimonials.service";
 import { promoBannersService } from "@/modules/promo-banners/promo-banners.service";
 
 const bannersService = new BannersService();
@@ -37,6 +38,7 @@ const newArrivalsService = new NewArrivalsService();
 const productsService = new ProductsService();
 const discountsService = new DiscountsService();
 const reviewsService = new ReviewsService();
+const testimonialsService = new TestimonialsService();
 const customersService = new CustomersService();
 const retailersService = new RetailersService();
 const paymentMethodService = new PaymentMethodService();
@@ -394,6 +396,7 @@ export const listDiscounts = async (c: any) => {
     startsAt: discount.startsAt,
     endsAt: discount.endsAt,
     discountValue: discount.discountValue,
+    retailerOnly: Boolean(discount.retailerOnly),
   }));
 
   return sendPublicList(
@@ -440,6 +443,34 @@ export const listReviews = async (c: any) => {
     params.page,
     params.limit,
     "Public reviews retrieved successfully",
+  );
+};
+
+export const listTestimonials = async (c: any) => {
+  const params = getListParams(c);
+  const result = await testimonialsService.listTestimonials({
+    ...params,
+    sortBy: params.sortBy || "order",
+    sortOrder: params.sortOrder || "asc",
+  });
+
+  const publicTestimonials = result.data.map((item) => ({
+    id: item.id,
+    order: item.order,
+    authorName: item.authorName,
+    authorTitle: item.authorTitle,
+    testimonial: item.testimonial,
+    imageUrl: item.imageUrl,
+  }));
+
+  return sendPublicList(
+    c,
+    publicTestimonials,
+    result.total,
+    result.searchableFields,
+    params.page,
+    params.limit,
+    "Public testimonials retrieved successfully",
   );
 };
 

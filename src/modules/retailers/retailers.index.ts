@@ -6,6 +6,10 @@ const router = createRouter();
 
 router.openapi(routes.becomeRetailer, handlers.becomeRetailer);
 router.openapi(routes.getCurrentRetailer, handlers.getCurrentRetailer);
+router.openapi(routes.listMyDiscountSeriesOptions, handlers.listMyDiscountSeriesOptions);
+router.openapi(routes.listMyDiscounts, handlers.listMyDiscounts);
+router.openapi(routes.createMyDiscount, handlers.createMyDiscount);
+router.openapi(routes.deleteMyDiscount, handlers.deleteMyDiscount);
 router.openapi(routes.create, handlers.create);
 router.openapi(routes.getOne, handlers.getOne);
 router.openapi(routes.list, handlers.list);

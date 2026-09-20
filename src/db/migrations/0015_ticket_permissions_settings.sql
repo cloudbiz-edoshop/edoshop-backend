@@ -29,7 +29,7 @@ WHERE NOT EXISTS (
   SELECT 1 FROM "warehouse_ticket_settings"
 );
 
-INSERT INTO "permissions" ("role_id", "entity_id", "operation_id")
+INSERT INTO "permissions" ("roleId", "entityId", "operationId")
 SELECT
   roles."id",
   entities."id",
@@ -43,12 +43,12 @@ WHERE entities."name" = 'ticket_approver'
   AND NOT EXISTS (
     SELECT 1
     FROM "permissions" AS existing
-    WHERE existing."role_id" = roles."id"
-      AND existing."entity_id" = entities."id"
-      AND existing."operation_id" = operations."id"
+    WHERE existing."roleId" = roles."id"
+      AND existing."entityId" = entities."id"
+      AND existing."operationId" = operations."id"
   );
 
-INSERT INTO "permissions" ("role_id", "entity_id", "operation_id")
+INSERT INTO "permissions" ("roleId", "entityId", "operationId")
 SELECT
   roles."id",
   entities."id",
@@ -62,7 +62,7 @@ WHERE entities."name" = 'ticket_borrow_limits'
   AND NOT EXISTS (
     SELECT 1
     FROM "permissions" AS existing
-    WHERE existing."role_id" = roles."id"
-      AND existing."entity_id" = entities."id"
-      AND existing."operation_id" = operations."id"
+    WHERE existing."roleId" = roles."id"
+      AND existing."entityId" = entities."id"
+      AND existing."operationId" = operations."id"
   );
