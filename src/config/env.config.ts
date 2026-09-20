@@ -98,6 +98,7 @@ const EnvSchema = z
     NEXTCLOUD_OAUTH_CLIENT_SECRET: z.string().optional().default(""),
     NEXTCLOUD_OAUTH_REDIRECT_URI: z.string().optional().default(""),
     ADMIN_PANEL_URL: z.string().optional().default("http://localhost:5173"),
+    CORS_ORIGINS: z.string().optional().default(""),
   })
   .transform((input) => ({
     ...input,

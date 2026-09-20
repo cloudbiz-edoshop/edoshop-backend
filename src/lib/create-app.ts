@@ -3,6 +3,7 @@ import { OpenAPIHono } from "@hono/zod-openapi";
 
 import { cors } from "hono/cors";
 import { appConfig } from "@/config";
+import { resolveCorsOrigin } from "@/config/cors-origins";
 import { ipAndUserAgent } from "@/core/middlewares";
 import { errorHandler, onError } from "@/core/middlewares/error-handler";
 import { notFound } from "@/core/middlewares/not-found";
@@ -43,9 +44,7 @@ export default function createApp() {
   // Apply middleware
   app.use(
     cors({
-      origin: appConfig.isProduction
-        ? ["https://edoshop.online", "https://admin.edoshop.online"]
-        : "*",
+      origin: resolveCorsOrigin(),
       allowMethods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
       allowHeaders: ["Content-Type", "Authorization", "X-CSRF-Token"],
       exposeHeaders: [
