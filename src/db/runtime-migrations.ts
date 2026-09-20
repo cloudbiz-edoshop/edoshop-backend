@@ -15,6 +15,13 @@ import {
 } from "@/db/models";
 import { getRolePermissionTemplate } from "@/modules/permissions/permissions.service";
 import nextGroupPackageCode from "@/db/functions/next-group-package-code";
+import {
+  applyPermissionColumnNames,
+  quoteIdent,
+  resolveAuditColumns,
+  resolvePermissionColumns,
+  type PermissionColumns,
+} from "@/db/runtime-migration-columns";
 
 async function ensureDiscountColumns() {
   await db.execute(
@@ -33,12 +40,23 @@ async function ensureDiscountColumns() {
 export async function ensureRuntimeMigrations() {
   await ensureDiscountColumns();
 
+  const [packageStatusAudit, colorsAudit, sizesAudit, rolesAudit, permCols] =
+    await Promise.all([
+      resolveAuditColumns("package_statuses"),
+      resolveAuditColumns("colors"),
+      resolveAuditColumns("sizes"),
+      resolveAuditColumns("roles"),
+      resolvePermissionColumns("permissions"),
+    ]);
+
+  const permSql = (query: string) => applyPermissionColumnNames(query, permCols);
+
   await db.execute(
     sql.raw(`
       WITH actor AS (
         SELECT "id" FROM "users" ORDER BY "id" LIMIT 1
       )
-      INSERT INTO "package_statuses" ("name", "description", "createdBy", "updatedBy")
+      INSERT INTO "package_statuses" ("name", "description", ${quoteIdent(packageStatusAudit.createdBy)}, ${quoteIdent(packageStatusAudit.updatedBy)})
       SELECT 'Grouped', 'Package is part of a group package (GPKG).', actor."id", actor."id"
       FROM actor
       WHERE NOT EXISTS (
@@ -212,7 +230,7 @@ export async function ensureRuntimeMigrations() {
       WITH actor AS (
         SELECT "id" FROM "users" ORDER BY "id" LIMIT 1
       )
-      INSERT INTO "colors" ("name", "description", "is_predefined", "createdBy", "updatedBy")
+      INSERT INTO "colors" ("name", "description", "is_predefined", ${quoteIdent(colorsAudit.createdBy)}, ${quoteIdent(colorsAudit.updatedBy)})
       SELECT seed."name", seed."description", true, actor."id", actor."id"
       FROM (
         VALUES
@@ -234,8 +252,8 @@ export async function ensureRuntimeMigrations() {
       ON CONFLICT ("name") DO UPDATE SET
         "description" = EXCLUDED."description",
         "is_predefined" = true,
-        "updatedBy" = EXCLUDED."updatedBy",
-        "updatedAt" = now()
+        ${quoteIdent(colorsAudit.updatedBy)} = EXCLUDED.${quoteIdent(colorsAudit.updatedBy)},
+        ${quoteIdent(colorsAudit.updatedAt)} = now()
     `),
   );
 
@@ -244,7 +262,7 @@ export async function ensureRuntimeMigrations() {
       WITH actor AS (
         SELECT "id" FROM "users" ORDER BY "id" LIMIT 1
       )
-      INSERT INTO "sizes" ("name", "description", "is_predefined", "createdBy", "updatedBy")
+      INSERT INTO "sizes" ("name", "description", "is_predefined", ${quoteIdent(sizesAudit.createdBy)}, ${quoteIdent(sizesAudit.updatedBy)})
       SELECT seed."name", seed."description", true, actor."id", actor."id"
       FROM (
         VALUES
@@ -259,8 +277,8 @@ export async function ensureRuntimeMigrations() {
       ON CONFLICT ("name") DO UPDATE SET
         "description" = EXCLUDED."description",
         "is_predefined" = true,
-        "updatedBy" = EXCLUDED."updatedBy",
-        "updatedAt" = now()
+        ${quoteIdent(sizesAudit.updatedBy)} = EXCLUDED.${quoteIdent(sizesAudit.updatedBy)},
+        ${quoteIdent(sizesAudit.updatedAt)} = now()
     `),
   );
 
@@ -504,7 +522,8 @@ export async function ensureRuntimeMigrations() {
   );
 
   await db.execute(
-    sql.raw(`
+    sql.raw(
+      permSql(`
       INSERT INTO "permissions" ("roleId", "entityId", "operationId")
       SELECT
         roles."id",
@@ -524,6 +543,7 @@ export async function ensureRuntimeMigrations() {
             AND existing."operationId" = operations."id"
         )
     `),
+    ),
   );
 
   await db.execute(
@@ -823,7 +843,7 @@ async function ensureAclRolesAndEntities() {
         WITH actor AS (
           SELECT "id" FROM "users" ORDER BY "id" LIMIT 1
         )
-        INSERT INTO "roles" ("name", "description", "createdBy", "updatedBy")
+        INSERT INTO "roles" ("name", "description", ${quoteIdent(rolesAudit.createdBy)}, ${quoteIdent(rolesAudit.updatedBy)})
         SELECT '${name}', '${description}', actor."id", actor."id"
         FROM actor
         WHERE NOT EXISTS (
@@ -834,7 +854,8 @@ async function ensureAclRolesAndEntities() {
   }
 
   await db.execute(
-    sql.raw(`
+    sql.raw(
+      permSql(`
       INSERT INTO "permissions" ("roleId", "entityId", "operationId")
       SELECT roles."id", entities."id", operations."id"
       FROM "roles" AS roles
@@ -854,10 +875,12 @@ async function ensureAclRolesAndEntities() {
         )
       ON CONFLICT ("roleId", "entityId", "operationId") DO NOTHING
     `),
+    ),
   );
 
   await db.execute(
-    sql.raw(`
+    sql.raw(
+      permSql(`
       INSERT INTO "permissions" ("roleId", "entityId", "operationId")
       SELECT roles."id", entities."id", operations."id"
       FROM "roles" AS roles
@@ -879,10 +902,12 @@ async function ensureAclRolesAndEntities() {
         )
       ON CONFLICT ("roleId", "entityId", "operationId") DO NOTHING
     `),
+    ),
   );
 
   await db.execute(
-    sql.raw(`
+    sql.raw(
+      permSql(`
       INSERT INTO "permissions" ("roleId", "entityId", "operationId")
       SELECT roles."id", entities."id", operations."id"
       FROM "roles" AS roles
@@ -904,10 +929,12 @@ async function ensureAclRolesAndEntities() {
         )
       ON CONFLICT ("roleId", "entityId", "operationId") DO NOTHING
     `),
+    ),
   );
 
   await db.execute(
-    sql.raw(`
+    sql.raw(
+      permSql(`
       INSERT INTO "permissions" ("roleId", "entityId", "operationId")
       SELECT roles."id", entities."id", operations."id"
       FROM "roles" AS roles
@@ -929,10 +956,12 @@ async function ensureAclRolesAndEntities() {
         )
       ON CONFLICT ("roleId", "entityId", "operationId") DO NOTHING
     `),
+    ),
   );
 
   await db.execute(
-    sql.raw(`
+    sql.raw(
+      permSql(`
       INSERT INTO "permissions" ("roleId", "entityId", "operationId")
       SELECT roles."id", entities."id", operations."id"
       FROM "roles" AS roles
@@ -949,10 +978,12 @@ async function ensureAclRolesAndEntities() {
         )
       ON CONFLICT ("roleId", "entityId", "operationId") DO NOTHING
     `),
+    ),
   );
 
   await db.execute(
-    sql.raw(`
+    sql.raw(
+      permSql(`
       INSERT INTO "permissions" ("roleId", "entityId", "operationId")
       SELECT roles."id", entities."id", operations."id"
       FROM "roles" AS roles
@@ -975,10 +1006,12 @@ async function ensureAclRolesAndEntities() {
         )
       ON CONFLICT ("roleId", "entityId", "operationId") DO NOTHING
     `),
+    ),
   );
 
   await db.execute(
-    sql.raw(`
+    sql.raw(
+      permSql(`
       INSERT INTO "permissions" ("roleId", "entityId", "operationId")
       SELECT roles."id", entities."id", operations."id"
       FROM "roles" AS roles
@@ -999,9 +1032,10 @@ async function ensureAclRolesAndEntities() {
         )
       ON CONFLICT ("roleId", "entityId", "operationId") DO NOTHING
     `),
+    ),
   );
 
-  await ensurePredefinedRolePermissions();
+  await ensurePredefinedRolePermissions(permCols);
 
   await db.execute(
     sql.raw(`
@@ -1181,7 +1215,8 @@ async function ensureAclRolesAndEntities() {
   );
 }
 
-async function ensurePredefinedRolePermissions() {
+async function ensurePredefinedRolePermissions(permCols: PermissionColumns) {
+  const permSql = (query: string) => applyPermissionColumnNames(query, permCols);
   const [roleRows, entityRows, operationRows] = await Promise.all([
     db.select({ id: roles.id, name: roles.name }).from(roles),
     db.select({ id: entities.id, name: entities.name }).from(entities),
@@ -1213,7 +1248,9 @@ async function ensurePredefinedRolePermissions() {
   if (predefinedRoleIds.length > 0) {
     await db.execute(
       sql.raw(
-        `DELETE FROM "permissions" WHERE "roleId" IN (${predefinedRoleIds.join(",")})`,
+        permSql(
+          `DELETE FROM "permissions" WHERE "roleId" IN (${predefinedRoleIds.join(",")})`,
+        ),
       ),
     );
   }
@@ -1246,11 +1283,13 @@ async function ensurePredefinedRolePermissions() {
       .join(",\n");
 
     await db.execute(
-      sql.raw(`
+      sql.raw(
+        permSql(`
         INSERT INTO "permissions" ("roleId", "entityId", "operationId", "createdAt", "updatedAt")
         VALUES ${valuesSql}
         ON CONFLICT ("roleId", "entityId", "operationId") DO NOTHING
       `),
+      ),
     );
   }
 
