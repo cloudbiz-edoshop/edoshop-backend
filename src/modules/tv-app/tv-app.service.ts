@@ -1,6 +1,9 @@
 import { randomBytes } from "node:crypto";
 
-import { ConflictError, NotFoundError } from "@/core/errors";
+import pino from "pino";
+
+import { AppError, ConflictError, NotFoundError } from "@/core/errors";
+import { getDatabaseFingerprint } from "@/lib/database-fingerprint";
 
 import {
   buildStorefrontAssetUrl,
@@ -16,6 +19,51 @@ import type {
   UpdateTvDeviceRequest,
   UpdateTvSettingsRequest,
 } from "./tv-app.schema";
+
+const tvRegisterLog = pino({
+  name: "tv-register",
+  level: process.env.LOG_LEVEL || "info",
+});
+
+function describeStoredHash(hash: string | null | undefined) {
+  return {
+    hasStoredHash: Boolean(hash),
+    storedHashLength: hash?.length ?? 0,
+    storedHashLooksArgon2: Boolean(hash?.startsWith("$argon2")),
+  };
+}
+
+async function assertDeviceSecretPersisted(
+  deviceId: number,
+  deviceKey: string,
+  deviceSecret: string,
+) {
+  const persisted = await tvAppRepository.findDeviceById(deviceId);
+  const hashInfo = describeStoredHash(persisted?.secretHash);
+  const roundtripOk = persisted?.secretHash
+    ? await tvAppRepository.verifyDeviceSecret(persisted.secretHash, deviceSecret)
+    : false;
+
+  tvRegisterLog.info(
+    {
+      deviceId,
+      deviceKey,
+      roundtripVerifySucceeded: roundtripOk,
+      database: getDatabaseFingerprint(),
+      ...hashInfo,
+    },
+    "tv_device_register_diagnostic",
+  );
+
+  if (!roundtripOk) {
+    await tvAppRepository.deleteDevice(deviceId);
+    throw new AppError(
+      "TV device secret could not be persisted correctly. Please try again.",
+      500,
+      "tv_device_secret_persistence_failed",
+    );
+  }
+}
 
 const mapSettings = (row: NonNullable<Awaited<ReturnType<typeof tvAppRepository.getSettings>>>) => ({
   id: row.id,
@@ -141,8 +189,31 @@ export class TvAppService {
       updatedBy: actorId,
     });
 
+    await assertDeviceSecretPersisted(created.id, deviceKey, deviceSecret);
+
     return {
       ...mapDevice(created),
+      deviceSecret,
+    };
+  }
+
+  async resetDeviceSecret(id: number, actorId: number) {
+    const existing = await tvAppRepository.findDeviceById(id);
+    if (!existing) {
+      throw new NotFoundError("TV device not found");
+    }
+
+    const deviceSecret = tvAppRepository.generateDeviceSecret();
+    const secretHash = await tvAppRepository.hashDeviceSecret(deviceSecret);
+    const updated = await tvAppRepository.updateDeviceSecret(id, secretHash, actorId);
+    if (!updated) {
+      throw new NotFoundError("TV device not found");
+    }
+
+    await assertDeviceSecretPersisted(updated.id, updated.deviceKey, deviceSecret);
+
+    return {
+      ...mapDevice(updated),
       deviceSecret,
     };
   }

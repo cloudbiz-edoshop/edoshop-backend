@@ -1,12 +1,20 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
+import pino from "pino";
+
 import { env } from "@/config";
 import { ForbiddenError, UnauthorizedError } from "@/core/errors";
+import { getDatabaseFingerprint } from "@/lib/database-fingerprint";
 import {
   TV_ACCESS_TOKEN_EXPIRY_SECONDS,
   TV_REFRESH_TOKEN_EXPIRY_SECONDS,
 } from "./tv-app.constants";
 import { tvAppRepository } from "./tv-app.repository";
+
+const tvAuthLog = pino({
+  name: "tv-auth",
+  level: process.env.LOG_LEVEL || "info",
+});
 
 export type TvDeviceTokenPayload = {
   type: "tv_device";
@@ -56,6 +64,24 @@ const verifyHs256 = <T>(token: string, secret: string): T => {
   return payload as T;
 };
 
+function logTvAuthDiagnostic(details: Record<string, unknown>) {
+  tvAuthLog.info(
+    {
+      ...details,
+      database: getDatabaseFingerprint(),
+    },
+    "tv_device_auth_diagnostic",
+  );
+}
+
+function describeStoredHash(hash: string | null | undefined) {
+  return {
+    hasStoredHash: Boolean(hash),
+    storedHashLength: hash?.length ?? 0,
+    storedHashLooksArgon2: Boolean(hash?.startsWith("$argon2")),
+  };
+}
+
 export class TvAppAuthService {
   private getSecret() {
     return env.JWT_SECRET;
@@ -83,15 +109,61 @@ export class TvAppAuthService {
   }
 
   async authenticateDevice(deviceKey: string, deviceSecret: string) {
-    const device = await tvAppRepository.findDeviceByKey(deviceKey);
-    if (!device || !device.isActive || device.revokedAt) {
+    const normalizedKey = deviceKey.trim();
+    const normalizedSecret = deviceSecret.trim();
+    const device = await tvAppRepository.findDeviceByKey(normalizedKey);
+    const hashInfo = describeStoredHash(device?.secretHash);
+
+    if (!device) {
+      logTvAuthDiagnostic({
+        outcome: "rejected",
+        reason: "device_not_found",
+        deviceKey: normalizedKey,
+      });
+      throw new UnauthorizedError("Invalid TV device credentials");
+    }
+
+    if (!device.isActive || device.revokedAt) {
+      logTvAuthDiagnostic({
+        outcome: "rejected",
+        reason: "device_inactive",
+        deviceId: device.id,
+        deviceKey: device.deviceKey,
+        isActive: device.isActive,
+        revokedAt: device.revokedAt,
+        ...hashInfo,
+      });
+      throw new UnauthorizedError("Invalid TV device credentials");
+    }
+
+    if (!device.secretHash?.startsWith("$argon2")) {
+      logTvAuthDiagnostic({
+        outcome: "rejected",
+        reason: "stored_hash_invalid_format",
+        deviceId: device.id,
+        deviceKey: device.deviceKey,
+        ...hashInfo,
+      });
       throw new UnauthorizedError("Invalid TV device credentials");
     }
 
     const valid = await tvAppRepository.verifyDeviceSecret(
       device.secretHash,
-      deviceSecret,
+      normalizedSecret,
     );
+
+    logTvAuthDiagnostic({
+      outcome: valid ? "accepted" : "rejected",
+      reason: valid ? "ok" : "argon2_verify_failed",
+      deviceId: device.id,
+      deviceKey: device.deviceKey,
+      isActive: device.isActive,
+      revokedAt: device.revokedAt,
+      argon2VerifySucceeded: valid,
+      suppliedSecretLength: normalizedSecret.length,
+      ...hashInfo,
+    });
+
     if (!valid) {
       throw new UnauthorizedError("Invalid TV device credentials");
     }

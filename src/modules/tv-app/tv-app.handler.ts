@@ -16,6 +16,7 @@ import type {
   PatchDeviceRoute,
   PatchSettingsRoute,
   RegisterDeviceRoute,
+  ResetDeviceSecretRoute,
   UpdateCatalogRoute,
 } from "./tv-app.route";
 
@@ -108,6 +109,13 @@ export const patchDevice: AppRouteHandler<PatchDeviceRoute> = async (c) => {
   const payload = c.get("accessTokenPayload");
   const data = await tvAppService.updateDevice(id, c.req.valid("json"), payload.userId);
   return c.json(successResponse(data, "TV device updated successfully"), HttpStatusCodes.OK);
+};
+
+export const resetDeviceSecret: AppRouteHandler<ResetDeviceSecretRoute> = async (c) => {
+  const { id } = c.req.valid("param");
+  const payload = c.get("accessTokenPayload");
+  const data = await tvAppService.resetDeviceSecret(id, payload.userId);
+  return c.json(successResponse(data, "TV device secret reset successfully"), HttpStatusCodes.OK);
 };
 
 export const getCatalog: AppRouteHandler<GetCatalogRoute> = async (c) => {

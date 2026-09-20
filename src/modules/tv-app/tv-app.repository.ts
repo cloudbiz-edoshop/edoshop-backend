@@ -160,6 +160,25 @@ export class TvAppRepository {
     return row;
   }
 
+  async deleteDevice(id: number) {
+    await db.delete(tvDevices).where(eq(tvDevices.id, id));
+  }
+
+  async updateDeviceSecret(id: number, secretHash: string, actorId: number) {
+    const [row] = await db
+      .update(tvDevices)
+      .set({
+        secretHash,
+        updatedBy: actorId,
+        updatedAt: new Date().toISOString(),
+        revokedAt: null,
+        isActive: true,
+      })
+      .where(eq(tvDevices.id, id))
+      .returning();
+    return row ?? null;
+  }
+
   async updateDevice(id: number, values: Partial<typeof tvDevices.$inferInsert>) {
     const [row] = await db
       .update(tvDevices)
@@ -251,7 +270,14 @@ export class TvAppRepository {
   }
 
   static async verifyDeviceSecret(hash: string, secret: string) {
-    return argon2.verify(hash, secret);
+    if (!hash || typeof hash !== "string") {
+      return false;
+    }
+    try {
+      return await argon2.verify(hash, secret);
+    } catch {
+      return false;
+    }
   }
 
   generateRefreshToken() {

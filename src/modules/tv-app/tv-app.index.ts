@@ -16,11 +16,14 @@ router.openapi(routes.deleteAds, handlers.deleteAds);
 router.openapi(routes.listDevices, handlers.listDevices);
 router.openapi(routes.registerDevice, handlers.registerDevice);
 router.openapi(routes.patchDevice, handlers.patchDevice);
+router.openapi(routes.resetDeviceSecret, handlers.resetDeviceSecret);
 router.openapi(routes.getCatalog, handlers.getCatalog);
 router.openapi(routes.updateCatalog, handlers.updateCatalog);
 router.openapi(routes.listVideos, handlers.listVideos);
 router.openapi(routes.authToken, handlers.authToken);
+router.openapi(routes.authTokenAlias, handlers.authToken);
 router.openapi(routes.authRefresh, handlers.authRefresh);
+router.openapi(routes.authRefreshAlias, handlers.authRefresh);
 router.openapi(routes.getMagazineVersion, handlers.getMagazineVersion);
 router.openapi(routes.getMagazineFeed, handlers.getMagazineFeed);
 

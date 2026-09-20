@@ -355,6 +355,33 @@ export const patchDevice = createRoute({
   },
 });
 
+export const resetDeviceSecret = createRoute({
+  path: "/tv/devices/{id}/reset-secret",
+  method: "post",
+  tags,
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.TV_DEVICES, operation: OperationType.UPDATE },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    params: idParams,
+  },
+  summary: "Reset TV device secret",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(createTvDeviceResponseSchema),
+      "TV device secret reset",
+    ),
+    ...commonErrorResponses(
+      [HttpStatusCodes.UNAUTHORIZED, HttpStatusCodes.FORBIDDEN, HttpStatusCodes.NOT_FOUND],
+      idParams,
+    ),
+  },
+});
+
 export const getCatalog = createRoute({
   path: "/tv/catalog",
   method: "get",
@@ -464,6 +491,18 @@ export const authRefresh = createRoute({
   },
 });
 
+/** Alias for TV subdomain routing (`POST /api/v1/auth/token`). */
+export const authTokenAlias = createRoute({
+  ...authToken,
+  path: "/auth/token",
+});
+
+/** Alias for TV subdomain routing (`POST /api/v1/auth/refresh`). */
+export const authRefreshAlias = createRoute({
+  ...authRefresh,
+  path: "/auth/refresh",
+});
+
 export const getMagazineVersion = createRoute({
   path: "/tv/magazine/version",
   method: "get",
@@ -505,6 +544,7 @@ export type DeleteAdsRoute = typeof deleteAds;
 export type ListDevicesRoute = typeof listDevices;
 export type RegisterDeviceRoute = typeof registerDevice;
 export type PatchDeviceRoute = typeof patchDevice;
+export type ResetDeviceSecretRoute = typeof resetDeviceSecret;
 export type GetCatalogRoute = typeof getCatalog;
 export type UpdateCatalogRoute = typeof updateCatalog;
 export type ListVideosRoute = typeof listVideos;
