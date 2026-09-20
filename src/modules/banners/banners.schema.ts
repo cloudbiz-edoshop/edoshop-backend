@@ -2,8 +2,7 @@ import { z } from "@hono/zod-openapi";
 
 import { bannersSchema } from "@/db/models/banners";
 
-// Create banners request schema
-export const createBannersRequestSchema = z.object({
+const bannersRequestBodySchema = z.object({
   heading: z.string().min(1).max(255).describe("Banners heading"),
   headingFontColor: z
     .string()
@@ -50,8 +49,16 @@ export const createBannersRequestSchema = z.object({
   date: z.string().min(1).max(255).describe("Banners date"),
   imageUrl: z.string().max(255).optional().default(""),
   videoUrl: z.string().max(512).optional().default(""),
-}).refine(
-  (data) => Boolean(String(data.imageUrl || "").trim() || String(data.videoUrl || "").trim()),
+});
+
+const requireBannerMedia = (
+  data: { imageUrl?: string; videoUrl?: string },
+) =>
+  Boolean(String(data.imageUrl || "").trim() || String(data.videoUrl || "").trim());
+
+// Create banners request schema
+export const createBannersRequestSchema = bannersRequestBodySchema.refine(
+  requireBannerMedia,
   { message: "Either image URL or video URL is required" },
 );
 
@@ -63,7 +70,20 @@ export const createBannersResponseSchema = bannersSchema;
 export type CreateBannersResponse = z.infer<typeof createBannersResponseSchema>;
 
 // Update banners request schema
-export const updateBannersRequestSchema = createBannersRequestSchema.partial();
+export const updateBannersRequestSchema = bannersRequestBodySchema
+  .partial()
+  .refine(
+    (data) => {
+      if (data.imageUrl === undefined && data.videoUrl === undefined) {
+        return true;
+      }
+      return requireBannerMedia({
+        imageUrl: data.imageUrl ?? "",
+        videoUrl: data.videoUrl ?? "",
+      });
+    },
+    { message: "Either image URL or video URL is required" },
+  );
 
 export type UpdateBannersRequest = z.infer<typeof updateBannersRequestSchema>;
 
