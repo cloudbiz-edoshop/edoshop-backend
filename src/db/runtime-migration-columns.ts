@@ -46,6 +46,15 @@ export async function resolveAuditColumns(tableName: string): Promise<AuditColum
   };
 }
 
+export async function resolveColumnName(
+  tableName: string,
+  snake: string,
+  camel: string,
+): Promise<string> {
+  const columns = await loadTableColumns(tableName);
+  return pickColumn(columns, snake, camel);
+}
+
 export async function resolvePermissionColumns(
   tableName: string,
 ): Promise<PermissionColumns> {

@@ -19,6 +19,7 @@ import {
   applyPermissionColumnNames,
   quoteIdent,
   resolveAuditColumns,
+  resolveColumnName,
   resolvePermissionColumns,
   type PermissionColumns,
 } from "@/db/runtime-migration-columns";
@@ -40,13 +41,16 @@ async function ensureDiscountColumns() {
 export async function ensureRuntimeMigrations() {
   await ensureDiscountColumns();
 
-  const [packageStatusAudit, colorsAudit, sizesAudit, rolesAudit, permCols] =
+  const [packageStatusAudit, colorsAudit, sizesAudit, rolesAudit, permCols, bundlesBundleCodeCol, trackingBundlesBundleCodeCol, aboutUsImageUrlCol] =
     await Promise.all([
       resolveAuditColumns("package_statuses"),
       resolveAuditColumns("colors"),
       resolveAuditColumns("sizes"),
       resolveAuditColumns("roles"),
       resolvePermissionColumns("permissions"),
+      resolveColumnName("bundles", "bundle_code", "bundleCode"),
+      resolveColumnName("tracking_bundles", "bundle_code", "bundleCode"),
+      resolveColumnName("about-us", "image_url", "imageUrl"),
     ]);
 
   const permSql = (query: string) => applyPermissionColumnNames(query, permCols);
@@ -373,7 +377,7 @@ export async function ensureRuntimeMigrations() {
       SET "source_bundle_id" = b."id"
       FROM "bundles" AS b
       WHERE tb."source_bundle_id" IS NULL
-        AND tb."bundle_code" = b."bundleCode"
+        AND tb.${quoteIdent(trackingBundlesBundleCodeCol)} = b.${quoteIdent(bundlesBundleCodeCol)}
     `),
   );
 
@@ -672,13 +676,13 @@ export async function ensureRuntimeMigrations() {
       UPDATE "about-us"
       SET "images" = jsonb_build_array(
         jsonb_build_object(
-          'imageUrl', "imageUrl",
+          'imageUrl', ${quoteIdent(aboutUsImageUrlCol)},
           'displayStyle', 'single',
           'sortOrder', 0
         )
       )
       WHERE ("images" IS NULL OR "images" = '[]'::jsonb)
-        AND COALESCE("imageUrl", '') <> ''
+        AND COALESCE(${quoteIdent(aboutUsImageUrlCol)}, '') <> ''
     `),
   );
 
