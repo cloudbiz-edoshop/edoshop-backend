@@ -22,6 +22,7 @@ import {
   resolveColumnName,
   resolvePermissionColumns,
   type PermissionColumns,
+  type AuditColumns,
 } from "@/db/runtime-migration-columns";
 
 async function ensureDiscountColumns() {
@@ -811,10 +812,14 @@ export async function ensureRuntimeMigrations() {
     `),
   );
 
-  await ensureAclRolesAndEntities();
+  await ensureAclRolesAndEntities(rolesAudit, permCols);
 }
 
-async function ensureAclRolesAndEntities() {
+async function ensureAclRolesAndEntities(
+  rolesAudit: AuditColumns,
+  permCols: PermissionColumns,
+) {
+  const permSql = (query: string) => applyPermissionColumnNames(query, permCols);
   const newEntities = Object.entries(ENTITY_DESCRIPTIONS);
 
   for (const [name, description] of newEntities) {
