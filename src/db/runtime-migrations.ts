@@ -1304,6 +1304,13 @@ async function ensurePredefinedRolePermissions(permCols: PermissionColumns) {
 
   await db.execute(
     sql.raw(`
+      ALTER TABLE "banners"
+      ADD COLUMN IF NOT EXISTS "video_url" varchar(512)
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
       CREATE TABLE IF NOT EXISTS "promo_banners" (
         "id" serial PRIMARY KEY,
         "text" varchar(255) NOT NULL,

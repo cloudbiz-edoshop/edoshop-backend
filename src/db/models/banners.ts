@@ -50,7 +50,8 @@ export const banners = pgTable("banners", {
   secondaryButtonText: varchar({ length: 255 }).notNull(),
   delay: decimal({ precision: 10, scale: 2 }).notNull(),
   date: date().notNull(),
-  imageUrl: varchar({ length: 255 }).notNull(),
+  imageUrl: varchar({ length: 255 }).notNull().default(""),
+  videoUrl: varchar({ length: 512 }),
   createdAt: timestamp({ mode: "string" }).notNull().defaultNow(),
   updatedAt: timestamp({ mode: "string" }).notNull().defaultNow(),
   createdBy: integer()

@@ -48,8 +48,12 @@ export const createBannersRequestSchema = z.object({
     .describe("Banners secondary button text"),
   delay: z.string().min(1).max(255).describe("Banners delay"),
   date: z.string().min(1).max(255).describe("Banners date"),
-  imageUrl: z.string().max(255).describe("Banners image url"),
-});
+  imageUrl: z.string().max(255).optional().default(""),
+  videoUrl: z.string().max(512).optional().default(""),
+}).refine(
+  (data) => Boolean(String(data.imageUrl || "").trim() || String(data.videoUrl || "").trim()),
+  { message: "Either image URL or video URL is required" },
+);
 
 export type CreateBannersRequest = z.infer<typeof createBannersRequestSchema>;
 
