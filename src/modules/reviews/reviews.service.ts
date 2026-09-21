@@ -36,13 +36,18 @@ export class ReviewsService {
 
     // Ensure rating is within bounds
     const rating = Math.min(Math.max(reviewData.rating ?? 0, 0), 5);
+    // Admin/staff creates are trusted content; storefront guests use createGuestReview (pending).
+    const statusId = ReviewStatusIds.APPROVED;
 
     const review = await db.transaction(async (tx) => {
       const createdReview = await this.reviewsRepository.create(tx, {
         ...reviewData,
         rating,
+        statusId,
+        itemsReceived: null,
+        itemsRejected: null,
         reviewDate: todayDate(),
-        ...(reviewData.statusId === 2 ? { approvedDate: todayDate() } : {}),
+        approvedDate: todayDate(),
         updatedBy: reviewData.createdBy,
       });
 

@@ -4,7 +4,8 @@ export const createReviewSchema = z.object({
   productId: z.number(),
   review: z.string().min(1).max(1000),
   rating: z.number().min(0).max(5).default(0).describe("Rating from 0 to 5 stars"),
-  statusId: z.number(),
+  /** Ignored for staff create — server always approves. Kept for API compatibility. */
+  statusId: z.number().optional(),
   itemsReceived: z.number().optional(),
   itemsRejected: z.number().optional(),
 });
