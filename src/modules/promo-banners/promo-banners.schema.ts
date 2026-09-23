@@ -87,20 +87,24 @@ const withScheduleRefine = <T extends z.ZodTypeAny>(schema: T) =>
     }
   });
 
+const promoBannerCardsObjectSchema = z.object({
+  name: z.string().min(1).max(255),
+  cards: z.array(promoBannerCardSchema).min(1).max(12),
+  ...scheduleFields,
+});
+
+const promoBannerStripObjectSchema = z.object({
+  text: z.string().min(1).max(255),
+  backgroundColor: z.enum(["yellow", "red"]).default("yellow"),
+  ...scheduleFields,
+});
+
 export const createPromoBannerCardsRequestSchema = withScheduleRefine(
-  z.object({
-    name: z.string().min(1).max(255),
-    cards: z.array(promoBannerCardSchema).min(1).max(12),
-    ...scheduleFields,
-  }),
+  promoBannerCardsObjectSchema,
 );
 
 export const createPromoBannerStripRequestSchema = withScheduleRefine(
-  z.object({
-    text: z.string().min(1).max(255),
-    backgroundColor: z.enum(["yellow", "red"]).default("yellow"),
-    ...scheduleFields,
-  }),
+  promoBannerStripObjectSchema,
 );
 
 export const createPromoBannerRequestSchema = z.union([
@@ -108,10 +112,12 @@ export const createPromoBannerRequestSchema = z.union([
   createPromoBannerStripRequestSchema,
 ]);
 
-export const updatePromoBannerCardsRequestSchema =
-  createPromoBannerCardsRequestSchema.partial();
-export const updatePromoBannerStripRequestSchema =
-  createPromoBannerStripRequestSchema.partial();
+export const updatePromoBannerCardsRequestSchema = withScheduleRefine(
+  promoBannerCardsObjectSchema.partial(),
+);
+export const updatePromoBannerStripRequestSchema = withScheduleRefine(
+  promoBannerStripObjectSchema.partial(),
+);
 
 export const updatePromoBannerRequestSchema = z.union([
   updatePromoBannerCardsRequestSchema,
