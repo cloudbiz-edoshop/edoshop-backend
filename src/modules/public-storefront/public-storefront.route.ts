@@ -12,6 +12,7 @@ import {
   publicCustomerSchema,
   publicDiscountSchema,
   publicPromoBannerSchema,
+  publicHomeBannerDisplaySchema,
   publicPromoCardsSchema,
   publicFaqSchema,
   publicFilterSchema,
@@ -108,6 +109,18 @@ export const getPromoCards = createRoute({
     [HttpStatusCodes.OK]: jsonContent(
       createSuccessResponseSchema(publicPromoCardsSchema),
       "Active home promo cards",
+    ),
+  },
+});
+
+export const getHomeBannerDisplay = createRoute({
+  path: "/public/home-banner-display",
+  method: "get",
+  tags,
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(publicHomeBannerDisplaySchema),
+      "Storefront home banner mode",
     ),
   },
 });

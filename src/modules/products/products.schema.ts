@@ -37,6 +37,7 @@ export const baseProductSchema = z.object({
   totalItems: z.number().optional(),
   groupCriteriaId: z.number().optional(),
   completionCriteria: z.string().optional(),
+  backgroundColorId: z.number().int().positive().nullable().optional(),
 });
 
 // Create schema with validations based on storeId
@@ -143,6 +144,13 @@ export const getProductResponseSchema = productsSchema;
 export type GetProductResponse = z.infer<typeof getProductResponseSchema>;
 
 export const productResponseSchema = productsSchema.extend({
+  backgroundColor: z
+    .object({
+      id: z.number(),
+      name: z.string(),
+    })
+    .nullable()
+    .optional(),
   store: z
     .object({
       id: z.number(),

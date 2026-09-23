@@ -264,3 +264,4 @@ export {
   default as promoBanners,
   promoBannersRelations,
 } from "./promo-banners";
+export { default as storefrontBannerSettings } from "./storefront-banner-settings";

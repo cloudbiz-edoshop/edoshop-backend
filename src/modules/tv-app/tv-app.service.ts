@@ -232,6 +232,14 @@ export class TvAppService {
     return mapDevice(updated);
   }
 
+  async deleteDevice(id: number) {
+    const existing = await tvAppRepository.findDeviceById(id);
+    if (!existing) {
+      throw new NotFoundError("TV device not found");
+    }
+    await tvAppRepository.deleteDevice(id);
+  }
+
   async getCatalog() {
     const settings = await tvAppRepository.ensureSettings();
     const selections = await tvAppRepository.listCatalogSelections();

@@ -9,6 +9,7 @@ import { StoreIds } from "@/constants/stores.constants";
 import { ConflictError, NotFoundError } from "@/core/errors";
 import { AppError } from "@/core/errors/app-error";
 import db from "@/db";
+import { colors } from "@/db/models/colors";
 
 import {
   categories,
@@ -57,9 +58,23 @@ export class ProductsService {
     return code;
   }
 
+  private async assertBackgroundColorId(backgroundColorId?: number | null) {
+    if (backgroundColorId == null) return;
+    const [color] = await db
+      .select({ id: colors.id })
+      .from(colors)
+      .where(eq(colors.id, backgroundColorId))
+      .limit(1);
+    if (!color) {
+      throw new AppError("Background color not found");
+    }
+  }
+
   async createProduct(
     productData: CreateProductRequest & { createdBy: number },
   ): Promise<CreateProductResponse> {
+    await this.assertBackgroundColorId(productData.backgroundColorId);
+
     // Validate that categories exist if provided
     if (productData.categoryIds?.length) {
       const categoryRecords = await db.query.categories.findMany({
@@ -239,6 +254,10 @@ export class ProductsService {
 
     if (!product) {
       throw new NotFoundError("Product not found");
+    }
+
+    if (productData.backgroundColorId !== undefined) {
+      await this.assertBackgroundColorId(productData.backgroundColorId);
     }
 
     const productUpdateData = { ...(productData as Record<string, unknown>) };

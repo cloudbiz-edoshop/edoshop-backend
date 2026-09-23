@@ -20,8 +20,10 @@ import {
   createBannersRequestSchema,
   createBannersResponseSchema,
   getBannersResponseSchema,
+  homeBannerDisplayResponseSchema,
   listBannersResponseSchema,
   updateBannersRequestSchema,
+  updateHomeBannerDisplayRequestSchema,
 } from "./banners.schema";
 
 const tags = ["Banners"];
@@ -207,8 +209,79 @@ export const removeSelected = createRoute({
   },
 });
 
+export const getHomeDisplay = createRoute({
+  path: "/banners/home-display",
+  method: "get",
+  tags,
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.BANNERS, operation: OperationType.READ },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+  },
+  summary: "Get storefront home banner mode",
+  description:
+    "Which banner type is shown on the storefront home page (stylish hero or promo cards).",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(homeBannerDisplayResponseSchema),
+      "Home banner display mode",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.FORBIDDEN,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      jwtHeaderSchema,
+    ),
+  },
+});
+
+export const patchHomeDisplay = createRoute({
+  path: "/banners/home-display",
+  method: "patch",
+  tags,
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.BANNERS, operation: OperationType.UPDATE },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    body: jsonContentRequired(
+      updateHomeBannerDisplayRequestSchema,
+      "Set storefront home banner mode",
+    ),
+  },
+  summary: "Set storefront home banner mode",
+  description:
+    "Only one banner type can be live on the storefront at a time.",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(homeBannerDisplayResponseSchema),
+      "Home banner display mode updated",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNPROCESSABLE_ENTITY,
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.FORBIDDEN,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      updateHomeBannerDisplayRequestSchema,
+    ),
+  },
+});
+
 export type ListRoute = typeof list;
 export type CreateRoute = typeof create;
 export type GetOneRoute = typeof getOne;
 export type PatchRoute = typeof patch;
 export type RemoveSelectedRoute = typeof removeSelected;
+export type GetHomeDisplayRoute = typeof getHomeDisplay;
+export type PatchHomeDisplayRoute = typeof patchHomeDisplay;

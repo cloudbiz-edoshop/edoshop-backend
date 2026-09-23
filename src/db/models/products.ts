@@ -14,6 +14,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 
+import { colors } from "./colors";
 import { directOrderProducts } from "./direct-order-products";
 import { dropshippingProducts } from "./dropshipping-products";
 import { orderItems } from "./order-items";
@@ -44,6 +45,7 @@ export const products = pgTable("products", {
   deletedAt: timestamp({ mode: "string" }),
   deletedBy: integer().references(() => users.id),
   concurrentReqs: integer(),
+  backgroundColorId: integer("background_color_id").references(() => colors.id),
 });
 
 export const productsSchema = createSelectSchema(products);
@@ -97,4 +99,8 @@ export const productsRelations = relations(products, ({ one, many }) => ({
     references: [dropshippingProducts.productId],
   }),
   orderItems: many(orderItems),
+  backgroundColor: one(colors, {
+    fields: [products.backgroundColorId],
+    references: [colors.id],
+  }),
 }));

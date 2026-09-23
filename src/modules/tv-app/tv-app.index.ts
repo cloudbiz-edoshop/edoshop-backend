@@ -16,6 +16,7 @@ router.openapi(routes.deleteAds, handlers.deleteAds);
 router.openapi(routes.listDevices, handlers.listDevices);
 router.openapi(routes.registerDevice, handlers.registerDevice);
 router.openapi(routes.patchDevice, handlers.patchDevice);
+router.openapi(routes.deleteDevice, handlers.deleteDevice);
 router.openapi(routes.resetDeviceSecret, handlers.resetDeviceSecret);
 router.openapi(routes.getCatalog, handlers.getCatalog);
 router.openapi(routes.updateCatalog, handlers.updateCatalog);

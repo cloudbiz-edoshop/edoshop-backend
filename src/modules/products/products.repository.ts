@@ -47,6 +47,7 @@ export class ProductsRepository {
       with: {
         store: true,
         series: true,
+        backgroundColor: true,
       },
     });
 
@@ -248,6 +249,7 @@ export class ProductsRepository {
         with: {
           store: true,
           series: true,
+          backgroundColor: true,
         },
       });
 

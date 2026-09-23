@@ -96,3 +96,18 @@ export type GetBannersResponse = z.infer<typeof getBannersResponseSchema>;
 export const listBannersResponseSchema = z.array(getBannersResponseSchema);
 
 export type ListBannersResponse = z.infer<typeof listBannersResponseSchema>;
+
+export const homeBannerDisplayTypeSchema = z.enum(["stylish", "promo"]);
+
+export const homeBannerDisplayResponseSchema = z.object({
+  activeHomeBannerType: homeBannerDisplayTypeSchema,
+  updatedAt: z.string().nullable().optional(),
+});
+
+export const updateHomeBannerDisplayRequestSchema = z.object({
+  activeHomeBannerType: homeBannerDisplayTypeSchema,
+});
+
+export type HomeBannerDisplayResponse = z.infer<
+  typeof homeBannerDisplayResponseSchema
+>;

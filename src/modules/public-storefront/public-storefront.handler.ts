@@ -12,6 +12,7 @@ import { createPagination } from "@/lib/searching-sorting";
 import db from "@/db";
 import { newsletterSubscribers } from "@/db/models/newsletter-subscribers";
 import { BannersService } from "@/modules/banners/banners.service";
+import { storefrontBannerSettingsService } from "@/modules/banners/storefront-banner-settings.service";
 import { AboutUsService } from "@/modules/about-us/about-us.service";
 import { CategoriesService } from "@/modules/categories/categories.service";
 import { CustomersService } from "@/modules/customers/customers.service";
@@ -27,6 +28,7 @@ import { PaymentMethodService } from "@/modules/payment-methods/payment-methods.
 import { RetailersService } from "@/modules/retailers/retailers.service";
 import { ReviewsService } from "@/modules/reviews/reviews.service";
 import { TestimonialsService } from "@/modules/testimonials/testimonials.service";
+import { resolveProductImageBackgroundHex } from "@/constants/product-image-background";
 import { promoBannersService } from "@/modules/promo-banners/promo-banners.service";
 
 const bannersService = new BannersService();
@@ -183,6 +185,8 @@ const mapPublicProduct = (product: any) => ({
   fullDescription: product.fullDescription,
   specifications: product.specifications,
   section: product.section || null,
+  imageBackgroundColor:
+    resolveProductImageBackgroundHex(product.backgroundColor?.name) ?? null,
   totalItems: product.totalItems,
   storeId: product.storeId,
   seriesId: product.seriesId,
@@ -418,7 +422,23 @@ export const getPromoBanner = async (c: any) => {
   );
 };
 
+export const getHomeBannerDisplay = async (c: any) => {
+  const settings = await storefrontBannerSettingsService.getSettings();
+  return c.json(
+    successResponse(settings, "Home banner display mode retrieved"),
+    HttpStatusCodes.OK,
+  );
+};
+
 export const getPromoCards = async (c: any) => {
+  const mode = await storefrontBannerSettingsService.getActiveHomeBannerType();
+  if (mode !== "promo") {
+    return c.json(
+      successResponse(null, "Promo cards are not the active home banner"),
+      HttpStatusCodes.OK,
+    );
+  }
+
   const cards = await promoBannersService.getActivePublicCards();
   return c.json(
     successResponse(cards, "Promo cards retrieved successfully"),

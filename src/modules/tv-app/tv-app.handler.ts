@@ -13,6 +13,7 @@ import type {
   ListDevicesRoute,
   ListVideosRoute,
   PatchAdRoute,
+  DeleteDeviceRoute,
   PatchDeviceRoute,
   PatchSettingsRoute,
   RegisterDeviceRoute,
@@ -116,6 +117,12 @@ export const resetDeviceSecret: AppRouteHandler<ResetDeviceSecretRoute> = async 
   const payload = c.get("accessTokenPayload");
   const data = await tvAppService.resetDeviceSecret(id, payload.userId);
   return c.json(successResponse(data, "TV device secret reset successfully"), HttpStatusCodes.OK);
+};
+
+export const deleteDevice: AppRouteHandler<DeleteDeviceRoute> = async (c) => {
+  const { id } = c.req.valid("param");
+  await tvAppService.deleteDevice(id);
+  return c.body(null, HttpStatusCodes.NO_CONTENT);
 };
 
 export const getCatalog: AppRouteHandler<GetCatalogRoute> = async (c) => {

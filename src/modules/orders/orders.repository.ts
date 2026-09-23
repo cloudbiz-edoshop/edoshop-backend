@@ -3,7 +3,7 @@ import type { OrderDetailsForCustomerToFulfill, OrdersToFulfill } from "./orders
 import type { UpdateOrderItems } from "@/db/models/order-items";
 import type { TX } from "@/lib/types";
 
-import { and, asc, count, desc, eq, inArray, like, ne, not, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, exists, inArray, like, ne, not, or, sql } from "drizzle-orm";
 import { OrderStatusTypeIds } from "@/constants";
 import { AddressTypeIds } from "@/constants/address-types.constants";
 import { OrderItemFulfillmentStatusIds } from "@/constants/order-item-fulfillment-statuses.constants";
@@ -113,6 +113,22 @@ export class OrdersRepository {
     const whereConditions = [];
     // push order status filter to include only orders that are "Ready for Fulfillment"
     whereConditions.push(eq(orders.statusId, OrderStatusTypeIds.READY_FOR_FULFILLMENT));
+    whereConditions.push(
+      exists(
+        db
+          .select({ id: orderItems.id })
+          .from(orderItems)
+          .where(
+            and(
+              eq(orderItems.orderId, orders.id),
+              ne(
+                orderItems.fulfillmentStatusId,
+                OrderItemFulfillmentStatusIds.FULLY_FULFILLED,
+              ),
+            ),
+          ),
+      ),
+    );
     if (filterCondition) {
       whereConditions.push(filterCondition);
     }
@@ -241,9 +257,12 @@ export class OrdersRepository {
     const searchableFields = ["productCode", "variantCode", "variantColor", "variantSize", "orderCode"];
 
     // Prepare where conditions
-    const whereConditions = [eq(orders.customerId, customerId), not(eq(orderItems.fulfillmentStatusId, OrderItemFulfillmentStatusIds.FULLY_FULFILLED))]; // Only include orders that are not fully fulfilled
+    const whereConditions = [
+      eq(orders.customerId, customerId),
+      eq(orders.statusId, OrderStatusTypeIds.READY_FOR_FULFILLMENT),
+      not(eq(orderItems.fulfillmentStatusId, OrderItemFulfillmentStatusIds.FULLY_FULFILLED)),
+    ];
 
-    // Add other filters if needed
     const filterCondition = createFilterConditions(orders, filters);
     if (filterCondition) {
       whereConditions.push(filterCondition);
@@ -293,7 +312,7 @@ export class OrdersRepository {
         .select({ value: count() })
         .from(orderItems)
         .innerJoin(orders, eq(orderItems.orderId, orders.id))
-        .where(whereClause || sql`TRUE`);
+        .where(whereClause);
 
       // Fetch data - using snapshot fields from order_items instead of joins
       const data = await tx
@@ -307,10 +326,10 @@ export class OrdersRepository {
           quantityAsked: orderItems.quantity,
           quantityPacked: orderItems.quantityPacked,
           quantityAvailable: orderItems.quantityAvailable,
-          deliveryAddress: sql<string>`concat_ws(', ',
-            CASE WHEN ${addresses.streetAddress} IS NOT NULL THEN ${addresses.streetAddress} || '' END,
-            CASE WHEN ${addresses.landmark} IS NOT NULL THEN ${addresses.landmark} || '' END
-          )`,
+          deliveryAddress: sql<string>`COALESCE(concat_ws(', ',
+            ${addresses.streetAddress},
+            ${addresses.landmark}
+          ), '—')`,
           notes: orderItems.notes,
           // Using snapshot fields captured at order time
           productCode: orderItems.productCode,
@@ -323,7 +342,7 @@ export class OrdersRepository {
         })
         .from(orderItems)
         .innerJoin(orders, eq(orderItems.orderId, orders.id))
-        .innerJoin(addresses, eq(orders.shippingAddressId, addresses.id))
+        .leftJoin(addresses, eq(orders.shippingAddressId, addresses.id))
         .leftJoin(countries, eq(addresses.countryId, countries.id))
         .leftJoin(cities, eq(addresses.cityId, cities.id))
         .where(whereClause)
@@ -331,7 +350,6 @@ export class OrdersRepository {
         .offset(offset)
         .orderBy(sortCondition ?? desc(orders.createdAt));
 
-      // Map to schema
       const formattedData: OrderDetailsForCustomerToFulfill = data.map((item) => {
         // calculate fulfillment time as difference between order createdAt and current time
         const createdAt = new Date(item.createdAt);
@@ -736,6 +754,10 @@ export class OrdersRepository {
         unitPrice,
         lineSubtotal,
       });
+    }
+
+    if (resolvedItems.length === 0) {
+      throw new Error("Order must include at least one product");
     }
 
     const subtotal = resolvedItems

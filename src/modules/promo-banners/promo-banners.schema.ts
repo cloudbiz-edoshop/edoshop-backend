@@ -3,9 +3,10 @@ import { z } from "@hono/zod-openapi";
 export const promoBannerCardSchema = z
   .object({
     mediaType: z.enum(["image", "video"]),
+    cardFormat: z.enum(["square", "rectangle"]).default("rectangle"),
     imageUrl: z.string().max(512).optional().default(""),
     videoUrl: z.string().max(512).optional().default(""),
-    title: z.string().min(1).max(120),
+    title: z.string().max(120).optional().default(""),
     subtitle: z.string().max(255).optional().default(""),
     linkUrl: z.string().max(512).optional().default(""),
     ctaLabel: z.string().max(80).optional().default(""),
@@ -25,7 +26,7 @@ export const promoBannerCardSchema = z
     if (card.mediaType === "video" && !video) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "Video URL is required for video cards",
+        message: "Video is required for video cards",
         path: ["videoUrl"],
       });
     }
@@ -40,6 +41,7 @@ export const promoBannerResponseSchema = z.object({
   cards: z.array(promoBannerCardSchema),
   backgroundColor: z.enum(["yellow", "red"]),
   isActive: z.boolean(),
+  scheduleType: z.enum(["permanent", "temporary"]).optional(),
   startsAt: z.string().nullable().optional(),
   endsAt: z.string().nullable().optional(),
   displayDurationHours: z.number().nullable().optional(),
@@ -49,22 +51,57 @@ export const promoBannerResponseSchema = z.object({
 
 const scheduleFields = {
   isActive: z.boolean().default(false),
+  scheduleType: z.enum(["permanent", "temporary"]).default("permanent"),
   startsAt: z.string().datetime().nullable().optional(),
   endsAt: z.string().datetime().nullable().optional(),
   displayDurationHours: z.number().int().positive().nullable().optional(),
 };
 
-export const createPromoBannerCardsRequestSchema = z.object({
-  name: z.string().min(1).max(255),
-  cards: z.array(promoBannerCardSchema).min(1).max(12),
-  ...scheduleFields,
-});
+const withScheduleRefine = <T extends z.ZodTypeAny>(schema: T) =>
+  schema.superRefine((data, ctx) => {
+    if (data.scheduleType !== "temporary") return;
+    if (!data.startsAt) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Start date/time is required for temporary promos",
+        path: ["startsAt"],
+      });
+    }
+    if (!data.endsAt) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "End date/time is required for temporary promos",
+        path: ["endsAt"],
+      });
+    }
+    if (data.startsAt && data.endsAt) {
+      const start = new Date(data.startsAt);
+      const end = new Date(data.endsAt);
+      if (end <= start) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "End must be after start",
+          path: ["endsAt"],
+        });
+      }
+    }
+  });
 
-export const createPromoBannerStripRequestSchema = z.object({
-  text: z.string().min(1).max(255),
-  backgroundColor: z.enum(["yellow", "red"]).default("yellow"),
-  ...scheduleFields,
-});
+export const createPromoBannerCardsRequestSchema = withScheduleRefine(
+  z.object({
+    name: z.string().min(1).max(255),
+    cards: z.array(promoBannerCardSchema).min(1).max(12),
+    ...scheduleFields,
+  }),
+);
+
+export const createPromoBannerStripRequestSchema = withScheduleRefine(
+  z.object({
+    text: z.string().min(1).max(255),
+    backgroundColor: z.enum(["yellow", "red"]).default("yellow"),
+    ...scheduleFields,
+  }),
+);
 
 export const createPromoBannerRequestSchema = z.union([
   createPromoBannerCardsRequestSchema,
@@ -80,10 +117,3 @@ export const updatePromoBannerRequestSchema = z.union([
   updatePromoBannerCardsRequestSchema,
   updatePromoBannerStripRequestSchema,
 ]);
-
-export type CreatePromoBannerRequest = z.infer<
-  typeof createPromoBannerRequestSchema
->;
-export type UpdatePromoBannerRequest = z.infer<
-  typeof updatePromoBannerRequestSchema
->;

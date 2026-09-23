@@ -355,6 +355,30 @@ export const patchDevice = createRoute({
   },
 });
 
+export const deleteDevice = createRoute({
+  path: "/tv/devices/{id}",
+  method: "delete",
+  tags,
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.TV_DEVICES, operation: OperationType.DELETE },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    params: idParams,
+  },
+  summary: "Delete TV device",
+  responses: {
+    [HttpStatusCodes.NO_CONTENT]: { description: "TV device deleted" },
+    ...commonErrorResponses(
+      [HttpStatusCodes.UNAUTHORIZED, HttpStatusCodes.FORBIDDEN, HttpStatusCodes.NOT_FOUND],
+      idParams,
+    ),
+  },
+});
+
 export const resetDeviceSecret = createRoute({
   path: "/tv/devices/{id}/reset-secret",
   method: "post",
@@ -544,6 +568,7 @@ export type DeleteAdsRoute = typeof deleteAds;
 export type ListDevicesRoute = typeof listDevices;
 export type RegisterDeviceRoute = typeof registerDevice;
 export type PatchDeviceRoute = typeof patchDevice;
+export type DeleteDeviceRoute = typeof deleteDevice;
 export type ResetDeviceSecretRoute = typeof resetDeviceSecret;
 export type GetCatalogRoute = typeof getCatalog;
 export type UpdateCatalogRoute = typeof updateCatalog;

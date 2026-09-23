@@ -1,7 +1,9 @@
 import type {
   CreateRoute,
+  GetHomeDisplayRoute,
   GetOneRoute,
   ListRoute,
+  PatchHomeDisplayRoute,
   PatchRoute,
   RemoveSelectedRoute,
 } from "./banners.route";
@@ -22,9 +24,16 @@ import {
 import * as HttpStatusCodes from "@/lib/http-status-codes";
 import { createPagination } from "@/lib/searching-sorting";
 
+import { FIXED_BANNER_SLIDE_DELAY_STRING } from "./banners.constants";
 import { BannersService } from "./banners.service";
+import { storefrontBannerSettingsService } from "./storefront-banner-settings.service";
 
 const bannersService = new BannersService();
+
+const withFixedSlideDelay = <T extends { delay?: string }>(data: T) => ({
+  ...data,
+  delay: FIXED_BANNER_SLIDE_DELAY_STRING,
+});
 
 export const list: AppRouteHandler<ListRoute> = async (c) => {
   const queryParams = c.req.valid("query");
@@ -60,7 +69,7 @@ export const create: AppRouteHandler<CreateRoute> = async (c) => {
   const createdBy = payload.userId;
 
   const result = await bannersService.createBanners({
-    ...req,
+    ...withFixedSlideDelay(req),
     createdBy,
   });
 
@@ -89,7 +98,7 @@ export const patch: AppRouteHandler<PatchRoute> = async (c) => {
   const payload = c.get("accessTokenPayload");
   const updatedBy = payload.userId;
   const data = {
-    ...updateData,
+    ...withFixedSlideDelay(updateData),
     updatedBy,
   };
   // Use banners service to update the banners
@@ -112,4 +121,27 @@ export const removeSelected: AppRouteHandler<RemoveSelectedRoute> = async (
   await bannersService.deleteBanners(ids, deletedBy);
 
   return c.body(null, HttpStatusCodes.NO_CONTENT);
+};
+
+export const getHomeDisplay: AppRouteHandler<GetHomeDisplayRoute> = async (c) => {
+  const settings = await storefrontBannerSettingsService.getSettings();
+  return c.json(
+    successResponse(settings, "Home banner display mode retrieved"),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const patchHomeDisplay: AppRouteHandler<PatchHomeDisplayRoute> = async (
+  c,
+) => {
+  const { activeHomeBannerType } = c.req.valid("json");
+  const payload = c.get("accessTokenPayload");
+  const settings = await storefrontBannerSettingsService.setActiveHomeBannerType(
+    activeHomeBannerType,
+    payload.userId,
+  );
+  return c.json(
+    successResponse(settings, "Home banner display mode updated"),
+    HttpStatusCodes.OK,
+  );
 };

@@ -11,9 +11,10 @@ import {
 
 export type PromoBannerCard = {
   mediaType: "image" | "video";
+  cardFormat?: "square" | "rectangle";
   imageUrl?: string;
   videoUrl?: string;
-  title: string;
+  title?: string;
   subtitle?: string;
   linkUrl?: string;
   ctaLabel?: string;

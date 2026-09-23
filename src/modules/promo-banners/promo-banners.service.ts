@@ -20,11 +20,28 @@ const parseCards = (value: unknown): PromoBannerCard[] => {
   return value.filter((card) => card && typeof card === "object") as PromoBannerCard[];
 };
 
+const inferScheduleType = (row: typeof promoBanners.$inferSelect) => {
+  if (row.startsAt || row.endsAt) return "temporary" as const;
+  return "permanent" as const;
+};
+
 const resolveSchedule = (data: {
+  scheduleType?: "permanent" | "temporary";
   startsAt?: string | null;
   endsAt?: string | null;
   displayDurationHours?: number | null;
 }) => {
+  if (data.scheduleType === "permanent") {
+    return { startsAt: null, endsAt: null };
+  }
+
+  if (data.scheduleType === "temporary") {
+    return {
+      startsAt: data.startsAt ? new Date(data.startsAt) : null,
+      endsAt: data.endsAt ? new Date(data.endsAt) : null,
+    };
+  }
+
   const startsAt = data.startsAt ? new Date(data.startsAt) : null;
   if (data.endsAt) {
     return { startsAt, endsAt: new Date(data.endsAt) };
@@ -73,6 +90,7 @@ const serialize = (row: typeof promoBanners.$inferSelect) => ({
     | "yellow"
     | "red",
   isActive: row.isActive,
+  scheduleType: inferScheduleType(row),
   startsAt: toIso(row.startsAt),
   endsAt: toIso(row.endsAt),
   displayDurationHours: row.displayDurationHours,
@@ -165,6 +183,7 @@ export class PromoBannersService {
     }
 
     const shouldReschedule =
+      data.scheduleType !== undefined ||
       data.startsAt !== undefined ||
       data.endsAt !== undefined ||
       data.displayDurationHours !== undefined;

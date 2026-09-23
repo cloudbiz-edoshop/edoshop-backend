@@ -1347,4 +1347,30 @@ async function ensurePredefinedRolePermissions(permCols: PermissionColumns) {
       )
     `),
   );
+
+  await db.execute(
+    sql.raw(`
+      CREATE TABLE IF NOT EXISTS "storefront_banner_settings" (
+        "id" serial PRIMARY KEY,
+        "active_home_banner_type" varchar(16) NOT NULL DEFAULT 'stylish',
+        "updated_at" timestamp NOT NULL DEFAULT now(),
+        "updated_by" integer REFERENCES "users"("id")
+      )
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
+      INSERT INTO "storefront_banner_settings" ("active_home_banner_type", "updated_at")
+      SELECT 'stylish', now()
+      WHERE NOT EXISTS (SELECT 1 FROM "storefront_banner_settings" LIMIT 1)
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
+      ALTER TABLE "products"
+      ADD COLUMN IF NOT EXISTS "background_color_id" integer REFERENCES "colors"("id")
+    `),
+  );
 }

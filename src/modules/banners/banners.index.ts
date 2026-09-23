@@ -9,5 +9,7 @@ router.openapi(routes.create, handlers.create);
 router.openapi(routes.getOne, handlers.getOne);
 router.openapi(routes.patch, handlers.patch);
 router.openapi(routes.removeSelected, handlers.removeSelected);
+router.openapi(routes.getHomeDisplay, handlers.getHomeDisplay);
+router.openapi(routes.patchHomeDisplay, handlers.patchHomeDisplay);
 
 export default router;

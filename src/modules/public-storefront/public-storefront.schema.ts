@@ -68,6 +68,7 @@ export const publicNewArrivalProductSchema = z.object({
   fullDescription: z.string().nullable().optional(),
   specifications: z.string().nullable().optional(),
   section: z.string().nullable().optional(),
+  imageBackgroundColor: z.string().nullable().optional(),
   totalItems: z.number().nullable().optional(),
   storeId: z.number().nullable().optional(),
   seriesId: z.number().nullable().optional(),
@@ -151,12 +152,17 @@ export const publicPromoBannerSchema = z.object({
 
 export const publicPromoCardSchema = z.object({
   mediaType: z.enum(["image", "video"]),
+  cardFormat: z.enum(["square", "rectangle"]).optional(),
   imageUrl: z.string().optional(),
   videoUrl: z.string().optional(),
-  title: z.string(),
+  title: z.string().optional(),
   subtitle: z.string().optional(),
   linkUrl: z.string().optional(),
   ctaLabel: z.string().optional(),
+});
+
+export const publicHomeBannerDisplaySchema = z.object({
+  activeHomeBannerType: z.enum(["stylish", "promo"]),
 });
 
 export const publicPromoCardsSchema = z
