@@ -140,6 +140,18 @@ export class PackagingVideosRepository {
     return row ?? null;
   }
 
+  async clearReleasedToCustomer(packageId: number) {
+    const [row] = await db
+      .update(packagePackagingVideos)
+      .set({
+        releasedToCustomerAt: null,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(packagePackagingVideos.packageId, packageId))
+      .returning();
+    return row ?? null;
+  }
+
   async getVideosForOrder(orderId: number, options: { releasedOnly?: boolean } = {}) {
     return db
       .select({

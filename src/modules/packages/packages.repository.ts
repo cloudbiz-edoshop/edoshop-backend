@@ -71,6 +71,24 @@ export class PackagesRepository {
   }
 
   /**
+   * Marks a package as cancelled and drops the label evidence collected during
+   * fulfillment, leaving the underlying order untouched.
+   */
+  async cancelPackageFulfillment(packageId: number, userId: number) {
+    await db
+      .update(packages)
+      .set({
+        packageStatusId: PackageStatusIds.CANCELLED,
+        hasShippingLabel: 0,
+        labelPhotoUrl: null,
+        labelPhotoUploadedAt: null,
+        updatedAt: new Date().toISOString(),
+        updatedBy: userId,
+      })
+      .where(eq(packages.id, packageId));
+  }
+
+  /**
    * Get the first entry state
    *
    * @returns The entry state object or undefined if not found
@@ -396,6 +414,7 @@ export class PackagesRepository {
         packagingVideo: {
           columns: {
             id: true,
+            releasedToCustomerAt: true,
           },
         },
         packageItems: {
@@ -406,6 +425,8 @@ export class PackagesRepository {
               with: {
                 order: {
                   columns: {
+                    id: true,
+                    orderCode: true,
                     createdAt: true,
                   },
                 },

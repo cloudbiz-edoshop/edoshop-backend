@@ -17,6 +17,7 @@ import type {
   ListShippingLabelsRoute,
   PrintShippingLabelRoute,
   CompleteW1FulfillmentRoute,
+  CancelW1FulfillmentRoute,
   GetPackageLabelPhotoRoute,
   UploadPackageLabelPhotoRoute,
   CreatePackageLabelPhotoTokenRoute,
@@ -298,6 +299,20 @@ export const completeW1Fulfillment: AppRouteHandler<CompleteW1FulfillmentRoute> 
 
   return c.json(
     successResponse(result, "Warehouse 1 fulfillment completed successfully"),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const cancelW1Fulfillment: AppRouteHandler<CancelW1FulfillmentRoute> = async (c) => {
+  const { packageId } = c.req.valid("param");
+  const jwtPayload = c.get("accessTokenPayload");
+  const result = await packagingVideosService.cancelW1Fulfillment(
+    Number(packageId),
+    jwtPayload.userId,
+  );
+
+  return c.json(
+    successResponse(result, "Warehouse 1 fulfillment cancelled successfully"),
     HttpStatusCodes.OK,
   );
 };

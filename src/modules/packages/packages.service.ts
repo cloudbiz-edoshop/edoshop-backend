@@ -239,6 +239,8 @@ export class PackagesService {
           fulfillmentTime = parts.join(" ");
         }
 
+        const order = pkgItems.find((pi) => pi.orderItem.order)?.orderItem.order ?? null;
+
         const addresses = r.entry?.customer?.user?.addresses ?? [];
         const addr = addresses.find((a) => a.isDefault) || addresses[0];
         const destination = addr
@@ -259,6 +261,10 @@ export class PackagesService {
           description: r.entry.description || "N/A",
           hasShippingLabel: r.hasShippingLabel === 1,
           hasPackagingVideo: Boolean(r.packagingVideo?.id),
+          hasLabelPhoto: Boolean(r.labelPhotoUrl),
+          orderId: order?.id ?? null,
+          orderCode: order?.orderCode ?? null,
+          fulfillmentCompletedAt: r.packagingVideo?.releasedToCustomerAt ?? null,
         };
       }),
     };

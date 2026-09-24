@@ -883,6 +883,42 @@ export const completeW1Fulfillment = createRoute({
   },
 });
 
+export const cancelW1Fulfillment = createRoute({
+  path: "/packages/{packageId}/cancel-w1-fulfillment",
+  method: "post",
+  tags,
+  middleware: acl(EntityType.WAREHOUSE_1, OperationType.DELETE),
+  summary: "Cancel warehouse 1 fulfillment",
+  description:
+    "Cancel the fulfillment work for a package without cancelling the underlying order",
+  request: {
+    headers: jwtHeaderSchema,
+    params: schemas.printLabelParamsSchema,
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(
+        z.object({
+          packageId: z.number(),
+          packageCode: z.string(),
+          cancelled: z.boolean(),
+        }),
+        "Warehouse 1 fulfillment cancelled successfully",
+      ),
+      "Warehouse 1 fulfillment cancelled successfully",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.BAD_REQUEST,
+        HttpStatusCodes.NOT_FOUND,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      schemas.printLabelParamsSchema,
+    ),
+  },
+});
+
 export type CreatePackageRoute = typeof createPackage;
 export type EditPackageRoute = typeof editPackage;
 export type CreateShippingLabelRoute = typeof createShippingLabel;
@@ -894,6 +930,7 @@ export type GetPackageInfoForShippingLabelRoute =
 export type CreatePackageWithItemsRoute = typeof createPackageWithItems;
 export type PrintShippingLabelRoute = typeof printShippingLabel;
 export type CompleteW1FulfillmentRoute = typeof completeW1Fulfillment;
+export type CancelW1FulfillmentRoute = typeof cancelW1Fulfillment;
 export type GetPackageLabelPhotoRoute = typeof getPackageLabelPhoto;
 export type UploadPackageLabelPhotoRoute = typeof uploadPackageLabelPhoto;
 export type CreatePackageLabelPhotoTokenRoute =

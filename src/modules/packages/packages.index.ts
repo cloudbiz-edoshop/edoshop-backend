@@ -18,6 +18,7 @@ router.openapi(routes.createPackageLabelPhotoToken, handlers.createPackageLabelP
 router.openapi(routes.getPackageLabelPhotoTokenContext, handlers.getPackageLabelPhotoTokenContext);
 router.openapi(routes.uploadPackageLabelPhotoWithToken, handlers.uploadPackageLabelPhotoWithToken);
 router.openapi(routes.completeW1Fulfillment, handlers.completeW1Fulfillment);
+router.openapi(routes.cancelW1Fulfillment, handlers.cancelW1Fulfillment);
 router.openapi(routes.getPackageManagementW1, handlers.getPackageManagementW1);
 router.openapi(routes.getPackageManagementW2, handlers.getPackageManagementW2);
 router.openapi(routes.createPackageWithItems, handlers.createPackageWithItems);

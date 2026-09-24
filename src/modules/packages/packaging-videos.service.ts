@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { NotificationTypeIds } from "@/constants/notification-types.constants";
+import { PackageStatusIds } from "@/constants/package-statuses.constants";
 import { StorageService } from "@/common/services/storage.service";
 import { NotFoundError, ValidationError } from "@/core/errors";
 import { NotificationDeliveryService } from "@/modules/notifications/notification-delivery.service";
@@ -146,6 +147,32 @@ export class PackagingVideosService {
       ...released,
       packageCode: pkg.packageCode,
     });
+  }
+
+  /**
+   * Cancels the fulfillment work done on a package. The order itself is left
+   * untouched so it can be picked up and fulfilled again.
+   */
+  async cancelW1Fulfillment(packageId: number, userId: number) {
+    const pkg = await this.packagesRepository.getPackageById(packageId);
+    if (!pkg) {
+      throw new NotFoundError("Package not found");
+    }
+
+    if (pkg.packageStatusId === PackageStatusIds.CANCELLED) {
+      throw new ValidationError("This fulfillment has already been cancelled.");
+    }
+
+    if (pkg.receivedAt) {
+      throw new ValidationError(
+        "This package has already been received in Warehouse 2 and can no longer be cancelled here.",
+      );
+    }
+
+    await this.packagesRepository.cancelPackageFulfillment(packageId, userId);
+    await this.repository.clearReleasedToCustomer(packageId);
+
+    return { packageId, packageCode: pkg.packageCode, cancelled: true };
   }
 
   async respondToPackagingVideo(params: {

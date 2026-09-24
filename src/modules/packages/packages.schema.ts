@@ -64,6 +64,10 @@ export const getPackageManagementW1Schema = z.array(
     description: z.string(),
     hasShippingLabel: z.boolean(),
     hasPackagingVideo: z.boolean(),
+    hasLabelPhoto: z.boolean(),
+    orderId: z.number().nullable(),
+    orderCode: z.string().nullable(),
+    fulfillmentCompletedAt: z.string().nullable(),
   }),
 );
 
