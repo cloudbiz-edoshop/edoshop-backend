@@ -1,4 +1,4 @@
-import { count, desc, eq, inArray, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, ne, or, sql } from "drizzle-orm";
 
 import db from "@/db";
 import type { PromoBannerCard } from "@/db/models/promo-banners";
@@ -102,7 +102,58 @@ const isCardSetPayload = (
   data: CreatePromoBannerRequest | UpdatePromoBannerRequest,
 ) => "cards" in data && Array.isArray(data.cards);
 
+const promoCardCountSql = sql`coalesce(jsonb_array_length(${promoBanners.cards}), 0)`;
+
+const isRibbonRow = (row: typeof promoBanners.$inferSelect) =>
+  parseCards(row.cards).length === 0 &&
+  String(row.text || "").trim().length > 0;
+
+const isCardSetRow = (row: typeof promoBanners.$inferSelect) =>
+  parseCards(row.cards).length > 0;
+
 export class PromoBannersService {
+  private async deactivatePeerPromos(
+    kind: "ribbon" | "cards",
+    exceptId?: number,
+  ) {
+    const peerFilter =
+      kind === "ribbon"
+        ? sql`${promoCardCountSql} = 0`
+        : sql`${promoCardCountSql} > 0`;
+    const whereClause = exceptId
+      ? and(peerFilter, ne(promoBanners.id, exceptId))
+      : peerFilter;
+
+    await db.update(promoBanners).set({ isActive: false }).where(whereClause);
+  }
+
+  private async findActivePromoRow(
+    predicate: (row: typeof promoBanners.$inferSelect) => boolean,
+    now = new Date(),
+  ) {
+    const rows = await db
+      .select()
+      .from(promoBanners)
+      .where(eq(promoBanners.isActive, true))
+      .orderBy(desc(promoBanners.updatedAt));
+
+    return rows.find(
+      (item) => isPubliclyVisible(item, now) && predicate(item),
+    );
+  }
+
+  private resolvePromoKind(
+    data: CreatePromoBannerRequest | UpdatePromoBannerRequest,
+    existing?: Awaited<ReturnType<PromoBannersService["getById"]>>,
+  ): "ribbon" | "cards" {
+    if (isCardSetPayload(data)) {
+      return "cards";
+    }
+    if (existing && existing.cards.length > 0) {
+      return "cards";
+    }
+    return "ribbon";
+  }
   async list(params: { page: number; limit: number; search?: string }) {
     const offset = (params.page - 1) * params.limit;
     const search = params.search?.trim();
@@ -144,7 +195,7 @@ export class PromoBannersService {
 
   async create(data: CreatePromoBannerRequest & { createdBy: number }) {
     if (data.isActive) {
-      await db.update(promoBanners).set({ isActive: false });
+      await this.deactivatePeerPromos(this.resolvePromoKind(data));
     }
 
     const schedule = resolveSchedule(data);
@@ -176,10 +227,10 @@ export class PromoBannersService {
     id: number,
     data: UpdatePromoBannerRequest & { updatedBy: number },
   ) {
-    await this.getById(id);
+    const existing = await this.getById(id);
 
     if (data.isActive) {
-      await db.update(promoBanners).set({ isActive: false });
+      await this.deactivatePeerPromos(this.resolvePromoKind(data, existing), id);
     }
 
     const shouldReschedule =
@@ -224,17 +275,8 @@ export class PromoBannersService {
     await db.delete(promoBanners).where(inArray(promoBanners.id, ids));
   }
 
-  private findActiveVisible(now = new Date()) {
-    return db
-      .select()
-      .from(promoBanners)
-      .where(eq(promoBanners.isActive, true))
-      .orderBy(desc(promoBanners.updatedAt))
-      .then((rows) => rows.find((item) => isPubliclyVisible(item, now)));
-  }
-
   async getActivePublic() {
-    const row = await this.findActiveVisible();
+    const row = await this.findActivePromoRow(isRibbonRow);
     if (!row) return null;
     const serialized = serialize(row);
     if (!serialized.text.trim() || serialized.cards.length) return null;
@@ -242,7 +284,7 @@ export class PromoBannersService {
   }
 
   async getActivePublicCards() {
-    const row = await this.findActiveVisible();
+    const row = await this.findActivePromoRow(isCardSetRow);
     if (!row) return null;
     const serialized = serialize(row);
     if (!serialized.cards.length) return null;

@@ -29,12 +29,25 @@ async function ensureDiscountColumns() {
   await db.execute(
     sql.raw(`
       ALTER TABLE "discounts"
+      ADD COLUMN IF NOT EXISTS "product_id" integer,
       ADD COLUMN IF NOT EXISTS "target_scope" varchar(32) DEFAULT 'product',
       ADD COLUMN IF NOT EXISTS "section" varchar(64),
       ADD COLUMN IF NOT EXISTS "category_id" integer,
       ADD COLUMN IF NOT EXISTS "product_ids" jsonb DEFAULT '[]'::jsonb,
       ADD COLUMN IF NOT EXISTS "retailer_only" boolean NOT NULL DEFAULT false,
       ADD COLUMN IF NOT EXISTS "retailer_id" integer
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
+      DO $$ BEGIN
+        ALTER TABLE "discounts" ADD CONSTRAINT "discounts_product_id_products_id_fk"
+          FOREIGN KEY ("product_id") REFERENCES "public"."products"("id")
+          ON DELETE no action ON UPDATE no action;
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
     `),
   );
 }
