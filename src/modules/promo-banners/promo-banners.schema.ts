@@ -74,7 +74,7 @@ const refinePromoCardSet = (
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       message:
-        "Square cards (600×600) must be uploaded in pairs to fill a 600×1200 slot",
+        "Square cards (600×600) must be uploaded in pairs to fill one 5:8 portrait slot",
       path: ["cards"],
     });
   }
