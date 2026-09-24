@@ -68,9 +68,17 @@ async function retireCatalogProducts() {
     await tx.delete(productCategories);
     await tx.delete(productTags);
 
-    // Variant codes are globally unique; soft-deleting variants still blocks re-import.
-    const removedVariants = await tx.execute(sql`
-      DELETE FROM variants v
+    // Variant codes are globally unique. Hard deletes fail when group requests still
+    // reference a variant, so retire codes instead of deleting rows tied to orders.
+    const retiredVariants = await tx.execute(sql`
+      UPDATE variants v
+      SET
+        variant_code = left(v.variant_code, 72) || '__r' || v.id::text,
+        is_deleted = true,
+        deleted_at = ${timestamp},
+        deleted_by = ${DEFAULT_USER_ID},
+        updated_at = ${timestamp},
+        updated_by = ${DEFAULT_USER_ID}
       WHERE NOT EXISTS (
         SELECT 1 FROM order_items oi WHERE oi.variant_id = v.id
       )
@@ -91,11 +99,11 @@ async function retireCatalogProducts() {
 
     console.log(`Removed ${removedDirect.length} direct-order links.`);
     console.log(`Removed ${removedDropship.length} dropshipping links.`);
-    const variantCount = Array.isArray(removedVariants)
-      ? removedVariants.length
+    const variantCount = Array.isArray(retiredVariants)
+      ? retiredVariants.length
       : 0;
     console.log(
-      `Removed ${variantCount} unused variants (order-linked variants kept).`,
+      `Retired ${variantCount} variant codes (order-linked variants kept as-is).`,
     );
     console.log(`Retired ${retiredProducts.length} products.`);
   });
