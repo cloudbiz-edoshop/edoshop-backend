@@ -116,16 +116,18 @@ const withScheduleRefine = <T extends z.ZodTypeAny>(schema: T) =>
     }
   });
 
-const promoBannerCardsObjectSchema = z
-  .object({
-    name: z.string().min(1).max(255),
-    cards: z
-      .array(promoBannerCardSchema)
-      .min(MIN_PROMO_BANNER_CARDS)
-      .max(MAX_PROMO_BANNER_CARDS),
-    ...scheduleFields,
-  })
-  .superRefine(refinePromoCardSet);
+// Base object without refinements — Zod v4 disallows .partial() on refined schemas.
+const promoBannerCardsObjectBaseSchema = z.object({
+  name: z.string().min(1).max(255),
+  cards: z
+    .array(promoBannerCardSchema)
+    .min(MIN_PROMO_BANNER_CARDS)
+    .max(MAX_PROMO_BANNER_CARDS),
+  ...scheduleFields,
+});
+
+const promoBannerCardsObjectSchema =
+  promoBannerCardsObjectBaseSchema.superRefine(refinePromoCardSet);
 
 const promoBannerStripObjectSchema = z.object({
   text: z.string().min(1).max(255),
@@ -147,13 +149,11 @@ export const createPromoBannerRequestSchema = z.union([
 ]);
 
 export const updatePromoBannerCardsRequestSchema = withScheduleRefine(
-  promoBannerCardsObjectSchema
-    .partial()
-    .superRefine((data, ctx) => {
-      if (data.cards !== undefined) {
-        refinePromoCardSet({ cards: data.cards }, ctx);
-      }
-    }),
+  promoBannerCardsObjectBaseSchema.partial().superRefine((data, ctx) => {
+    if (data.cards !== undefined) {
+      refinePromoCardSet({ cards: data.cards }, ctx);
+    }
+  }),
 );
 export const updatePromoBannerStripRequestSchema = withScheduleRefine(
   promoBannerStripObjectSchema.partial(),
