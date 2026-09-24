@@ -83,6 +83,33 @@ function handleDbConstraintError(
 ): { message: string; statusCode: number } | null {
   const postgresError = extractPostgresError(error);
 
+  if (postgresError?.code === "23503") {
+    const target = `${postgresError.constraint ?? ""} ${postgresError.detail ?? ""}`;
+    if (target.includes("product_id") || target.includes("product_ids")) {
+      return {
+        message: "One or more selected products are invalid. Refresh the form and pick products again.",
+        statusCode: HttpStatusCodes.BAD_REQUEST,
+      };
+    }
+    if (target.includes("discount_type_id")) {
+      return {
+        message:
+          "Discount types are not configured on the server. Contact support or run database seed.",
+        statusCode: HttpStatusCodes.BAD_REQUEST,
+      };
+    }
+    if (target.includes("created_by") || target.includes("updated_by")) {
+      return {
+        message: "Your admin account could not be linked to this discount. Sign out and sign in again.",
+        statusCode: HttpStatusCodes.BAD_REQUEST,
+      };
+    }
+    return {
+      message: "A related record is missing or invalid. Check your selections and try again.",
+      statusCode: HttpStatusCodes.BAD_REQUEST,
+    };
+  }
+
   if (postgresError?.code === "23505") {
     const target = `${postgresError.constraint ?? ""} ${postgresError.detail ?? ""}`;
 

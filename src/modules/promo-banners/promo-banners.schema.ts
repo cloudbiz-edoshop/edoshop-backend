@@ -34,6 +34,35 @@ export const promoBannerCardSchema = z
 
 export type PromoBannerCardInput = z.infer<typeof promoBannerCardSchema>;
 
+export const MIN_PROMO_BANNER_CARDS = 6;
+export const MAX_PROMO_BANNER_CARDS = 12;
+
+const refinePromoCardSet = (
+  data: { cards?: PromoBannerCardInput[] },
+  ctx: z.RefinementCtx,
+) => {
+  const cards = data.cards;
+  if (!cards) return;
+
+  if (cards.length < MIN_PROMO_BANNER_CARDS) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `At least ${MIN_PROMO_BANNER_CARDS} promo cards are required`,
+      path: ["cards"],
+    });
+  }
+
+  const squareCount = cards.filter((card) => card.cardFormat === "square").length;
+  if (squareCount % 2 !== 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message:
+        "Square cards (600×600) must be uploaded in pairs to fill a 600×1200 slot",
+      path: ["cards"],
+    });
+  }
+};
+
 export const promoBannerResponseSchema = z.object({
   id: z.number(),
   name: z.string().nullable().optional(),
@@ -87,11 +116,16 @@ const withScheduleRefine = <T extends z.ZodTypeAny>(schema: T) =>
     }
   });
 
-const promoBannerCardsObjectSchema = z.object({
-  name: z.string().min(1).max(255),
-  cards: z.array(promoBannerCardSchema).min(1).max(12),
-  ...scheduleFields,
-});
+const promoBannerCardsObjectSchema = z
+  .object({
+    name: z.string().min(1).max(255),
+    cards: z
+      .array(promoBannerCardSchema)
+      .min(MIN_PROMO_BANNER_CARDS)
+      .max(MAX_PROMO_BANNER_CARDS),
+    ...scheduleFields,
+  })
+  .superRefine(refinePromoCardSet);
 
 const promoBannerStripObjectSchema = z.object({
   text: z.string().min(1).max(255),
@@ -113,7 +147,13 @@ export const createPromoBannerRequestSchema = z.union([
 ]);
 
 export const updatePromoBannerCardsRequestSchema = withScheduleRefine(
-  promoBannerCardsObjectSchema.partial(),
+  promoBannerCardsObjectSchema
+    .partial()
+    .superRefine((data, ctx) => {
+      if (data.cards !== undefined) {
+        refinePromoCardSet({ cards: data.cards }, ctx);
+      }
+    }),
 );
 export const updatePromoBannerStripRequestSchema = withScheduleRefine(
   promoBannerStripObjectSchema.partial(),

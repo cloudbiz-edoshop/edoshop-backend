@@ -3,11 +3,13 @@ import type {
   CreateDiscountResponse,
   UpdateDiscountRequest,
 } from "./discounts.schema";
-import { DiscountTypeIds } from "@/constants/discount-types.constants";
-import { NotFoundError } from "@/core/errors";
+import { DiscountType } from "@/constants/discount-types.constants";
+import { NotFoundError, ValidationError } from "@/core/errors";
 import { AppError } from "@/core/errors/app-error";
 
 import db from "@/db";
+import { discountTypes } from "@/db/models";
+import { eq } from "drizzle-orm";
 
 import { DiscountsRepository } from "./discounts.repository";
 import { CategoriesService } from "../categories/categories.service";
@@ -121,6 +123,30 @@ export const isDiscountCurrentlyActive = (
   return true;
 };
 
+const resolveDiscountTypeId = async (
+  requestedId?: number,
+): Promise<number> => {
+  if (requestedId) {
+    const byId = await db.query.discountTypes.findFirst({
+      where: eq(discountTypes.id, requestedId),
+    });
+    if (byId) {
+      return byId.id;
+    }
+  }
+
+  const byName = await db.query.discountTypes.findFirst({
+    where: eq(discountTypes.name, DiscountType.PERCENTAGE),
+  });
+  if (byName) {
+    return byName.id;
+  }
+
+  throw new ValidationError(
+    "Discount types are not configured. Run database seed (discount types) and try again.",
+  );
+};
+
 export class DiscountsService {
   private readonly discountsRepository: DiscountsRepository;
 
@@ -132,11 +158,12 @@ export class DiscountsService {
     data: CreateDiscountRequest & { createdBy: number },
   ): Promise<CreateDiscountResponse> {
     const targetIds = resolveTargetIds(data);
+    const discountTypeId = await resolveDiscountTypeId(data.discountTypeId);
     const discount = await db.transaction(async (tx) => {
       const createdDiscount = await this.discountsRepository.create(tx, {
         name: data.name ?? `Discount ${data.discountRate}%`,
         description: data.description,
-        discountTypeId: data.discountTypeId ?? DiscountTypeIds.PERCENTAGE,
+        discountTypeId,
         discountValue: data.discountRate.toString(),
         minimumPurchaseAmount: data.minimumPurchaseAmount?.toString(),
         isActive: data.isActive ?? true,

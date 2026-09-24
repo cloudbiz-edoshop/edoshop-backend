@@ -24,16 +24,11 @@ import {
 import * as HttpStatusCodes from "@/lib/http-status-codes";
 import { createPagination } from "@/lib/searching-sorting";
 
-import { FIXED_BANNER_SLIDE_DELAY_STRING } from "./banners.constants";
+import { normalizeBannerSlideDelay } from "./banners.constants";
 import { BannersService } from "./banners.service";
 import { storefrontBannerSettingsService } from "./storefront-banner-settings.service";
 
 const bannersService = new BannersService();
-
-const withFixedSlideDelay = <T extends { delay?: string }>(data: T) => ({
-  ...data,
-  delay: FIXED_BANNER_SLIDE_DELAY_STRING,
-});
 
 export const list: AppRouteHandler<ListRoute> = async (c) => {
   const queryParams = c.req.valid("query");
@@ -69,7 +64,8 @@ export const create: AppRouteHandler<CreateRoute> = async (c) => {
   const createdBy = payload.userId;
 
   const result = await bannersService.createBanners({
-    ...withFixedSlideDelay(req),
+    ...req,
+    delay: normalizeBannerSlideDelay(req.delay),
     createdBy,
   });
 
@@ -98,7 +94,10 @@ export const patch: AppRouteHandler<PatchRoute> = async (c) => {
   const payload = c.get("accessTokenPayload");
   const updatedBy = payload.userId;
   const data = {
-    ...withFixedSlideDelay(updateData),
+    ...updateData,
+    ...(updateData.delay !== undefined && {
+      delay: normalizeBannerSlideDelay(updateData.delay),
+    }),
     updatedBy,
   };
   // Use banners service to update the banners

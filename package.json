@@ -13,6 +13,7 @@
     "check": "tsc --noEmit",
     "test": "cross-env NODE_ENV=test vitest run",
     "test:watch": "cross-env NODE_ENV=test vitest",
+    "smoke:api": "tsx scripts/api-smoke.ts",
     "minio:start": "sh ./scripts/start-minio.sh",
     "minio:start:win": "powershell -ExecutionPolicy Bypass -File ./scripts/start-minio.ps1",
     "db:generate": "drizzle-kit generate",
