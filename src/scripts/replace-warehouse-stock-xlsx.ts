@@ -4,6 +4,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { config } from "dotenv";
+import { sql } from "drizzle-orm";
 import postgres from "postgres";
 
 import {
@@ -46,7 +47,6 @@ async function retireCatalogProducts() {
     productCategories,
     productTags,
     products,
-    variants,
   } = await import("@/db/models");
 
   const timestamp = new Date().toISOString();
@@ -58,30 +58,47 @@ async function retireCatalogProducts() {
     return;
   }
 
-  await db
-    .update(variants)
-    .set({
-      isDeleted: true,
-      deletedAt: timestamp,
-      deletedBy: DEFAULT_USER_ID,
-      updatedAt: timestamp,
-      updatedBy: DEFAULT_USER_ID,
-    });
+  await db.transaction(async (tx) => {
+    const removedDirect = await tx
+      .delete(directOrderProducts)
+      .returning({ id: directOrderProducts.id });
+    const removedDropship = await tx
+      .delete(dropshippingProducts)
+      .returning({ id: dropshippingProducts.id });
+    await tx.delete(productCategories);
+    await tx.delete(productTags);
 
-  await db.delete(productCategories);
-  await db.delete(productTags);
-  await db.delete(directOrderProducts);
-  await db.delete(dropshippingProducts);
+    // Variant codes are globally unique; soft-deleting variants still blocks re-import.
+    const removedVariants = await tx.execute(sql`
+      DELETE FROM variants v
+      WHERE NOT EXISTS (
+        SELECT 1 FROM order_items oi WHERE oi.variant_id = v.id
+      )
+      RETURNING v.id
+    `);
 
-  await db
-    .update(products)
-    .set({
-      isDeleted: true,
-      deletedAt: timestamp,
-      deletedBy: DEFAULT_USER_ID,
-      updatedAt: timestamp,
-      updatedBy: DEFAULT_USER_ID,
-    });
+    const retiredProducts = await tx
+      .update(products)
+      .set({
+        isDeleted: true,
+        deletedAt: timestamp,
+        deletedBy: DEFAULT_USER_ID,
+        updatedAt: timestamp,
+        updatedBy: DEFAULT_USER_ID,
+        imageUrls: [],
+      })
+      .returning({ id: products.id });
+
+    console.log(`Removed ${removedDirect.length} direct-order links.`);
+    console.log(`Removed ${removedDropship.length} dropshipping links.`);
+    const variantCount = Array.isArray(removedVariants)
+      ? removedVariants.length
+      : 0;
+    console.log(
+      `Removed ${variantCount} unused variants (order-linked variants kept).`,
+    );
+    console.log(`Retired ${retiredProducts.length} products.`);
+  });
 
   console.log("Catalog retired. Import will create fresh product rows and codes.");
 }
@@ -108,7 +125,7 @@ async function main() {
   await assertDatabaseReachable();
   await retireCatalogProducts();
 
-  const sharedArgs = dryRun ? ["--dry-run"] : [];
+  const sharedArgs = dryRun ? ["--dry-run", "--force"] : ["--force"];
   runStep("Import warehouse products", "import-warehouse-stock-xlsx.ts", sharedArgs);
 
   if (!skipImages && !dryRun) {

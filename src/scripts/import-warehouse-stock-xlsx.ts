@@ -49,6 +49,7 @@ const defaultOutputDir = resolve(scriptDir, "../../data/imports");
 
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
+const forceImport = args.includes("--force");
 const xlsxPath = resolveWarehouseXlsxPath(args);
 assertWarehouseXlsxExists(xlsxPath);
 const outputArgIndex = args.findIndex((arg) => arg === "--output");
@@ -127,7 +128,7 @@ async function main() {
   const skippedExisting: string[] = [];
 
   const importRows = rows.filter((row) => {
-    if (existingCodes.has(row.legacyReference)) {
+    if (!forceImport && existingCodes.has(row.legacyReference)) {
       skippedExisting.push(row.legacyReference);
       return false;
     }

@@ -126,6 +126,16 @@ async function main() {
   console.log(`${dryRun ? "Would upload" : "Uploaded"} images: ${uploadedImages}`);
   console.log(`Skipped products with existing images: ${skippedExisting}`);
   console.log(`Spreadsheet references missing in DB: ${missingProducts}`);
+
+  if (missingProducts > 0) {
+    const missingRefs: string[] = [];
+    for (const reference of imagesByReference.keys()) {
+      if (!productIdsByCode.has(reference)) {
+        missingRefs.push(reference);
+      }
+    }
+    console.log("Missing references:", missingRefs.join(", "));
+  }
 }
 
 main()
