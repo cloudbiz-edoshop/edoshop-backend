@@ -26,6 +26,8 @@ router.openapi(routes.authTokenAlias, handlers.authToken);
 router.openapi(routes.authRefresh, handlers.authRefresh);
 router.openapi(routes.authRefreshAlias, handlers.authRefresh);
 router.openapi(routes.getMagazineVersion, handlers.getMagazineVersion);
+router.openapi(routes.getMagazineVersionAlias, handlers.getMagazineVersion);
 router.openapi(routes.getMagazineFeed, handlers.getMagazineFeed);
+router.openapi(routes.getMagazineFeedAlias, handlers.getMagazineFeed);
 
 export default router;

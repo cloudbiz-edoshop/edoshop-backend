@@ -557,6 +557,18 @@ export const getMagazineFeed = createRoute({
   },
 });
 
+/** TV subdomain (`GET /api/v1/magazine/version`) — same handler as /tv/magazine/version */
+export const getMagazineVersionAlias = createRoute({
+  ...getMagazineVersion,
+  path: "/magazine/version",
+});
+
+/** TV subdomain (`GET /api/v1/magazine/feed`) */
+export const getMagazineFeedAlias = createRoute({
+  ...getMagazineFeed,
+  path: "/magazine/feed",
+});
+
 export type GetOverviewRoute = typeof getOverview;
 export type GetSettingsRoute = typeof getSettings;
 export type PatchSettingsRoute = typeof patchSettings;
