@@ -685,6 +685,38 @@ export const uploadPackagingVideo = createRoute({
   },
 });
 
+export const completeW1Fulfillment = createRoute({
+  path: "/packages/{packageId}/complete-w1-fulfillment",
+  method: "post",
+  tags,
+  middleware: acl(EntityType.WAREHOUSE_1, OperationType.UPDATE),
+  summary: "Complete warehouse 1 fulfillment",
+  description:
+    "Mark W1 fulfillment complete, release the packaging video to the customer, and send a notification",
+  request: {
+    headers: jwtHeaderSchema,
+    params: schemas.printLabelParamsSchema,
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(
+        schemas.packagingVideoResponseSchema,
+        "Warehouse 1 fulfillment completed successfully",
+      ),
+      "Warehouse 1 fulfillment completed successfully",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.BAD_REQUEST,
+        HttpStatusCodes.NOT_FOUND,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      schemas.printLabelParamsSchema,
+    ),
+  },
+});
+
 export type CreatePackageRoute = typeof createPackage;
 export type EditPackageRoute = typeof editPackage;
 export type CreateShippingLabelRoute = typeof createShippingLabel;
@@ -695,6 +727,7 @@ export type GetPackageInfoForShippingLabelRoute =
   typeof getPackageInfoForShippingLabel;
 export type CreatePackageWithItemsRoute = typeof createPackageWithItems;
 export type PrintShippingLabelRoute = typeof printShippingLabel;
+export type CompleteW1FulfillmentRoute = typeof completeW1Fulfillment;
 export type GetPackagingVideoRoute = typeof getPackagingVideo;
 export type UploadPackagingVideoRoute = typeof uploadPackagingVideo;
 export type ListShippingLabelsRoute = typeof listShippingLabels;

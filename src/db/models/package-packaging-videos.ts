@@ -23,6 +23,7 @@ export const packagePackagingVideos = pgTable("package_packaging_videos", {
   durationSeconds: integer(),
   recordedBy: integer().references(() => users.id),
   recordedAt: timestamp({ mode: "string" }).notNull().defaultNow(),
+  releasedToCustomerAt: timestamp({ mode: "string" }),
   customerConfirmedAt: timestamp({ mode: "string" }),
   customerDisputeMessage: text(),
   customerRespondedAt: timestamp({ mode: "string" }),

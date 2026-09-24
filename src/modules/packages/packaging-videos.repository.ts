@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, isNotNull } from "drizzle-orm";
 
 import db from "@/db";
 import {
@@ -62,6 +62,7 @@ export class PackagingVideosRepository {
           durationSeconds: data.durationSeconds ?? null,
           recordedBy: data.recordedBy,
           recordedAt: now,
+          releasedToCustomerAt: null,
           customerConfirmedAt: null,
           customerDisputeMessage: null,
           customerRespondedAt: null,
@@ -127,7 +128,19 @@ export class PackagingVideosRepository {
     return row[0]?.orderCode ?? null;
   }
 
-  async getVideosForOrder(orderId: number) {
+  async markReleasedToCustomer(packageId: number, releasedAt: string) {
+    const [row] = await db
+      .update(packagePackagingVideos)
+      .set({
+        releasedToCustomerAt: releasedAt,
+        updatedAt: releasedAt,
+      })
+      .where(eq(packagePackagingVideos.packageId, packageId))
+      .returning();
+    return row ?? null;
+  }
+
+  async getVideosForOrder(orderId: number, options: { releasedOnly?: boolean } = {}) {
     return db
       .select({
         id: packagePackagingVideos.id,
@@ -136,6 +149,7 @@ export class PackagingVideosRepository {
         videoUrl: packagePackagingVideos.videoUrl,
         durationSeconds: packagePackagingVideos.durationSeconds,
         recordedAt: packagePackagingVideos.recordedAt,
+        releasedToCustomerAt: packagePackagingVideos.releasedToCustomerAt,
         customerConfirmedAt: packagePackagingVideos.customerConfirmedAt,
         customerDisputeMessage: packagePackagingVideos.customerDisputeMessage,
         customerRespondedAt: packagePackagingVideos.customerRespondedAt,
@@ -144,7 +158,14 @@ export class PackagingVideosRepository {
       .innerJoin(packages, eq(packages.id, packagePackagingVideos.packageId))
       .innerJoin(packageItems, eq(packageItems.packageId, packages.id))
       .innerJoin(orderItems, eq(orderItems.id, packageItems.orderItemId))
-      .where(eq(orderItems.orderId, orderId));
+      .where(
+        options.releasedOnly
+          ? and(
+            eq(orderItems.orderId, orderId),
+            isNotNull(packagePackagingVideos.releasedToCustomerAt),
+          )
+          : eq(orderItems.orderId, orderId),
+      );
   }
 
   async getVideoForCustomer(userId: number, videoId: number) {
@@ -162,6 +183,7 @@ export class PackagingVideosRepository {
         videoUrl: packagePackagingVideos.videoUrl,
         durationSeconds: packagePackagingVideos.durationSeconds,
         recordedAt: packagePackagingVideos.recordedAt,
+        releasedToCustomerAt: packagePackagingVideos.releasedToCustomerAt,
         customerConfirmedAt: packagePackagingVideos.customerConfirmedAt,
         customerDisputeMessage: packagePackagingVideos.customerDisputeMessage,
         customerRespondedAt: packagePackagingVideos.customerRespondedAt,
@@ -176,7 +198,7 @@ export class PackagingVideosRepository {
       .limit(1);
 
     const video = rows[0];
-    if (!video || video.orderCustomerId !== customer.id) {
+    if (!video || video.orderCustomerId !== customer.id || !video.releasedToCustomerAt) {
       return null;
     }
 
@@ -187,6 +209,7 @@ export class PackagingVideosRepository {
       videoUrl: video.videoUrl,
       durationSeconds: video.durationSeconds,
       recordedAt: video.recordedAt,
+      releasedToCustomerAt: video.releasedToCustomerAt,
       customerConfirmedAt: video.customerConfirmedAt,
       customerDisputeMessage: video.customerDisputeMessage,
       customerRespondedAt: video.customerRespondedAt,

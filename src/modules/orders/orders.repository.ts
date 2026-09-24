@@ -1325,7 +1325,9 @@ export class OrdersRepository {
       steps: trackingDetails.steps,
       manufacturerToStoreSteps: trackingDetails.manufacturerToStoreSteps,
       storeToCustomerSteps: trackingDetails.storeToCustomerSteps,
-      packagingVideos: await new PackagingVideosRepository().getVideosForOrder(order.id).then((videos) => {
+      packagingVideos: await new PackagingVideosRepository().getVideosForOrder(order.id, {
+        releasedOnly: true,
+      }).then((videos) => {
         const uniqueByPackage = new Map<number, typeof videos[number]>();
         for (const video of videos) {
           uniqueByPackage.set(video.packageId, video);

@@ -16,6 +16,7 @@ import type {
   GetShippingTypesRoute,
   ListShippingLabelsRoute,
   PrintShippingLabelRoute,
+  CompleteW1FulfillmentRoute,
   UploadPackagingVideoRoute,
   ReceiveAPackagesFromW1Route,
   ReceivedPackageDispatchManagementRoute,
@@ -200,6 +201,16 @@ export const uploadPackagingVideo: AppRouteHandler<UploadPackagingVideoRoute> = 
 
   return c.json(
     successResponse(result, "Packaging video uploaded successfully"),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const completeW1Fulfillment: AppRouteHandler<CompleteW1FulfillmentRoute> = async (c) => {
+  const { packageId } = c.req.valid("param");
+  const result = await packagingVideosService.completeW1Fulfillment(Number(packageId));
+
+  return c.json(
+    successResponse(result, "Warehouse 1 fulfillment completed successfully"),
     HttpStatusCodes.OK,
   );
 };

@@ -1373,4 +1373,20 @@ async function ensurePredefinedRolePermissions(permCols: PermissionColumns) {
       ADD COLUMN IF NOT EXISTS "background_color_id" integer REFERENCES "colors"("id")
     `),
   );
+
+  await db.execute(
+    sql.raw(`
+      ALTER TABLE "package_packaging_videos"
+      ADD COLUMN IF NOT EXISTS "released_to_customer_at" timestamp
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
+      UPDATE "package_packaging_videos"
+      SET "released_to_customer_at" = "recorded_at"
+      WHERE "released_to_customer_at" IS NULL
+        AND "recorded_at" IS NOT NULL
+    `),
+  );
 }

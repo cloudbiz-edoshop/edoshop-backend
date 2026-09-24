@@ -103,9 +103,43 @@ export class PackagingVideosService {
       recordedBy: params.recordedBy,
     });
 
-    await this.notifyCustomerPackagingComplete(params.packageId, pkg.packageCode);
-
     return this.toResponse(video);
+  }
+
+  async completeW1Fulfillment(packageId: number) {
+    const pkg = await this.packagesRepository.getPackageById(packageId);
+    if (!pkg) {
+      throw new NotFoundError("Package not found");
+    }
+
+    await this.assertPackagingVideoRecorded(packageId);
+
+    if (pkg.hasShippingLabel !== 1) {
+      throw new ValidationError(
+        "Shipping label must be created before fulfillment can be completed.",
+      );
+    }
+
+    const existing = await this.repository.getByPackageId(packageId);
+    if (existing?.releasedToCustomerAt) {
+      return this.toResponse({
+        ...existing,
+        packageCode: pkg.packageCode,
+      });
+    }
+
+    const releasedAt = new Date().toISOString();
+    const released = await this.repository.markReleasedToCustomer(packageId, releasedAt);
+    if (!released) {
+      throw new NotFoundError("Packaging video not found");
+    }
+
+    await this.notifyCustomerPackagingComplete(packageId, pkg.packageCode);
+
+    return this.toResponse({
+      ...released,
+      packageCode: pkg.packageCode,
+    });
   }
 
   async respondToPackagingVideo(params: {
