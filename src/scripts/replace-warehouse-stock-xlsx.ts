@@ -129,6 +129,7 @@ function runStep(label: string, scriptName: string, extraArgs: string[]) {
 }
 
 async function main() {
+  console.log("replace-warehouse-stock-xlsx v2 (variant code retire, not delete)");
   console.log(`Workbook: ${xlsxPath}`);
   await assertDatabaseReachable();
   await retireCatalogProducts();
