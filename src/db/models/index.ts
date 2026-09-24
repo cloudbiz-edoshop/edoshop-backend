@@ -121,6 +121,10 @@ export { default as orderStatuses, orderStatusesRelations } from "./order-status
 export { default as orderTypes, orderTypesRelations } from "./order-types";
 export { default as orders, ordersRelations } from "./orders";
 export { default as packageItems, packageItemsRelations } from "./package-items";
+export {
+  default as packageLabelPhotoTokens,
+  packageLabelPhotoTokensRelations,
+} from "./package-label-photo-tokens";
 export { default as packageItemsHistory, packageItemsHistoryRelations } from "./package-items-history";
 export {
   default as packagePackagingVideos,

@@ -120,6 +120,12 @@ export class PackagingVideosService {
       );
     }
 
+    if (!pkg.labelPhotoUrl) {
+      throw new ValidationError(
+        "Upload a photo of the package with the label attached before completing fulfillment.",
+      );
+    }
+
     const existing = await this.repository.getByPackageId(packageId);
     if (existing?.releasedToCustomerAt) {
       return this.toResponse({

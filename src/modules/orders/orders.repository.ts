@@ -9,6 +9,7 @@ import { AddressTypeIds } from "@/constants/address-types.constants";
 import { OrderItemFulfillmentStatusIds } from "@/constants/order-item-fulfillment-statuses.constants";
 import { OrderTypeIds } from "@/constants/order-types.constants";
 import { PAYMENT_STATUSES } from "@/constants/payment-statuses.constants";
+import { DEFAULT_SHIPPING_PRIORITY_CODE } from "@/constants/shipping-priority-codes.constants";
 import db from "@/db";
 import {
   addresses,
@@ -209,7 +210,8 @@ export class OrdersRepository {
           customerId: order.customerId,
           customerCode: order.customerCode,
           customerName: order.customerName ?? undefined,
-          shippingPriority: order.shippingPriority ?? "N/A",
+          shippingPriority:
+            order.shippingPriority ?? DEFAULT_SHIPPING_PRIORITY_CODE,
           orderType: formatOrderType(order.orderTypeName),
           totalAmount: order.totalAmount ?? undefined,
           amount: order.totalAmount ?? undefined,
@@ -767,6 +769,14 @@ export class OrdersRepository {
       fulfillmentMethod === FulfillmentMethod.DELIVERY
         ? params.shippingPriorityCodeId ?? 1
         : null;
+    // Pickup orders carry no shipping fee but still need a priority so they
+    // never reach the fulfillment queue as "N/A".
+    const defaultPriority = await db.query.shippingPriorityCodes.findFirst({
+      where: eq(shippingPriorityCodes.code, DEFAULT_SHIPPING_PRIORITY_CODE),
+      columns: { id: true },
+    });
+    const orderShippingPriorityCodeId =
+      shippingPriorityCodeId ?? defaultPriority?.id ?? null;
     const shippingAmount = (
       await deliveryPlansService.getShippingFee(
         fulfillmentMethod,
@@ -837,7 +847,7 @@ export class OrdersRepository {
           fulfillmentStatusId: 1,
           orderTypeId: OrderTypeIds.DIRECT_ORDER,
           shippingAddressId: shippingAddress.id,
-          shippingPriorityCodeId,
+          shippingPriorityCodeId: orderShippingPriorityCodeId,
           billingAddressId: billingAddress.id,
           paymentMethodId: params.paymentMethodId,
           fulfillmentMethod,

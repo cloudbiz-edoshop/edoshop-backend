@@ -1389,4 +1389,36 @@ async function ensurePredefinedRolePermissions(permCols: PermissionColumns) {
         AND "recorded_at" IS NOT NULL
     `),
   );
+
+  await db.execute(
+    sql.raw(`
+      ALTER TABLE "packages"
+      ADD COLUMN IF NOT EXISTS "label_photo_url" varchar(1024),
+      ADD COLUMN IF NOT EXISTS "label_photo_uploaded_at" timestamp
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
+      CREATE TABLE IF NOT EXISTS "package_label_photo_tokens" (
+        "id" serial PRIMARY KEY,
+        "token" varchar(128) NOT NULL UNIQUE,
+        "package_id" integer NOT NULL REFERENCES "packages"("id") ON DELETE CASCADE,
+        "expires_at" timestamp NOT NULL,
+        "created_at" timestamp NOT NULL DEFAULT now()
+      )
+    `),
+  );
+
+  // Every order reaching fulfillment must carry a shipping priority.
+  await db.execute(
+    sql.raw(`
+      UPDATE "orders"
+      SET "shipping_priority_code_id" = (
+        SELECT "id" FROM "shipping_priority_codes" WHERE "code" = 'B01' LIMIT 1
+      )
+      WHERE "shipping_priority_code_id" IS NULL
+        AND EXISTS (SELECT 1 FROM "shipping_priority_codes" WHERE "code" = 'B01')
+    `),
+  );
 }

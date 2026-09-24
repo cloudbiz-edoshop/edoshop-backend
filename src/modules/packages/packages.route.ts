@@ -685,6 +685,172 @@ export const uploadPackagingVideo = createRoute({
   },
 });
 
+export const getPackageLabelPhoto = createRoute({
+  path: "/packages/{packageId}/label-photo",
+  method: "get",
+  tags,
+  middleware: acl(EntityType.WAREHOUSE_1, OperationType.READ),
+  summary: "Get the package label photo",
+  description: "Retrieve the photo of the package with the shipping label attached",
+  request: {
+    headers: jwtHeaderSchema,
+    params: schemas.printLabelParamsSchema,
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(
+        schemas.packageLabelPhotoResponseSchema,
+        "Label photo retrieved successfully",
+      ),
+      "Label photo retrieved successfully",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.NOT_FOUND,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      schemas.printLabelParamsSchema,
+    ),
+  },
+});
+
+export const uploadPackageLabelPhoto = createRoute({
+  path: "/packages/{packageId}/label-photo",
+  method: "post",
+  tags,
+  middleware: acl(EntityType.WAREHOUSE_1, OperationType.UPDATE),
+  summary: "Upload the package label photo",
+  description: "Upload a photo of the package with the shipping label attached",
+  request: {
+    headers: jwtHeaderSchema,
+    params: schemas.printLabelParamsSchema,
+    body: {
+      required: true,
+      content: {
+        "multipart/form-data": {
+          schema: z.object({
+            photo: z.any().openapi({ type: "string", format: "binary" }),
+          }),
+        },
+      },
+    },
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(
+        schemas.packageLabelPhotoResponseSchema,
+        "Label photo uploaded successfully",
+      ),
+      "Label photo uploaded successfully",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.BAD_REQUEST,
+        HttpStatusCodes.NOT_FOUND,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      schemas.printLabelParamsSchema,
+    ),
+  },
+});
+
+export const createPackageLabelPhotoToken = createRoute({
+  path: "/packages/{packageId}/label-photo-token",
+  method: "post",
+  tags,
+  middleware: acl(EntityType.WAREHOUSE_1, OperationType.UPDATE),
+  summary: "Create a mobile upload link for the label photo",
+  description:
+    "Create a short-lived token so the label photo can be captured from a phone via QR code",
+  request: {
+    headers: jwtHeaderSchema,
+    params: schemas.printLabelParamsSchema,
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(
+        schemas.packageLabelPhotoTokenResponseSchema,
+        "Upload link created successfully",
+      ),
+      "Upload link created successfully",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.NOT_FOUND,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      schemas.printLabelParamsSchema,
+    ),
+  },
+});
+
+export const getPackageLabelPhotoTokenContext = createRoute({
+  path: "/package-label-photo/{token}",
+  method: "get",
+  tags,
+  summary: "Resolve a label photo upload link",
+  description:
+    "Resolve the package behind a label photo upload token. No authentication required.",
+  request: {
+    params: schemas.packageLabelPhotoTokenParamsSchema,
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(
+        schemas.packageLabelPhotoTokenContextSchema,
+        "Upload link resolved successfully",
+      ),
+      "Upload link resolved successfully",
+    ),
+    ...commonErrorResponses(
+      [HttpStatusCodes.NOT_FOUND, HttpStatusCodes.INTERNAL_SERVER_ERROR],
+      schemas.packageLabelPhotoTokenParamsSchema,
+    ),
+  },
+});
+
+export const uploadPackageLabelPhotoWithToken = createRoute({
+  path: "/package-label-photo/{token}",
+  method: "post",
+  tags,
+  summary: "Upload the label photo from a phone",
+  description:
+    "Upload the package label photo using a short-lived token. No authentication required.",
+  request: {
+    params: schemas.packageLabelPhotoTokenParamsSchema,
+    body: {
+      required: true,
+      content: {
+        "multipart/form-data": {
+          schema: z.object({
+            photo: z.any().openapi({ type: "string", format: "binary" }),
+          }),
+        },
+      },
+    },
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(
+        schemas.packageLabelPhotoResponseSchema,
+        "Label photo uploaded successfully",
+      ),
+      "Label photo uploaded successfully",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.BAD_REQUEST,
+        HttpStatusCodes.NOT_FOUND,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      schemas.packageLabelPhotoTokenParamsSchema,
+    ),
+  },
+});
+
 export const completeW1Fulfillment = createRoute({
   path: "/packages/{packageId}/complete-w1-fulfillment",
   method: "post",
@@ -728,6 +894,14 @@ export type GetPackageInfoForShippingLabelRoute =
 export type CreatePackageWithItemsRoute = typeof createPackageWithItems;
 export type PrintShippingLabelRoute = typeof printShippingLabel;
 export type CompleteW1FulfillmentRoute = typeof completeW1Fulfillment;
+export type GetPackageLabelPhotoRoute = typeof getPackageLabelPhoto;
+export type UploadPackageLabelPhotoRoute = typeof uploadPackageLabelPhoto;
+export type CreatePackageLabelPhotoTokenRoute =
+  typeof createPackageLabelPhotoToken;
+export type GetPackageLabelPhotoTokenContextRoute =
+  typeof getPackageLabelPhotoTokenContext;
+export type UploadPackageLabelPhotoWithTokenRoute =
+  typeof uploadPackageLabelPhotoWithToken;
 export type GetPackagingVideoRoute = typeof getPackagingVideo;
 export type UploadPackagingVideoRoute = typeof uploadPackagingVideo;
 export type ListShippingLabelsRoute = typeof listShippingLabels;

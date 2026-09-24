@@ -333,6 +333,31 @@ export const packagingVideoResponseSchema = z.object({
   status: z.enum(["pending_review", "confirmed", "disputed"]),
 });
 
+export const packageLabelPhotoResponseSchema = z.object({
+  packageId: z.number(),
+  packageCode: z.string(),
+  labelPhotoUrl: z.string().nullable(),
+  labelPhotoUploadedAt: z.string().nullable(),
+});
+
+export const packageLabelPhotoTokenResponseSchema = z.object({
+  token: z.string(),
+  packageId: z.number(),
+  packageCode: z.string(),
+  expiresAt: z.string(),
+});
+
+export const packageLabelPhotoTokenContextSchema = z.object({
+  packageId: z.number(),
+  packageCode: z.string(),
+  labelPhotoUrl: z.string().nullable(),
+  expiresAt: z.string(),
+});
+
+export const packageLabelPhotoTokenParamsSchema = z.object({
+  token: z.string().min(1).describe("Label photo upload token"),
+});
+
 export const packagingVideoCustomerResponseSchema = z.object({
   confirmed: z.boolean(),
   disputeMessage: z.string().trim().optional(),

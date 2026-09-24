@@ -17,6 +17,11 @@ import type {
   ListShippingLabelsRoute,
   PrintShippingLabelRoute,
   CompleteW1FulfillmentRoute,
+  GetPackageLabelPhotoRoute,
+  UploadPackageLabelPhotoRoute,
+  CreatePackageLabelPhotoTokenRoute,
+  GetPackageLabelPhotoTokenContextRoute,
+  UploadPackageLabelPhotoWithTokenRoute,
   UploadPackagingVideoRoute,
   ReceiveAPackagesFromW1Route,
   ReceivedPackageDispatchManagementRoute,
@@ -33,9 +38,11 @@ import * as HttpStatusCodes from "@/lib/http-status-codes";
 import { createPagination } from "@/lib/searching-sorting";
 import { PackagesService } from "./packages.service";
 import { PackagingVideosService } from "./packaging-videos.service";
+import { PackageLabelPhotosService } from "./package-label-photos.service";
 
 const packagesService = new PackagesService();
 const packagingVideosService = new PackagingVideosService();
+const packageLabelPhotosService = new PackageLabelPhotosService();
 
 export const createPackage: AppRouteHandler<CreatePackageRoute> = async (c) => {
   const data = c.req.valid("json");
@@ -201,6 +208,86 @@ export const uploadPackagingVideo: AppRouteHandler<UploadPackagingVideoRoute> = 
 
   return c.json(
     successResponse(result, "Packaging video uploaded successfully"),
+    HttpStatusCodes.OK,
+  );
+};
+
+const readUploadedPhoto = async (c: {
+  req: { formData: () => Promise<FormData> };
+}) => {
+  const formData = await c.req.formData();
+  for (const [key, value] of formData.entries()) {
+    if ((key === "photo" || key === "file") && isUploadedFile(value)) {
+      return value;
+    }
+  }
+  return null;
+};
+
+export const getPackageLabelPhoto: AppRouteHandler<GetPackageLabelPhotoRoute> = async (c) => {
+  const { packageId } = c.req.valid("param");
+  const result = await packageLabelPhotosService.getLabelPhoto(Number(packageId));
+
+  return c.json(
+    successResponse(result, "Label photo retrieved successfully"),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const uploadPackageLabelPhoto: AppRouteHandler<UploadPackageLabelPhotoRoute> = async (c) => {
+  const { packageId } = c.req.valid("param");
+  const photo = await readUploadedPhoto(c);
+
+  if (!photo) {
+    throw new AppError("No image uploaded", HttpStatusCodes.BAD_REQUEST);
+  }
+
+  const result = await packageLabelPhotosService.uploadLabelPhoto({
+    packageId: Number(packageId),
+    file: photo,
+  });
+
+  return c.json(
+    successResponse(result, "Label photo uploaded successfully"),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const createPackageLabelPhotoToken: AppRouteHandler<CreatePackageLabelPhotoTokenRoute> = async (c) => {
+  const { packageId } = c.req.valid("param");
+  const result = await packageLabelPhotosService.createUploadToken(Number(packageId));
+
+  return c.json(
+    successResponse(result, "Upload link created successfully"),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const getPackageLabelPhotoTokenContext: AppRouteHandler<GetPackageLabelPhotoTokenContextRoute> = async (c) => {
+  const { token } = c.req.valid("param");
+  const result = await packageLabelPhotosService.getTokenContext(token);
+
+  return c.json(
+    successResponse(result, "Upload link resolved successfully"),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const uploadPackageLabelPhotoWithToken: AppRouteHandler<UploadPackageLabelPhotoWithTokenRoute> = async (c) => {
+  const { token } = c.req.valid("param");
+  const photo = await readUploadedPhoto(c);
+
+  if (!photo) {
+    throw new AppError("No image uploaded", HttpStatusCodes.BAD_REQUEST);
+  }
+
+  const result = await packageLabelPhotosService.uploadLabelPhotoWithToken(
+    token,
+    photo,
+  );
+
+  return c.json(
+    successResponse(result, "Label photo uploaded successfully"),
     HttpStatusCodes.OK,
   );
 };

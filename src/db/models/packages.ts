@@ -37,6 +37,8 @@ export const packages = pgTable("packages", {
   binLocationAtReceived: varchar({ length: 255 }),
   packageDestinationAtReceived: varchar({ length: 255 }),
   address: varchar({ length: 500 }),
+  labelPhotoUrl: varchar({ length: 1024 }),
+  labelPhotoUploadedAt: timestamp({ mode: "string" }),
 });
 
 export const packagesSchema = createSelectSchema(packages);

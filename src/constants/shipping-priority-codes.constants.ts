@@ -7,6 +7,9 @@ export enum SHIPPING_PRIORITY_CODES {
   C02 = "C02",
 }
 
+/** Applied to orders that reach fulfillment without an explicit priority. */
+export const DEFAULT_SHIPPING_PRIORITY_CODE = SHIPPING_PRIORITY_CODES.B01;
+
 export const SHIPPING_PRIORITY_DESCRIPTIONS = {
   [SHIPPING_PRIORITY_CODES.A01]: "High Priority - Next Day Delivery",
   [SHIPPING_PRIORITY_CODES.A02]: "High Priority - Two Day Delivery",
