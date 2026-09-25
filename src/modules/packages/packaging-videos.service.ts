@@ -67,7 +67,7 @@ export class PackagingVideosService {
     packageId: number;
     file: File;
     durationSeconds?: number | null;
-    recordedBy: number;
+    recordedBy?: number | null;
   }) {
     const pkg = await this.packagesRepository.getPackageById(params.packageId);
     if (!pkg) {

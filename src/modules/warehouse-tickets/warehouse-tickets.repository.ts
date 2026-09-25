@@ -345,6 +345,18 @@ export class WarehouseTicketsRepository {
           ${products.name} ILIKE ${searchPattern}
           OR COALESCE(${products.shortDescription}, '') ILIKE ${searchPattern}
           OR CAST(${products.id} AS TEXT) ILIKE ${searchPattern}
+          OR EXISTS (
+            SELECT 1 FROM ${directOrderProducts}
+            WHERE ${directOrderProducts.productId} = ${products.id}
+              AND ${directOrderProducts.directOrderCode} ILIKE ${searchPattern}
+          )
+          OR EXISTS (
+            SELECT 1 FROM ${variants}
+            INNER JOIN ${items} ON ${items.id} = ${variants.itemId}
+            WHERE ${variants.productId} = ${products.id}
+              AND ${variants.isDeleted} = false
+              AND ${items.itemCode} ILIKE ${searchPattern}
+          )
         )`,
       );
     }
@@ -373,6 +385,16 @@ export class WarehouseTicketsRepository {
       LIMIT 1
     )`;
 
+    const ewmsItemCodeSql = sql<string | null>`(
+      SELECT ${items.itemCode}
+      FROM ${variants}
+      INNER JOIN ${items} ON ${items.id} = ${variants.itemId}
+      WHERE ${variants.productId} = ${products.id}
+        AND ${variants.isDeleted} = false
+      ORDER BY ${variants.id}
+      LIMIT 1
+    )`;
+
     const rows = await db
       .select({
         productId: products.id,
@@ -381,6 +403,7 @@ export class WarehouseTicketsRepository {
         imageUrls: products.imageUrls,
         directOrderCode: directOrderCodeSql.as("directOrderCode"),
         dropshippingCode: dropshippingCodeSql.as("dropshippingCode"),
+        ewmsItemCode: ewmsItemCodeSql.as("ewmsItemCode"),
       })
       .from(products)
       .where(whereClause)
@@ -398,11 +421,17 @@ export class WarehouseTicketsRepository {
             ? await this.findEntryIdForProductInWarehouse(row.productId, warehouseId)
             : null;
 
+        const productCode =
+          row.ewmsItemCode
+          ?? row.directOrderCode
+          ?? row.dropshippingCode
+          ?? null;
+
         return {
           productId: row.productId,
           name: row.name,
           shortDescription: row.shortDescription,
-          productCode: row.directOrderCode ?? row.dropshippingCode ?? null,
+          productCode,
           imageUrl: imageUrls[0] ?? null,
           entryId,
           label: row.name,
@@ -410,9 +439,14 @@ export class WarehouseTicketsRepository {
       }),
     );
 
+    const inWarehouseRows =
+      warehouseId != null
+        ? catalogRows.filter((row) => row.entryId != null)
+        : catalogRows;
+
     return {
-      data: catalogRows,
-      total,
+      data: inWarehouseRows,
+      total: warehouseId != null ? inWarehouseRows.length : total,
       page,
       limit: limitVal,
     };

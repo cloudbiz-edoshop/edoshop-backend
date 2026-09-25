@@ -105,6 +105,7 @@ export class ProductsRepository {
         materialType: true,
         designPattern: true,
         images: true,
+        item: true,
         createdBy: true,
         updatedBy: true,
       },
@@ -158,7 +159,12 @@ export class ProductsRepository {
   }) {
     const { search, page, limit, sortBy, sortOrder, filters } = params;
 
-    const searchableFields = ["name", "shortDescription", "fullDescription"];
+    const searchableFields = [
+      "name",
+      "shortDescription",
+      "fullDescription",
+      "specifications",
+    ];
 
     const whereConditions = [];
     whereConditions.push(eq(products.isDeleted, false));
@@ -311,6 +317,7 @@ export class ProductsRepository {
               materialType: true,
               designPattern: true,
               images: true,
+              item: true,
               createdBy: true,
               updatedBy: true,
             },

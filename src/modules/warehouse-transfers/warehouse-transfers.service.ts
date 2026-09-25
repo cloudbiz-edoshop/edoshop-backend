@@ -36,6 +36,12 @@ export class WarehouseTransfersService {
       throw new ValidationError("Packages cannot be stored in Warehouse 1. Send packages to Warehouse 2 before assigning a bin.");
     }
 
+    if (warehouseId === 1 && entryTypeId === EntryTypeIds.BUNDLE) {
+      throw new ValidationError(
+        "Bundle entries cannot be placed in aisle bins in Warehouse 1. Store bundles in the W2 bundle area, or receive series/items into bins.",
+      );
+    }
+
     if (
       warehouseId === 2
       && [

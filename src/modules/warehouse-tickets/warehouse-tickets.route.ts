@@ -34,6 +34,13 @@ import {
   warehouseTicketSettingsSchema,
   warehouseTicketTreatContextSchema,
 } from "./warehouse-tickets.schema";
+import {
+  warehouseTicketApproverActionMiddleware,
+  warehouseTicketFormSettingsMiddleware,
+  warehouseTicketOperatorMiddleware,
+  warehouseTicketReadMiddleware,
+  warehouseTicketRequesterWriteMiddleware,
+} from "./warehouse-tickets.acl";
 
 const tags = ["Warehouse Tickets"];
 
@@ -41,12 +48,7 @@ export const list = createRoute({
   path: "/warehouse-tickets",
   method: "get",
   tags,
-  middleware: [
-    jwtMiddleware(),
-    rolesAndPermissionsMiddleware([
-      { entity: EntityType.TICKETING, operation: OperationType.READ },
-    ]),
-  ] as const,
+  middleware: [jwtMiddleware(), warehouseTicketReadMiddleware] as const,
   request: {
     headers: jwtHeaderSchema,
     query: commonQueryParamsSchema,
@@ -110,12 +112,7 @@ export const getTreatContext = createRoute({
   path: "/warehouse-tickets/:id/treat-context",
   method: "get",
   tags,
-  middleware: [
-    jwtMiddleware(),
-    rolesAndPermissionsMiddleware([
-      { entity: EntityType.TICKETING, operation: OperationType.UPDATE },
-    ]),
-  ] as const,
+  middleware: [jwtMiddleware(), warehouseTicketOperatorMiddleware] as const,
   request: {
     headers: jwtHeaderSchema,
     params: idParams,
@@ -143,12 +140,7 @@ export const getOne = createRoute({
   path: "/warehouse-tickets/:id",
   method: "get",
   tags,
-  middleware: [
-    jwtMiddleware(),
-    rolesAndPermissionsMiddleware([
-      { entity: EntityType.TICKETING, operation: OperationType.READ },
-    ]),
-  ] as const,
+  middleware: [jwtMiddleware(), warehouseTicketReadMiddleware] as const,
   request: {
     headers: jwtHeaderSchema,
     params: idParams,
@@ -175,12 +167,7 @@ export const update = createRoute({
   path: "/warehouse-tickets/:id",
   method: "patch",
   tags,
-  middleware: [
-    jwtMiddleware(),
-    rolesAndPermissionsMiddleware([
-      { entity: EntityType.TICKETING, operation: OperationType.UPDATE },
-    ]),
-  ] as const,
+  middleware: [jwtMiddleware(), warehouseTicketRequesterWriteMiddleware] as const,
   request: {
     headers: jwtHeaderSchema,
     params: idParams,
@@ -214,12 +201,7 @@ export const remove = createRoute({
   path: "/warehouse-tickets/:id",
   method: "delete",
   tags,
-  middleware: [
-    jwtMiddleware(),
-    rolesAndPermissionsMiddleware([
-      { entity: EntityType.TICKETING, operation: OperationType.DELETE },
-    ]),
-  ] as const,
+  middleware: [jwtMiddleware(), warehouseTicketRequesterWriteMiddleware] as const,
   request: {
     headers: jwtHeaderSchema,
     params: idParams,
@@ -279,12 +261,7 @@ export const pause = createRoute({
   path: "/warehouse-tickets/:id/pause",
   method: "post",
   tags,
-  middleware: [
-    jwtMiddleware(),
-    rolesAndPermissionsMiddleware([
-      { entity: EntityType.TICKETING, operation: OperationType.UPDATE },
-    ]),
-  ] as const,
+  middleware: [jwtMiddleware(), warehouseTicketApproverActionMiddleware] as const,
   request: {
     headers: jwtHeaderSchema,
     params: idParams,
@@ -315,12 +292,7 @@ export const reject = createRoute({
   path: "/warehouse-tickets/:id/reject",
   method: "post",
   tags,
-  middleware: [
-    jwtMiddleware(),
-    rolesAndPermissionsMiddleware([
-      { entity: EntityType.TICKETING, operation: OperationType.UPDATE },
-    ]),
-  ] as const,
+  middleware: [jwtMiddleware(), warehouseTicketApproverActionMiddleware] as const,
   request: {
     headers: jwtHeaderSchema,
     params: idParams,
@@ -387,9 +359,7 @@ export const prepare = createRoute({
   tags,
   middleware: [
     jwtMiddleware(),
-    rolesAndPermissionsMiddleware([
-      { entity: EntityType.TICKETING, operation: OperationType.UPDATE },
-    ]),
+    warehouseTicketOperatorMiddleware,
   ] as const,
   request: {
     headers: jwtHeaderSchema,
@@ -426,9 +396,7 @@ export const confirmTakeout = createRoute({
   tags,
   middleware: [
     jwtMiddleware(),
-    rolesAndPermissionsMiddleware([
-      { entity: EntityType.TICKETING, operation: OperationType.UPDATE },
-    ]),
+    warehouseTicketOperatorMiddleware,
   ] as const,
   request: {
     headers: jwtHeaderSchema,
@@ -463,12 +431,7 @@ export const initiateReturn = createRoute({
   path: "/warehouse-tickets/:id/initiate-return",
   method: "post",
   tags,
-  middleware: [
-    jwtMiddleware(),
-    rolesAndPermissionsMiddleware([
-      { entity: EntityType.TICKETING, operation: OperationType.UPDATE },
-    ]),
-  ] as const,
+  middleware: [jwtMiddleware(), warehouseTicketRequesterWriteMiddleware] as const,
   request: {
     headers: jwtHeaderSchema,
     params: idParams,
@@ -504,9 +467,7 @@ export const confirmReturn = createRoute({
   tags,
   middleware: [
     jwtMiddleware(),
-    rolesAndPermissionsMiddleware([
-      { entity: EntityType.TICKETING, operation: OperationType.UPDATE },
-    ]),
+    warehouseTicketOperatorMiddleware,
   ] as const,
   request: {
     headers: jwtHeaderSchema,
@@ -543,9 +504,7 @@ export const confirm = createRoute({
   tags,
   middleware: [
     jwtMiddleware(),
-    rolesAndPermissionsMiddleware([
-      { entity: EntityType.TICKETING, operation: OperationType.UPDATE },
-    ]),
+    warehouseTicketOperatorMiddleware,
   ] as const,
   request: {
     headers: jwtHeaderSchema,
@@ -582,9 +541,7 @@ export const complete = createRoute({
   tags,
   middleware: [
     jwtMiddleware(),
-    rolesAndPermissionsMiddleware([
-      { entity: EntityType.TICKETING, operation: OperationType.UPDATE },
-    ]),
+    warehouseTicketOperatorMiddleware,
   ] as const,
   request: {
     headers: jwtHeaderSchema,
@@ -614,12 +571,7 @@ export const getSettings = createRoute({
   path: "/warehouse-tickets/settings",
   method: "get",
   tags,
-  middleware: [
-    jwtMiddleware(),
-    rolesAndPermissionsMiddleware([
-      { entity: EntityType.TICKETING, operation: OperationType.READ },
-    ]),
-  ] as const,
+  middleware: [jwtMiddleware(), warehouseTicketFormSettingsMiddleware] as const,
   request: {
     headers: jwtHeaderSchema,
   },
@@ -754,9 +706,7 @@ export const returnTicket = createRoute({
   tags,
   middleware: [
     jwtMiddleware(),
-    rolesAndPermissionsMiddleware([
-      { entity: EntityType.TICKETING, operation: OperationType.UPDATE },
-    ]),
+    warehouseTicketOperatorMiddleware,
   ] as const,
   request: {
     headers: jwtHeaderSchema,

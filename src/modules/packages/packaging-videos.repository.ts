@@ -27,7 +27,7 @@ export class PackagingVideosRepository {
     packageId: number;
     videoUrl: string;
     durationSeconds?: number | null;
-    recordedBy: number;
+    recordedBy?: number | null;
   }) {
     const now = new Date().toISOString();
     const [row] = await db
@@ -49,7 +49,7 @@ export class PackagingVideosRepository {
     packageId: number;
     videoUrl: string;
     durationSeconds?: number | null;
-    recordedBy: number;
+    recordedBy?: number | null;
   }) {
     const existing = await this.getByPackageId(data.packageId);
     const now = new Date().toISOString();

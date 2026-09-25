@@ -812,6 +812,102 @@ export const getPackageLabelPhotoTokenContext = createRoute({
   },
 });
 
+export const createPackagePackagingVideoToken = createRoute({
+  path: "/packages/{packageId}/packaging-video-token",
+  method: "post",
+  tags,
+  middleware: acl(EntityType.WAREHOUSE_1, OperationType.UPDATE),
+  summary: "Create a mobile upload link for the packaging video",
+  description:
+    "Create a short-lived token so the packaging video can be recorded from a phone via QR code",
+  request: {
+    headers: jwtHeaderSchema,
+    params: schemas.printLabelParamsSchema,
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(
+        schemas.packagePackagingVideoTokenResponseSchema,
+        "Upload link created successfully",
+      ),
+      "Upload link created successfully",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.NOT_FOUND,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      schemas.printLabelParamsSchema,
+    ),
+  },
+});
+
+export const getPackagePackagingVideoTokenContext = createRoute({
+  path: "/package-packaging-video/{token}",
+  method: "get",
+  tags,
+  summary: "Resolve a packaging video upload link",
+  description:
+    "Resolve the package behind a packaging video upload token. No authentication required.",
+  request: {
+    params: schemas.packagePackagingVideoTokenParamsSchema,
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(
+        schemas.packagePackagingVideoTokenContextSchema,
+        "Upload link resolved successfully",
+      ),
+      "Upload link resolved successfully",
+    ),
+    ...commonErrorResponses(
+      [HttpStatusCodes.NOT_FOUND, HttpStatusCodes.INTERNAL_SERVER_ERROR],
+      schemas.packagePackagingVideoTokenParamsSchema,
+    ),
+  },
+});
+
+export const uploadPackagePackagingVideoWithToken = createRoute({
+  path: "/package-packaging-video/{token}",
+  method: "post",
+  tags,
+  summary: "Upload packaging video from a phone",
+  description:
+    "Upload or replace the packaging video using a short-lived token. No authentication required.",
+  request: {
+    params: schemas.packagePackagingVideoTokenParamsSchema,
+    body: {
+      required: true,
+      content: {
+        "multipart/form-data": {
+          schema: z.object({
+            video: z.any().openapi({ type: "string", format: "binary" }),
+            durationSeconds: z.string().optional(),
+          }),
+        },
+      },
+    },
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(
+        schemas.packagingVideoResponseSchema,
+        "Packaging video uploaded successfully",
+      ),
+      "Packaging video uploaded successfully",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.BAD_REQUEST,
+        HttpStatusCodes.NOT_FOUND,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      schemas.packagePackagingVideoTokenParamsSchema,
+    ),
+  },
+});
+
 export const uploadPackageLabelPhotoWithToken = createRoute({
   path: "/package-label-photo/{token}",
   method: "post",
@@ -941,6 +1037,12 @@ export type UploadPackageLabelPhotoWithTokenRoute =
   typeof uploadPackageLabelPhotoWithToken;
 export type GetPackagingVideoRoute = typeof getPackagingVideo;
 export type UploadPackagingVideoRoute = typeof uploadPackagingVideo;
+export type CreatePackagePackagingVideoTokenRoute =
+  typeof createPackagePackagingVideoToken;
+export type GetPackagePackagingVideoTokenContextRoute =
+  typeof getPackagePackagingVideoTokenContext;
+export type UploadPackagePackagingVideoWithTokenRoute =
+  typeof uploadPackagePackagingVideoWithToken;
 export type ListShippingLabelsRoute = typeof listShippingLabels;
 export type ReceiveAPackagesFromW1Route = typeof receiveAPackageFromW1;
 export type EditReceivedPackageFromW1Route = typeof editReceivedPackageFromW1;

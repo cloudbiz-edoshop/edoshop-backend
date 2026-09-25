@@ -362,6 +362,25 @@ export const packageLabelPhotoTokenParamsSchema = z.object({
   token: z.string().min(1).describe("Label photo upload token"),
 });
 
+export const packagePackagingVideoTokenResponseSchema = z.object({
+  token: z.string(),
+  packageId: z.number(),
+  packageCode: z.string(),
+  expiresAt: z.string(),
+});
+
+export const packagePackagingVideoTokenContextSchema = z.object({
+  packageId: z.number(),
+  packageCode: z.string(),
+  hasVideo: z.boolean(),
+  videoUrl: z.string().nullable(),
+  expiresAt: z.string(),
+});
+
+export const packagePackagingVideoTokenParamsSchema = z.object({
+  token: z.string().min(1).describe("Packaging video upload token"),
+});
+
 export const packagingVideoCustomerResponseSchema = z.object({
   confirmed: z.boolean(),
   disputeMessage: z.string().trim().optional(),

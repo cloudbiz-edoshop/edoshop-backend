@@ -19,6 +19,7 @@ import { WarehouseRepository } from "../warehouses/warehouses.repository";
 import { PackagesRepository } from "./packages.repository";
 import GroupPackagesService from "../group-packages/group-packages.service";
 import { PackagingVideosService } from "./packaging-videos.service";
+import { stripGpsCoordinatesFromLabelText } from "./shipping-label-address.util";
 import { getPaginationValues } from "@/lib/searching-sorting";
 
 export class PackagesService {
@@ -175,11 +176,11 @@ export class PackagesService {
         shippingPriorityCodeId: info.shippingPriorityCode.id,
         netWeight: info.weight.toString(),
         purchasedBy: info.purchasedBy.userId,
-        additionalNotes: data.note,
+        additionalNotes: stripGpsCoordinatesFromLabelText(data.note ?? ""),
         customerFullName: info.purchasedBy.user.fullName,
         address: info.address,
-        country: info.country.name,
-        city: info.city.name,
+        country: stripGpsCoordinatesFromLabelText(info.country.name),
+        city: stripGpsCoordinatesFromLabelText(info.city.name),
       });
 
       // Update hasShippingLabel flag on package
@@ -199,8 +200,12 @@ export class PackagesService {
   }) {
     await this.packagesRepository.updateShippingLabel(data.shippingLabelId, {
       netWeight: data.weight?.toString(),
-      address: data.address,
-      additionalNotes: data.note,
+      address: data.address
+        ? stripGpsCoordinatesFromLabelText(data.address)
+        : data.address,
+      additionalNotes: data.note
+        ? stripGpsCoordinatesFromLabelText(data.note)
+        : data.note,
     });
 
     return { success: true };
@@ -520,13 +525,19 @@ export class PackagesService {
       labelFullName || customerUser?.fullName?.toUpperCase() || "N/A",
     );
     const streetAddress = this.sanitizeForPdf(
-      shippingLabel.address?.trim() || customerAddress?.streetAddress || "N/A",
+      stripGpsCoordinatesFromLabelText(
+        shippingLabel.address?.trim() || customerAddress?.streetAddress || "N/A",
+      ) || "N/A",
     );
     const city = this.sanitizeForPdf(
-      shippingLabel.city?.trim() || customerAddress?.city?.name || "N/A",
+      stripGpsCoordinatesFromLabelText(
+        shippingLabel.city?.trim() || customerAddress?.city?.name || "N/A",
+      ) || "N/A",
     );
     const country = this.sanitizeForPdf(
-      shippingLabel.country?.trim() || customerAddress?.country?.name || "N/A",
+      stripGpsCoordinatesFromLabelText(
+        shippingLabel.country?.trim() || customerAddress?.country?.name || "N/A",
+      ) || "N/A",
     );
     const countryCity = this.sanitizeForPdf([country.toUpperCase(), city].filter(Boolean).join(", "));
     const shippingType = this.sanitizeForPdf(shippingLabel.shippingType?.name?.toUpperCase() || "NORMAL");
@@ -548,7 +559,9 @@ export class PackagesService {
       .filter(o => o.notes?.trim())
       .map(o => ` ${(o.notes ?? "").trim()}`)
       .join("  |  ");
-    const notesText = this.sanitizeForPdf(orderNotes);
+    const notesText = this.sanitizeForPdf(
+      stripGpsCoordinatesFromLabelText(orderNotes),
+    );
 
     // ── 3. Generate QR code PNG (tracking URL) via bwip-js ───────────────
     const qrCodePng: Buffer = await bwipjs.toBuffer({
@@ -904,6 +917,17 @@ export class PackagesService {
       stringifiedAddress = data.address;
     }
 
+    stringifiedAddress = stripGpsCoordinatesFromLabelText(stringifiedAddress) || "N/A";
+
+    const cityName =
+      stripGpsCoordinatesFromLabelText(
+        shippingAddress?.city?.name ?? fallbackAddress?.city?.name ?? "",
+      ) || null;
+    const countryName =
+      stripGpsCoordinatesFromLabelText(
+        shippingAddress?.country?.name ?? fallbackAddress?.country?.name ?? "",
+      ) || null;
+
     return {
       packageCode: data.packageCode,
       hasShippingLabel: Boolean(data.hasShippingLabel),
@@ -913,9 +937,15 @@ export class PackagesService {
       weight: entry.weight,
       fullName: entry.customer?.user.fullName ?? "N/A",
       address: stringifiedAddress,
-      city: shippingAddress?.city ?? fallbackAddress?.city ?? null,
-      country: shippingAddress?.country ?? fallbackAddress?.country ?? null,
-      additionalNotes: entry.customer?.orders?.[0]?.notes ?? null,
+      city: cityName
+        ? { ...shippingAddress?.city, name: cityName }
+        : (shippingAddress?.city ?? fallbackAddress?.city ?? null),
+      country: countryName
+        ? { ...shippingAddress?.country, name: countryName }
+        : (shippingAddress?.country ?? fallbackAddress?.country ?? null),
+      additionalNotes: stripGpsCoordinatesFromLabelText(
+        entry.customer?.orders?.[0]?.notes ?? "",
+      ) || null,
       purchasedBy: data.entry.customer,
     };
   }

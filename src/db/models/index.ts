@@ -130,6 +130,10 @@ export {
   default as packagePackagingVideos,
   packagePackagingVideosRelations,
 } from "./package-packaging-videos";
+export {
+  default as packagePackagingVideoTokens,
+  packagePackagingVideoTokensRelations,
+} from "./package-packaging-video-tokens";
 export { default as packageStatuses, packageStatusesRelations } from "./package-statuses";
 export { default as packages, packagesRelations } from "./packages";
 export {

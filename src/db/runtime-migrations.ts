@@ -1423,6 +1423,18 @@ async function ensurePredefinedRolePermissions(permCols: PermissionColumns) {
     `),
   );
 
+  await db.execute(
+    sql.raw(`
+      CREATE TABLE IF NOT EXISTS "package_packaging_video_tokens" (
+        "id" serial PRIMARY KEY,
+        "token" varchar(128) NOT NULL UNIQUE,
+        "package_id" integer NOT NULL REFERENCES "packages"("id") ON DELETE CASCADE,
+        "expires_at" timestamp NOT NULL,
+        "created_at" timestamp NOT NULL DEFAULT now()
+      )
+    `),
+  );
+
   // Every order reaching fulfillment must carry a shipping priority.
   await db.execute(
     sql.raw(`

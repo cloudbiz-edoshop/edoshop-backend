@@ -23,6 +23,9 @@ import type {
   CreatePackageLabelPhotoTokenRoute,
   GetPackageLabelPhotoTokenContextRoute,
   UploadPackageLabelPhotoWithTokenRoute,
+  CreatePackagePackagingVideoTokenRoute,
+  GetPackagePackagingVideoTokenContextRoute,
+  UploadPackagePackagingVideoWithTokenRoute,
   UploadPackagingVideoRoute,
   ReceiveAPackagesFromW1Route,
   ReceivedPackageDispatchManagementRoute,
@@ -40,10 +43,12 @@ import { createPagination } from "@/lib/searching-sorting";
 import { PackagesService } from "./packages.service";
 import { PackagingVideosService } from "./packaging-videos.service";
 import { PackageLabelPhotosService } from "./package-label-photos.service";
+import { PackagingVideoTokensService } from "./packaging-video-tokens.service";
 
 const packagesService = new PackagesService();
 const packagingVideosService = new PackagingVideosService();
 const packageLabelPhotosService = new PackageLabelPhotosService();
+const packagingVideoTokensService = new PackagingVideoTokensService();
 
 export const createPackage: AppRouteHandler<CreatePackageRoute> = async (c) => {
   const data = c.req.valid("json");
@@ -225,6 +230,25 @@ const readUploadedPhoto = async (c: {
   return null;
 };
 
+const readUploadedVideo = async (c: {
+  req: { formData: () => Promise<FormData> };
+}) => {
+  const formData = await c.req.formData();
+  let videoFile: File | null = null;
+  let durationSeconds: number | null = null;
+
+  for (const [key, value] of formData.entries()) {
+    if (key === "video" && isUploadedFile(value)) {
+      videoFile = value;
+    } else if (key === "durationSeconds" && typeof value === "string") {
+      const parsed = Number.parseInt(value, 10);
+      durationSeconds = Number.isFinite(parsed) ? parsed : null;
+    }
+  }
+
+  return { videoFile, durationSeconds };
+};
+
 export const getPackageLabelPhoto: AppRouteHandler<GetPackageLabelPhotoRoute> = async (c) => {
   const { packageId } = c.req.valid("param");
   const result = await packageLabelPhotosService.getLabelPhoto(Number(packageId));
@@ -289,6 +313,54 @@ export const uploadPackageLabelPhotoWithToken: AppRouteHandler<UploadPackageLabe
 
   return c.json(
     successResponse(result, "Label photo uploaded successfully"),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const createPackagePackagingVideoToken: AppRouteHandler<
+  CreatePackagePackagingVideoTokenRoute
+> = async (c) => {
+  const { packageId } = c.req.valid("param");
+  const result = await packagingVideoTokensService.createUploadToken(
+    Number(packageId),
+  );
+
+  return c.json(
+    successResponse(result, "Upload link created successfully"),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const getPackagePackagingVideoTokenContext: AppRouteHandler<
+  GetPackagePackagingVideoTokenContextRoute
+> = async (c) => {
+  const { token } = c.req.valid("param");
+  const result = await packagingVideoTokensService.getTokenContext(token);
+
+  return c.json(
+    successResponse(result, "Upload link resolved successfully"),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const uploadPackagePackagingVideoWithToken: AppRouteHandler<
+  UploadPackagePackagingVideoWithTokenRoute
+> = async (c) => {
+  const { token } = c.req.valid("param");
+  const { videoFile, durationSeconds } = await readUploadedVideo(c);
+
+  if (!videoFile) {
+    throw new AppError("No video file uploaded", HttpStatusCodes.BAD_REQUEST);
+  }
+
+  const result = await packagingVideoTokensService.uploadPackagingVideoWithToken(
+    token,
+    videoFile,
+    durationSeconds,
+  );
+
+  return c.json(
+    successResponse(result, "Packaging video uploaded successfully"),
     HttpStatusCodes.OK,
   );
 };

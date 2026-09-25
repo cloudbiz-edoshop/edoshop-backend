@@ -12,6 +12,18 @@ router.openapi(routes.editShippingLabel, handlers.editShippingLabel);
 router.openapi(routes.printShippingLabel, handlers.printShippingLabel);
 router.openapi(routes.getPackagingVideo, handlers.getPackagingVideo);
 router.openapi(routes.uploadPackagingVideo, handlers.uploadPackagingVideo);
+router.openapi(
+  routes.createPackagePackagingVideoToken,
+  handlers.createPackagePackagingVideoToken,
+);
+router.openapi(
+  routes.getPackagePackagingVideoTokenContext,
+  handlers.getPackagePackagingVideoTokenContext,
+);
+router.openapi(
+  routes.uploadPackagePackagingVideoWithToken,
+  handlers.uploadPackagePackagingVideoWithToken,
+);
 router.openapi(routes.getPackageLabelPhoto, handlers.getPackageLabelPhoto);
 router.openapi(routes.uploadPackageLabelPhoto, handlers.uploadPackageLabelPhoto);
 router.openapi(routes.createPackageLabelPhotoToken, handlers.createPackageLabelPhotoToken);

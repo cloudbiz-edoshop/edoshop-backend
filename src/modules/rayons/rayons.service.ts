@@ -102,6 +102,13 @@ export class RayonsService {
         repoParams,
       );
 
+    const storageItemsForWarehouse = (items) => {
+      if (warehouseId !== 1) {
+        return items;
+      }
+      return items.filter((item) => !(item.entry?.bundles?.length));
+    };
+
     const data = rayons
       .map((rayon) => {
         let totalBins = 0;
@@ -113,25 +120,28 @@ export class RayonsService {
           .map((shelf) => {
             const bins = shelf.bins
               .map((bin) => {
+                const visibleStorageItems = storageItemsForWarehouse(
+                  bin.storageItems,
+                ) as typeof bin.storageItems;
                 let totalQuantity = 0;
                 let hasUsedItems = false;
-                const totalItems = bin.storageItems.length;
+                const totalItems = visibleStorageItems.length;
                 const productCodes = Array.from(
                   new Set(
-                    bin.storageItems
+                    visibleStorageItems
                       .map(item => item.entry?.productCode ?? null)
                       .filter((code): code is string => Boolean(code)),
                   ),
                 );
                 const productIds = Array.from(
                   new Set(
-                    bin.storageItems
+                    visibleStorageItems
                       .map((item) => item.entryId ?? null)
                       .filter((id): id is number => typeof id === "number"),
                   ),
                 );
 
-                for (const item of bin.storageItems) {
+                for (const item of visibleStorageItems) {
                   totalQuantity += item.quantity;
 
                   if (item.quantity > 0) {
@@ -169,7 +179,7 @@ export class RayonsService {
 
                 return {
                   ...bin,
-                  storageItems: bin.storageItems.map(storageItem => ({
+                  storageItems: visibleStorageItems.map(storageItem => ({
                     ...storageItem,
                     productCode: storageItem.entry?.productCode ?? null,
                   })),

@@ -21,6 +21,7 @@ import {
   tags,
 } from "@/db/models";
 
+import { assertValidDirectOrderProductCode } from "./direct-order-product-code.util";
 import { ProductsRepository } from "./products.repository";
 
 export class ProductsService {
@@ -104,6 +105,8 @@ export class ProductsService {
       if (!directOrderCode) {
         throw new AppError("Direct Order Product ID is required");
       }
+
+      await assertValidDirectOrderProductCode(directOrderCode);
 
       const existingDirectOrderProduct =
         await db.query.directOrderProducts.findFirst({
@@ -304,6 +307,10 @@ export class ProductsService {
         product.storeId === StoreIds.direct &&
         (productData.directOrderCode?.trim() || productData.totalItems !== undefined)
       ) {
+        if (productData.directOrderCode?.trim()) {
+          await assertValidDirectOrderProductCode(productData.directOrderCode.trim());
+        }
+
         await tx
           .update(directOrderProducts)
           .set({

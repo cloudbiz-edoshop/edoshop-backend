@@ -141,6 +141,12 @@ export class WarehouseTicketsService {
             warehouseId,
           );
 
+          if (!entryId) {
+            throw new ValidationError(
+              `"${product.name}" is not stocked in this warehouse (EWMS). Only products with stock in Visualization & Stock can be requested.`,
+            );
+          }
+
           const directProduct = await db.query.directOrderProducts.findFirst({
             where: (directOrderProductsTable, { eq }) =>
               eq(directOrderProductsTable.productId, item.productId!),
