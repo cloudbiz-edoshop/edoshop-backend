@@ -18,16 +18,19 @@ export function customerAmendmentNotice(packageCode: string) {
   return `We recorded your packaging video for package ${packageCode}. You have 24 hours to review it and send any amendments.`;
 }
 
+const operatorNextStep =
+  "Photograph the package with the shipping label on it, then mark fulfillment complete yourself.";
+
 export function staffAmendmentNotice(packageCode: string, amendment: string) {
   const clean = amendment.replace(/\s+/g, " ").trim();
-  const clipped = clean.length > 120 ? `${clean.slice(0, 119)}…` : clean;
-  return `Customer sent amendments for package ${packageCode}. Complete the packaging. ${clipped}`;
+  const clipped = clean.length > 80 ? `${clean.slice(0, 79)}…` : clean;
+  return `Package ${packageCode}: customer amendments — ${clipped}. ${operatorNextStep}`;
 }
 
 export function staffSilenceNotice(packageCode: string) {
-  return `No customer response within 24 hours for package ${packageCode}. Complete the packaging.`;
+  return `Package ${packageCode}: no customer reply in 24 hours. ${operatorNextStep}`;
 }
 
 export function staffConfirmationNotice(packageCode: string) {
-  return `Customer confirmed package ${packageCode} is correct. Complete the packaging.`;
+  return `Package ${packageCode}: customer confirmed it. ${operatorNextStep}`;
 }

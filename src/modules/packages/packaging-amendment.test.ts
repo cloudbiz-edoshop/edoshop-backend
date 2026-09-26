@@ -24,7 +24,8 @@ describe("packaging amendment window", () => {
 
   it("tells the customer about the 24 hour amendment window", () => {
     expect(customerAmendmentNotice("PKG_11")).toContain("24 hours");
-    expect(staffSilenceNotice("PKG_11")).toContain("Complete the packaging");
+    expect(staffSilenceNotice("PKG_11")).toContain("mark fulfillment complete yourself");
+    expect(staffSilenceNotice("PKG_11")).toContain("shipping label");
     expect(staffAmendmentNotice("PKG_11", "Missing charger")).toContain("Missing charger");
   });
 });

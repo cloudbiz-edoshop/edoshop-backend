@@ -159,9 +159,11 @@ export class PackagingVideosService {
       );
     }
 
-    // The packaging video is optional in the current W1 flow. When one exists
-    // it is released to the customer; otherwise completion is tracked on the
-    // package itself.
+    // Only this operator action marks fulfillment complete. A customer reply
+    // or the 24-hour silence job only notifies warehouse staff; they still
+    // photograph the labeled package and confirm completion here.
+    // The packaging video is optional. When one exists it is released to the
+    // customer; otherwise completion is tracked on the package itself.
     const existing = await this.repository.getByPackageId(packageId);
 
     if (pkg.fulfillmentCompletedAt) {
