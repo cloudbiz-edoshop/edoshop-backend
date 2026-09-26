@@ -130,6 +130,15 @@ export const entryResponseSchema = selectEntriesSchema.extend({
   returnsAsOriginalEntry: z.array(returnsSchema).optional(),
   returnsAsReturnEntry: z.array(returnsSchema).optional(),
   entryProducts: z.array(selectEntryProductsSchema).optional(),
+  linkedStoreProducts: z
+    .array(
+      z.object({
+        id: z.number(),
+        name: z.string(),
+        directOrderCode: z.string().nullable().optional(),
+      }),
+    )
+    .optional(),
 });
 
 export const createEntriesResponseSchema = entryResponseSchema;

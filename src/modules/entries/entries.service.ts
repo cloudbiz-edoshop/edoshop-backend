@@ -20,6 +20,7 @@ import { EntryCodeGenerator } from "./services/entry-code-generator";
 import { EntryCreationService } from "./services/entry-creation.service";
 import { EntryDataResolver } from "./services/entry-data-resolver";
 import { EntryUpdateService } from "./services/entry-update.service";
+import { enrichEntriesWithLinkedStoreProducts } from "./services/entry-linked-products.service";
 import { EntryValidationService } from "./validation/entry-validation.service";
 
 export class EntriesService {
@@ -83,7 +84,8 @@ export class EntriesService {
       throw new AppError("Entry could not be fetched after creation");
     }
 
-    return result as CreateEntriesResponse;
+    const enriched = await enrichEntriesWithLinkedStoreProducts([result]);
+    return enriched[0] as CreateEntriesResponse;
   }
 
   async list(params: {
@@ -94,7 +96,11 @@ export class EntriesService {
     sortOrder?: "asc" | "desc";
     filters?: Record<string, any>;
   }) {
-    return this.entriesRepository.list(params);
+    const result = await this.entriesRepository.list(params);
+    return {
+      ...result,
+      data: await enrichEntriesWithLinkedStoreProducts(result.data),
+    };
   }
 
   async findById(id: number) {
@@ -102,7 +108,8 @@ export class EntriesService {
     if (!entry) {
       throw new NotFoundError("Entry not found");
     }
-    return entry;
+    const enriched = await enrichEntriesWithLinkedStoreProducts([entry]);
+    return enriched[0];
   }
 
   async update(id: number, data: UpdateEntriesRequest & { updatedBy: number }) {
@@ -169,7 +176,7 @@ export class EntriesService {
       filters?: Record<string, any>;
     },
   ) {
-    return this.entriesRepository.list({
+    const result = await this.entriesRepository.list({
       ...params,
       filters: {
         ...params.filters,
@@ -177,6 +184,10 @@ export class EntriesService {
         createdBy: userId,
       },
     });
+    return {
+      ...result,
+      data: await enrichEntriesWithLinkedStoreProducts(result.data),
+    };
   }
 
   async getEntriesByType(
@@ -190,13 +201,17 @@ export class EntriesService {
       filters?: Record<string, any>;
     },
   ) {
-    return this.entriesRepository.list({
+    const result = await this.entriesRepository.list({
       ...params,
       filters: {
         ...params.filters,
         entryTypeId,
       },
     });
+    return {
+      ...result,
+      data: await enrichEntriesWithLinkedStoreProducts(result.data),
+    };
   }
 
   async getAllEntryStates() {
