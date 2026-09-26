@@ -1,5 +1,7 @@
 import { EntityType, OperationType } from "@/constants";
 
+import { TICKETING_PAGE_ENTITIES } from "./ticketing-pages.constants";
+
 export const PROTECTED_ROLE_NAMES = {
   SUPER_ADMIN: "super_admin",
   ADMIN: "admin",
@@ -89,6 +91,7 @@ export const TICKET_BORROW_LIMIT_ENTITIES: EntityType[] = [
 export const TICKETING_ENTITIES: EntityType[] = [
   ...TICKETING_CORE_ENTITIES,
   ...TICKET_BORROW_LIMIT_ENTITIES,
+  ...TICKETING_PAGE_ENTITIES,
 ];
 
 export const TV_APP_ENTITIES: EntityType[] = [
