@@ -241,6 +241,7 @@ export const customerOrderTrackingSchema = z.object({
         customerConfirmedAt: z.string().nullable().optional(),
         customerDisputeMessage: z.string().nullable().optional(),
         customerRespondedAt: z.string().nullable().optional(),
+        amendmentDeadlineAt: z.string().nullable().optional(),
         status: z.enum(["pending_review", "confirmed", "disputed"]),
       }),
     )

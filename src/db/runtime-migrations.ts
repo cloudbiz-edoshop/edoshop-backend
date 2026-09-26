@@ -1425,7 +1425,9 @@ async function ensurePredefinedRolePermissions(permCols: PermissionColumns) {
   await db.execute(
     sql.raw(`
       ALTER TABLE "package_packaging_videos"
-      ADD COLUMN IF NOT EXISTS "released_to_customer_at" timestamp
+      ADD COLUMN IF NOT EXISTS "released_to_customer_at" timestamp,
+      ADD COLUMN IF NOT EXISTS "amendment_deadline_at" timestamp,
+      ADD COLUMN IF NOT EXISTS "staff_completion_notified_at" timestamp
     `),
   );
 

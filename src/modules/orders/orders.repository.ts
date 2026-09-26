@@ -1354,6 +1354,7 @@ export class OrdersRepository {
           customerConfirmedAt: video.customerConfirmedAt,
           customerDisputeMessage: video.customerDisputeMessage,
           customerRespondedAt: video.customerRespondedAt,
+          amendmentDeadlineAt: video.amendmentDeadlineAt,
           status: video.customerDisputeMessage
             ? "disputed" as const
             : video.customerConfirmedAt

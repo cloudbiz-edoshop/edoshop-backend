@@ -1,10 +1,24 @@
 import { randomUUID } from "node:crypto";
 
 import { NotificationTypeIds } from "@/constants/notification-types.constants";
+import { NotificationAudience } from "@/constants/notification-audience.constants";
+import { EntityType } from "@/constants/entities.constants";
+import { OperationType } from "@/constants/operations.constants";
 import { PackageStatusIds } from "@/constants/package-statuses.constants";
 import { StorageService } from "@/common/services/storage.service";
 import { NotFoundError, ValidationError } from "@/core/errors";
+import db from "@/db";
+import { users } from "@/db/models";
+import { and, eq } from "drizzle-orm";
 import { NotificationDeliveryService } from "@/modules/notifications/notification-delivery.service";
+import {
+  amendmentDeadlineFrom,
+  customerAmendmentNotice,
+  isAmendmentWindowOpen,
+  staffAmendmentNotice,
+  staffConfirmationNotice,
+  staffSilenceNotice,
+} from "./packaging-amendment";
 import { PackagingVideosRepository } from "./packaging-videos.repository";
 import { PackagesRepository } from "./packages.repository";
 
@@ -104,7 +118,27 @@ export class PackagingVideosService {
       recordedBy: params.recordedBy,
     });
 
-    return this.toResponse(video);
+    const released = await this.releaseVideoToCustomer(params.packageId, pkg.packageCode);
+    return this.toResponse(released ?? video);
+  }
+
+  /**
+   * Sends the packaging video to the customer and starts the 24-hour
+   * amendment window. Safe to call again: an already-released video is left as-is.
+   */
+  private async releaseVideoToCustomer(packageId: number, packageCode: string) {
+    const current = await this.repository.getByPackageId(packageId);
+    if (!current) return null;
+    if (current.releasedToCustomerAt) return current;
+
+    const releasedAt = new Date();
+    const released = await this.repository.markReleasedToCustomer(
+      packageId,
+      releasedAt.toISOString(),
+      amendmentDeadlineFrom(releasedAt).toISOString(),
+    );
+    await this.notifyCustomerPackagingComplete(packageId, packageCode);
+    return released;
   }
 
   async completeW1Fulfillment(packageId: number) {
@@ -152,14 +186,9 @@ export class PackagingVideosService {
 
     let packagingVideo: ReturnType<PackagingVideosService["toResponse"]> | null = null;
     if (existing) {
-      const released = existing.releasedToCustomerAt
-        ? existing
-        : await this.repository.markReleasedToCustomer(packageId, completedAt);
+      const released = await this.releaseVideoToCustomer(packageId, pkg.packageCode);
       if (released) {
         packagingVideo = this.toResponse({ ...released, packageCode: pkg.packageCode });
-      }
-      if (!existing.releasedToCustomerAt) {
-        await this.notifyCustomerPackagingComplete(packageId, pkg.packageCode);
       }
     }
 
@@ -212,6 +241,12 @@ export class PackagingVideosService {
       throw new ValidationError("You have already responded to this packaging video");
     }
 
+    if (!isAmendmentWindowOpen(video.amendmentDeadlineAt)) {
+      throw new ValidationError(
+        "The 24-hour window to send amendments has closed.",
+      );
+    }
+
     if (!params.confirmed && !params.disputeMessage?.trim()) {
       throw new ValidationError("Please describe the missing or incorrect items");
     }
@@ -221,7 +256,43 @@ export class PackagingVideosService {
       disputeMessage: params.disputeMessage?.trim() ?? null,
     });
 
+    const pkg = await this.packagesRepository.getPackageById(video.packageId);
+    const packageCode = video.packageCode ?? pkg?.packageCode ?? String(video.packageId);
+    if (!params.confirmed) {
+      await this.notifyStaffToCompletePackaging({
+        videoId: video.id,
+        packageId: video.packageId,
+        packageCode,
+        message: staffAmendmentNotice(packageCode, params.disputeMessage?.trim() ?? ""),
+      });
+    } else if (!pkg?.fulfillmentCompletedAt) {
+      await this.notifyStaffToCompletePackaging({
+        videoId: video.id,
+        packageId: video.packageId,
+        packageCode,
+        message: staffConfirmationNotice(packageCode),
+      });
+    }
+
     return this.toResponse(updated);
+  }
+
+  /**
+   * After 24 hours with no customer reply, tell warehouse staff to finish
+   * packaging for packages that are not completed yet.
+   */
+  async processExpiredAmendmentWindows() {
+    const now = new Date().toISOString();
+    const due = await this.repository.listVideosAwaitingStaffAfterSilence(now);
+    for (const video of due) {
+      await this.notifyStaffToCompletePackaging({
+        videoId: video.id,
+        packageId: video.packageId,
+        packageCode: video.packageCode,
+        message: staffSilenceNotice(video.packageCode),
+      });
+    }
+    return due.length;
   }
 
   async getVideosForOrder(orderId: number) {
@@ -241,12 +312,49 @@ export class PackagingVideosService {
       customerConfirmedAt: video.customerConfirmedAt,
       customerDisputeMessage: video.customerDisputeMessage,
       customerRespondedAt: video.customerRespondedAt,
+      amendmentDeadlineAt: video.amendmentDeadlineAt,
       status: video.customerDisputeMessage
         ? "disputed"
         : video.customerConfirmedAt
           ? "confirmed"
           : "pending_review",
     }));
+  }
+
+  private async notifyStaffToCompletePackaging(params: {
+    videoId: number;
+    packageId: number;
+    packageCode: string;
+    message: string;
+  }) {
+    const permissionUserIds = await notificationDeliveryService.listEmployeeUserIdsByPermission(
+      EntityType.WAREHOUSE_1,
+      OperationType.UPDATE,
+    );
+    const adminRows = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(eq(users.isAdmin, true), eq(users.isDeleted, false)));
+    const userIds = [...new Set([...permissionUserIds, ...adminRows.map((row) => row.id)])];
+    const notifiedAt = new Date().toISOString();
+
+    await Promise.all(
+      userIds.map((userId) =>
+        notificationDeliveryService.deliverToUser({
+          userId,
+          title: "Complete packaging",
+          message: params.message,
+          notificationTypeId: NotificationTypeIds.WARNING,
+          channels: ["webapp"],
+          actionUrl: "/warehouse/1/fulfillments/management",
+          referenceType: "package_packaging",
+          referenceId: params.packageId,
+          audience: NotificationAudience.STAFF,
+        }),
+      ),
+    );
+
+    await this.repository.markStaffCompletionNotified(params.videoId, notifiedAt);
   }
 
   private async notifyCustomerPackagingComplete(packageId: number, packageCode: string) {
@@ -262,7 +370,7 @@ export class PackagingVideosService {
     await notificationDeliveryService.deliverToUser({
       userId,
       title: "Your order packaging is complete",
-      message: `We recorded your packaging video for package ${packageCode}. Review the video in your account and confirm everything is included.`,
+      message: customerAmendmentNotice(packageCode),
       notificationTypeId: NotificationTypeIds.PACKAGING_VIDEO_READY,
       actionUrl,
       referenceType: "package",
@@ -279,6 +387,7 @@ export class PackagingVideosService {
     customerConfirmedAt?: string | null;
     customerDisputeMessage?: string | null;
     customerRespondedAt?: string | null;
+    amendmentDeadlineAt?: string | null;
     packageCode?: string;
   }) {
     return {
@@ -291,6 +400,7 @@ export class PackagingVideosService {
       customerConfirmedAt: video.customerConfirmedAt,
       customerDisputeMessage: video.customerDisputeMessage,
       customerRespondedAt: video.customerRespondedAt,
+      amendmentDeadlineAt: video.amendmentDeadlineAt ?? null,
       status: video.customerDisputeMessage
         ? "disputed"
         : video.customerConfirmedAt

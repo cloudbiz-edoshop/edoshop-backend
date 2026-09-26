@@ -1,4 +1,4 @@
-import { and, eq, isNotNull } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, lte } from "drizzle-orm";
 
 import db from "@/db";
 import {
@@ -63,6 +63,8 @@ export class PackagingVideosRepository {
           recordedBy: data.recordedBy,
           recordedAt: now,
           releasedToCustomerAt: null,
+          amendmentDeadlineAt: null,
+          staffCompletionNotifiedAt: null,
           customerConfirmedAt: null,
           customerDisputeMessage: null,
           customerRespondedAt: null,
@@ -128,11 +130,17 @@ export class PackagingVideosRepository {
     return row[0]?.orderCode ?? null;
   }
 
-  async markReleasedToCustomer(packageId: number, releasedAt: string) {
+  async markReleasedToCustomer(
+    packageId: number,
+    releasedAt: string,
+    amendmentDeadlineAt: string,
+  ) {
     const [row] = await db
       .update(packagePackagingVideos)
       .set({
         releasedToCustomerAt: releasedAt,
+        amendmentDeadlineAt,
+        staffCompletionNotifiedAt: null,
         updatedAt: releasedAt,
       })
       .where(eq(packagePackagingVideos.packageId, packageId))
@@ -140,16 +148,56 @@ export class PackagingVideosRepository {
     return row ?? null;
   }
 
+  async markStaffCompletionNotified(videoId: number, notifiedAt: string) {
+    const [row] = await db
+      .update(packagePackagingVideos)
+      .set({
+        staffCompletionNotifiedAt: notifiedAt,
+        updatedAt: notifiedAt,
+      })
+      .where(eq(packagePackagingVideos.id, videoId))
+      .returning();
+    return row ?? null;
+  }
+
   async clearReleasedToCustomer(packageId: number) {
+    const now = new Date().toISOString();
     const [row] = await db
       .update(packagePackagingVideos)
       .set({
         releasedToCustomerAt: null,
-        updatedAt: new Date().toISOString(),
+        amendmentDeadlineAt: null,
+        staffCompletionNotifiedAt: null,
+        updatedAt: now,
       })
       .where(eq(packagePackagingVideos.packageId, packageId))
       .returning();
     return row ?? null;
+  }
+
+  /**
+   * Videos whose 24h amendment window ended with no customer reply, and whose
+   * package is still waiting for Warehouse 1 fulfillment to be completed.
+   */
+  async listVideosAwaitingStaffAfterSilence(nowIso: string) {
+    return db
+      .select({
+        id: packagePackagingVideos.id,
+        packageId: packagePackagingVideos.packageId,
+        packageCode: packages.packageCode,
+      })
+      .from(packagePackagingVideos)
+      .innerJoin(packages, eq(packages.id, packagePackagingVideos.packageId))
+      .where(
+        and(
+          isNotNull(packagePackagingVideos.releasedToCustomerAt),
+          isNotNull(packagePackagingVideos.amendmentDeadlineAt),
+          lte(packagePackagingVideos.amendmentDeadlineAt, nowIso),
+          isNull(packagePackagingVideos.customerRespondedAt),
+          isNull(packagePackagingVideos.staffCompletionNotifiedAt),
+          isNull(packages.fulfillmentCompletedAt),
+        ),
+      );
   }
 
   async getVideosForOrder(orderId: number, options: { releasedOnly?: boolean } = {}) {
@@ -162,6 +210,7 @@ export class PackagingVideosRepository {
         durationSeconds: packagePackagingVideos.durationSeconds,
         recordedAt: packagePackagingVideos.recordedAt,
         releasedToCustomerAt: packagePackagingVideos.releasedToCustomerAt,
+        amendmentDeadlineAt: packagePackagingVideos.amendmentDeadlineAt,
         customerConfirmedAt: packagePackagingVideos.customerConfirmedAt,
         customerDisputeMessage: packagePackagingVideos.customerDisputeMessage,
         customerRespondedAt: packagePackagingVideos.customerRespondedAt,
@@ -196,6 +245,7 @@ export class PackagingVideosRepository {
         durationSeconds: packagePackagingVideos.durationSeconds,
         recordedAt: packagePackagingVideos.recordedAt,
         releasedToCustomerAt: packagePackagingVideos.releasedToCustomerAt,
+        amendmentDeadlineAt: packagePackagingVideos.amendmentDeadlineAt,
         customerConfirmedAt: packagePackagingVideos.customerConfirmedAt,
         customerDisputeMessage: packagePackagingVideos.customerDisputeMessage,
         customerRespondedAt: packagePackagingVideos.customerRespondedAt,
@@ -222,6 +272,7 @@ export class PackagingVideosRepository {
       durationSeconds: video.durationSeconds,
       recordedAt: video.recordedAt,
       releasedToCustomerAt: video.releasedToCustomerAt,
+      amendmentDeadlineAt: video.amendmentDeadlineAt,
       customerConfirmedAt: video.customerConfirmedAt,
       customerDisputeMessage: video.customerDisputeMessage,
       customerRespondedAt: video.customerRespondedAt,

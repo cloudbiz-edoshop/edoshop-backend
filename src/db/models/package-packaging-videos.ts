@@ -24,6 +24,10 @@ export const packagePackagingVideos = pgTable("package_packaging_videos", {
   recordedBy: integer().references(() => users.id),
   recordedAt: timestamp({ mode: "string" }).notNull().defaultNow(),
   releasedToCustomerAt: timestamp({ mode: "string" }),
+  /** Customer may send amendments until this time (24h after the video is released). */
+  amendmentDeadlineAt: timestamp({ mode: "string" }),
+  /** Set once warehouse staff have been told to complete packaging. */
+  staffCompletionNotifiedAt: timestamp({ mode: "string" }),
   customerConfirmedAt: timestamp({ mode: "string" }),
   customerDisputeMessage: text(),
   customerRespondedAt: timestamp({ mode: "string" }),
