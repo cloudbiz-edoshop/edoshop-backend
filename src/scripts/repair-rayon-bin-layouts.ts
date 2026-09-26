@@ -70,6 +70,25 @@ const rayonRows = await db.query.rayons.findMany({
   },
 });
 
+const existingBinCount = warehouseId
+  ? (
+      await db
+        .select({ id: bins.id })
+        .from(bins)
+        .where(eq(bins.warehouseId, warehouseId))
+    ).length
+  : 0;
+
+console.log(
+  `Warehouse ${warehouseId ?? "all"}: ${rayonRows.length} rayon(s), ${existingBinCount} existing bin(s).`,
+);
+
+if (!rayonRows.length) {
+  console.log(
+    "No rayons found. Run: npm run rayons:provision-from-xlsx -- --prod --file <workbook>",
+  );
+}
+
 let shelfCount = 0;
 let binCount = 0;
 let skippedCount = 0;

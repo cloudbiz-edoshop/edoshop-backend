@@ -45,6 +45,33 @@ export const spreadsheetBinLocationKeys = (
   return [...keys].filter(Boolean);
 };
 
+export type SpreadsheetBinSlot = {
+  locationCode: string;
+  rayonNumber: string;
+  columnLabel: string;
+  rowNumber: number;
+};
+
+/** Parse spreadsheet bin cell into rayon / shelf column / row (e.g. 4B2, 1 B 4). */
+export const parseSpreadsheetBinSlot = (
+  rawBinLocation: string,
+): SpreadsheetBinSlot | null => {
+  const keys = spreadsheetBinLocationKeys(rawBinLocation, 1);
+  for (const key of keys) {
+    const match = key.match(/^(\d+)([A-Z]+)(\d+)$/);
+    if (!match) continue;
+    const rowNumber = Number.parseInt(match[3], 10);
+    if (!Number.isFinite(rowNumber) || rowNumber <= 0) continue;
+    return {
+      locationCode: key,
+      rayonNumber: match[1],
+      columnLabel: match[2],
+      rowNumber,
+    };
+  }
+  return null;
+};
+
 export type BinRecord = { id: number; locationCode: string };
 
 export type BinResolver = {
