@@ -39,6 +39,8 @@ export const packages = pgTable("packages", {
   address: varchar({ length: 500 }),
   labelPhotoUrl: varchar({ length: 1024 }),
   labelPhotoUploadedAt: timestamp({ mode: "string" }),
+  /** Set when W1 fulfillment is completed (packaging video is optional). */
+  fulfillmentCompletedAt: timestamp({ mode: "string" }),
 });
 
 export const packagesSchema = createSelectSchema(packages);

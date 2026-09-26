@@ -329,8 +329,10 @@ export class OrdersRepository {
           quantityPacked: orderItems.quantityPacked,
           quantityAvailable: orderItems.quantityAvailable,
           deliveryAddress: sql<string>`COALESCE(concat_ws(', ',
-            ${addresses.streetAddress},
-            ${addresses.landmark}
+            NULLIF(trim(${addresses.streetAddress}), ''),
+            NULLIF(trim(${addresses.landmark}), ''),
+            NULLIF(trim(${cities.name}), ''),
+            NULLIF(trim(${countries.name}), '')
           ), '—')`,
           notes: orderItems.notes,
           // Using snapshot fields captured at order time

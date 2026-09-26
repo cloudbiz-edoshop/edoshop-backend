@@ -82,10 +82,30 @@ export class PackagesRepository {
         hasShippingLabel: 0,
         labelPhotoUrl: null,
         labelPhotoUploadedAt: null,
+        fulfillmentCompletedAt: null,
         updatedAt: new Date().toISOString(),
         updatedBy: userId,
       })
       .where(eq(packages.id, packageId));
+  }
+
+  /**
+   * Marks a package's Warehouse 1 fulfillment as completed (idempotent).
+   */
+  async markFulfillmentCompleted(packageId: number, completedAt: string) {
+    const [row] = await db
+      .update(packages)
+      .set({
+        fulfillmentCompletedAt: completedAt,
+        updatedAt: completedAt,
+      })
+      .where(eq(packages.id, packageId))
+      .returning({
+        id: packages.id,
+        packageCode: packages.packageCode,
+        fulfillmentCompletedAt: packages.fulfillmentCompletedAt,
+      });
+    return row ?? null;
   }
 
   /**

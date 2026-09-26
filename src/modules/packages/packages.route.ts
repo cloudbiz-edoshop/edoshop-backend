@@ -954,7 +954,7 @@ export const completeW1Fulfillment = createRoute({
   middleware: acl(EntityType.WAREHOUSE_1, OperationType.UPDATE),
   summary: "Complete warehouse 1 fulfillment",
   description:
-    "Mark W1 fulfillment complete, release the packaging video to the customer, and send a notification",
+    "Mark W1 fulfillment complete (requires shipping label + label photo), release the packaging video to the customer when one was recorded, and send a notification",
   request: {
     headers: jwtHeaderSchema,
     params: schemas.printLabelParamsSchema,
@@ -962,7 +962,7 @@ export const completeW1Fulfillment = createRoute({
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
       createSuccessResponseSchema(
-        schemas.packagingVideoResponseSchema,
+        schemas.completeW1FulfillmentResponseSchema,
         "Warehouse 1 fulfillment completed successfully",
       ),
       "Warehouse 1 fulfillment completed successfully",

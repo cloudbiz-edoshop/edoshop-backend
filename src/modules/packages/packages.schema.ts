@@ -337,6 +337,14 @@ export const packagingVideoResponseSchema = z.object({
   status: z.enum(["pending_review", "confirmed", "disputed"]),
 });
 
+export const completeW1FulfillmentResponseSchema = z.object({
+  packageId: z.number(),
+  packageCode: z.string(),
+  fulfillmentCompletedAt: z.string(),
+  /** Present only when a packaging video was recorded for this package. */
+  packagingVideo: packagingVideoResponseSchema.nullable(),
+});
+
 export const packageLabelPhotoResponseSchema = z.object({
   packageId: z.number(),
   packageCode: z.string(),

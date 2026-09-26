@@ -1,6 +1,6 @@
 import type { CommonQueryParams } from "@/lib/openapi/schemas/query-params-schema";
 import type { TX } from "@/lib/types";
-import { and, count, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, sql } from "drizzle-orm";
 import db from "@/db";
 import { bins, rayons, shelves, storage, warehouseTransfers } from "@/db/models";
 import {
@@ -111,7 +111,7 @@ export class RayonsRepository {
         where: (whereClause || sql`TRUE`),
         limit: limitVal,
         offset,
-        orderBy: sortCondition ? [sortCondition] : [desc(rayons.createdAt)],
+        orderBy: sortCondition ? [sortCondition] : [asc(rayons.name)],
         with: {
           shelves: {
             with: {

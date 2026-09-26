@@ -113,8 +113,6 @@ export class PackagingVideosService {
       throw new NotFoundError("Package not found");
     }
 
-    await this.assertPackagingVideoRecorded(packageId);
-
     if (pkg.hasShippingLabel !== 1) {
       throw new ValidationError(
         "Shipping label must be created before fulfillment can be completed.",
@@ -127,26 +125,50 @@ export class PackagingVideosService {
       );
     }
 
+    // The packaging video is optional in the current W1 flow. When one exists
+    // it is released to the customer; otherwise completion is tracked on the
+    // package itself.
     const existing = await this.repository.getByPackageId(packageId);
-    if (existing?.releasedToCustomerAt) {
-      return this.toResponse({
-        ...existing,
+
+    if (pkg.fulfillmentCompletedAt) {
+      return {
+        packageId,
         packageCode: pkg.packageCode,
-      });
+        fulfillmentCompletedAt: pkg.fulfillmentCompletedAt,
+        packagingVideo: existing
+          ? this.toResponse({ ...existing, packageCode: pkg.packageCode })
+          : null,
+      };
     }
 
-    const releasedAt = new Date().toISOString();
-    const released = await this.repository.markReleasedToCustomer(packageId, releasedAt);
-    if (!released) {
-      throw new NotFoundError("Packaging video not found");
+    const completedAt = new Date().toISOString();
+    const completed = await this.packagesRepository.markFulfillmentCompleted(
+      packageId,
+      completedAt,
+    );
+    if (!completed) {
+      throw new NotFoundError("Package not found");
     }
 
-    await this.notifyCustomerPackagingComplete(packageId, pkg.packageCode);
+    let packagingVideo: ReturnType<PackagingVideosService["toResponse"]> | null = null;
+    if (existing) {
+      const released = existing.releasedToCustomerAt
+        ? existing
+        : await this.repository.markReleasedToCustomer(packageId, completedAt);
+      if (released) {
+        packagingVideo = this.toResponse({ ...released, packageCode: pkg.packageCode });
+      }
+      if (!existing.releasedToCustomerAt) {
+        await this.notifyCustomerPackagingComplete(packageId, pkg.packageCode);
+      }
+    }
 
-    return this.toResponse({
-      ...released,
+    return {
+      packageId,
       packageCode: pkg.packageCode,
-    });
+      fulfillmentCompletedAt: completed.fulfillmentCompletedAt ?? completedAt,
+      packagingVideo,
+    };
   }
 
   /**

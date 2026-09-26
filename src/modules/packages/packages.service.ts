@@ -129,8 +129,6 @@ export class PackagesService {
       throw new NotFoundError("Package not found");
     }
 
-    await this.packagingVideosService.assertPackagingVideoRecorded(data.packageId);
-
     const existingLabel = await this.packagesRepository.getShippingLabelByPackageId(data.packageId);
     if (existingLabel) {
       throw new ConflictError(`A shipping label already exists for package with ID ${data.packageId}.`);
@@ -269,7 +267,8 @@ export class PackagesService {
           hasLabelPhoto: Boolean(r.labelPhotoUrl),
           orderId: order?.id ?? null,
           orderCode: order?.orderCode ?? null,
-          fulfillmentCompletedAt: r.packagingVideo?.releasedToCustomerAt ?? null,
+          fulfillmentCompletedAt:
+            r.fulfillmentCompletedAt ?? r.packagingVideo?.releasedToCustomerAt ?? null,
         };
       }),
     };
@@ -366,8 +365,9 @@ export class PackagesService {
 
     // Check if all order items were found
     const fetchedOrderItemIdsSet = new Set(fetchedOrderItemIds);
-    const requestedOrderItemIdsSet = new Set(orderItemIds);
-    const missingIds = requestedOrderItemIdsSet.difference(fetchedOrderItemIdsSet).values().toArray();
+    const missingIds = [...new Set(orderItemIds)].filter(
+      (id) => !fetchedOrderItemIdsSet.has(id),
+    );
     if (missingIds.length > 0) {
       throw new ValidationError(
         `Order items not found: ${missingIds.join(", ")}. Please verify the order item IDs.`,
@@ -499,8 +499,6 @@ export class PackagesService {
   }
 
   async generateLabelPdf(packageId: number): Promise<Buffer> {
-    await this.packagingVideosService.assertPackagingVideoRecorded(packageId);
-
     // ── 1. Fetch package data ─────────────────────────────────────────────
     const data = await this.packagesRepository.getFullLabelData(packageId);
     if (!data)
