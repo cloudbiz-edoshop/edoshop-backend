@@ -4,18 +4,21 @@
  */
 export const resolveWarehouseDatabaseUrl = (args: string[] = process.argv.slice(2)) => {
   const useLocal = args.includes("--local");
-  const useProd = args.includes("--prod");
+  const useProd = args.includes("--prod") || !useLocal;
 
   if (useLocal && !useProd) {
     return (
       process.env.LOCAL_DATABASE_URL?.trim()
+      || process.env.DATABASE_URL?.trim()
       || "postgresql://steve:cloudbiz123@127.0.0.1:5432/edoshop"
     );
   }
 
-  const direct = process.env.DATABASE_URL?.trim();
-  if (direct && (useProd || !useLocal)) {
-    return direct;
+  const prodUrl =
+    process.env.PROD_DATABASE_URL?.trim()
+    || process.env.DATABASE_URL?.trim();
+  if (useProd && prodUrl) {
+    return prodUrl;
   }
 
   // Optional: set DB_CONNECT_HOST=127.0.0.1 when Postgres is tunneled to localhost.

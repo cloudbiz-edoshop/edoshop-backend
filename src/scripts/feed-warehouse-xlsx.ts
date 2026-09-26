@@ -11,6 +11,9 @@ import "dotenv/config";
  *   npm run products:feed-warehouse-xlsx -- --prod
  *   npm run products:feed-warehouse-xlsx -- --local --prod
  *   npm run products:feed-warehouse-xlsx -- --prod --file /app/data/imports/warehouse-stock.xlsx
+ *
+ * Bin placements for EWMS visualization (spreadsheet column 10):
+ *   npm run products:sync-warehouse-xlsx-bins -- --prod --file ...
  */
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
@@ -26,8 +29,9 @@ const backendRoot = resolve(scriptDir, "../..");
 
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
-const runLocal = args.includes("--local") || !args.includes("--prod");
-const runProd = args.includes("--prod") || !args.includes("--local");
+const runLocal = args.includes("--local");
+const runProd = args.includes("--prod") || !runLocal;
+const skipBins = args.includes("--skip-bins");
 
 const xlsxPath = resolveWarehouseXlsxPath(args);
 assertWarehouseXlsxExists(xlsxPath);
@@ -82,6 +86,20 @@ async function main() {
       sharedArgs,
       env,
     );
+
+    if (!skipBins) {
+      const binArgs = [
+        ...sharedArgs,
+        target.name === "LOCAL" ? "--local" : "--prod",
+        "--sync-quantity",
+      ];
+      runStep(
+        `${target.name}: sync EWMS bin locations`,
+        "sync-warehouse-xlsx-bins.ts",
+        binArgs,
+        env,
+      );
+    }
   }
 
   console.log("\nDone. (Skipped full enrich — use products:enrich-warehouse-xlsx only if you need metadata refresh.)");
