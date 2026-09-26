@@ -14,11 +14,30 @@ export const compactBinLocationKey = (value: string) => {
   return match ? match[1] : normalized;
 };
 
+/** Excel often appends "." to aisle codes (e.g. 4E1. after scientific-notation formatting). */
+export const normalizeSpreadsheetBinLocationCell = (rawBinLocation: string) => {
+  const trimmed = String(rawBinLocation ?? "").trim();
+  if (!trimmed.endsWith(".")) {
+    return trimmed;
+  }
+
+  const core = trimmed.slice(0, -1).trim();
+  const compact = core.replace(/\s+/g, "");
+  if (/^\d+[A-Za-z]+\d+$/.test(compact)) {
+    return core;
+  }
+  if (/^\d+\s+[A-Za-z]\s+\d+$/i.test(core)) {
+    return core;
+  }
+
+  return trimmed;
+};
+
 export const spreadsheetBinLocationKeys = (
   rawBinLocation: string,
   warehouseId: number,
 ) => {
-  const trimmed = String(rawBinLocation ?? "").trim();
+  const trimmed = normalizeSpreadsheetBinLocationCell(rawBinLocation);
   if (!trimmed || /^bin\s*loc/i.test(trimmed)) {
     return [];
   }
@@ -54,7 +73,7 @@ export type SpreadsheetBinSlot = {
 
 /** Reject Excel noise (200000, 2E5., 4000) — not real aisle codes like 4B2. */
 export const isPlausibleSpreadsheetBinLocation = (rawBinLocation: string) => {
-  const trimmed = String(rawBinLocation ?? "").trim();
+  const trimmed = normalizeSpreadsheetBinLocationCell(rawBinLocation);
   if (!trimmed || /^bin\s*loc/i.test(trimmed)) {
     return false;
   }
@@ -62,8 +81,7 @@ export const isPlausibleSpreadsheetBinLocation = (rawBinLocation: string) => {
   const compact = compactBinLocationKey(trimmed);
   if (!compact) return false;
   if (/^\d{4,}$/.test(compact)) return false;
-  if (/[eE]/.test(compact)) return false;
-  if (trimmed.includes(".") && !trimmed.includes(" ")) return false;
+  if (trimmed.includes(".")) return false;
 
   for (const key of spreadsheetBinLocationKeys(trimmed, 1)) {
     const match = key.match(/^(\d+)([A-Z]+)(\d+)$/);

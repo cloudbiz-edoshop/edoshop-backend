@@ -21,8 +21,21 @@ describe("warehouse bin location matching", () => {
 
   it("rejects invalid excel bin cells", () => {
     expect(isPlausibleSpreadsheetBinLocation("200000")).toBe(false);
-    expect(isPlausibleSpreadsheetBinLocation("2E5.")).toBe(false);
+    expect(isPlausibleSpreadsheetBinLocation("4000")).toBe(false);
     expect(isPlausibleSpreadsheetBinLocation("4B2")).toBe(true);
+    expect(isPlausibleSpreadsheetBinLocation("4E1")).toBe(true);
+    expect(isPlausibleSpreadsheetBinLocation("4E5")).toBe(true);
+    expect(isPlausibleSpreadsheetBinLocation("4E1.")).toBe(true);
+    expect(isPlausibleSpreadsheetBinLocation("2E5.")).toBe(true);
+  });
+
+  it("normalizes excel trailing dots on aisle codes", () => {
+    expect(parseSpreadsheetBinSlot("4E1.")).toEqual({
+      locationCode: "4E1",
+      rayonNumber: "4",
+      columnLabel: "E",
+      rowNumber: 1,
+    });
   });
 
   it("parses spreadsheet slots for provisioning", () => {
