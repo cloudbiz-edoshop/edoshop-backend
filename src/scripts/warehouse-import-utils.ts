@@ -229,6 +229,10 @@ export const normalizeText = (value: unknown) =>
 export const normalizeLegacyReference = (value: string) =>
   value.replace(/\s+/g, "").toUpperCase();
 
+/** Spreadsheet / catalog codes with inconsistent hyphenation (DO-TR-B1-E107-G). */
+export const normalizeProductReferenceKey = (value: string) =>
+  normalizeLegacyReference(value).replace(/-/g, "");
+
 export const isValidLegacyReference = (value: string) => {
   const normalized = normalizeLegacyReference(value);
   if (!normalized) return false;

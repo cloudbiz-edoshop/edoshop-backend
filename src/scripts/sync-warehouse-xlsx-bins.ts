@@ -15,7 +15,8 @@ import {
 import { resolveWarehouseDatabaseUrl } from "./warehouse-db-url";
 import { loadWorkbookRowsByReference } from "./warehouse-import-utils";
 import {
-  buildBinIndex,
+  compactBinLocationKey,
+  createBinResolver,
   getDefaultOperatorUserId,
   syncWarehouseRowToBin,
 } from "./warehouse-xlsx-bin-sync";
@@ -53,13 +54,18 @@ async function main() {
     .from(bins)
     .where(eq(bins.warehouseId, warehouseId));
 
-  const binIndex = buildBinIndex(binRows);
-  if (!binIndex.size) {
+  const binResolver = createBinResolver(binRows);
+  if (!binRows.length) {
     console.warn(
       `No bins configured for warehouse ${warehouseId}. Run rayons:repair-bins first, then retry.`,
     );
     process.exit(1);
   }
+
+  const sampleDbBins = binRows
+    .slice(0, 8)
+    .map((row) => `${row.locationCode} → ${compactBinLocationKey(row.locationCode)}`);
+  console.log(`EWMS bins loaded: ${binRows.length}. Sample codes: ${sampleDbBins.join(", ")}`);
 
   const operatorUserId = dryRun ? 0 : await getDefaultOperatorUserId();
   const transfersRepository = new WarehouseTransfersRepository();
@@ -77,7 +83,7 @@ async function main() {
     const result = await syncWarehouseRowToBin({
       row,
       warehouseId,
-      binIndex,
+      binResolver,
       operatorUserId,
       transfersRepository,
       dryRun,
@@ -122,6 +128,9 @@ async function main() {
     for (const line of missingBins) {
       console.log(`  - ${line}`);
     }
+    console.log(
+      "If EWMS bin grids are incomplete, run: npm run rayons:repair-bins -- --warehouse-id=1",
+    );
   }
 
   if (missingEntries.length) {

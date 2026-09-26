@@ -13,67 +13,43 @@ import {
 import { WarehouseTransfersRepository } from "@/modules/warehouse-transfers/warehouse-transfers.repository";
 
 import type { WarehouseRow } from "./warehouse-import-utils";
-import { normalizeLegacyReference } from "./warehouse-import-utils";
+import {
+  normalizeLegacyReference,
+  normalizeProductReferenceKey,
+} from "./warehouse-import-utils";
+import type { BinResolver } from "./warehouse-xlsx-bin-location.util";
 
-/** Matches Rayons UI `displayLocationCode` and spreadsheet bin labels. */
-export const normalizeBinLocationKey = (value: string) =>
-  String(value ?? "")
-    .trim()
-    .replace(/^W\d+-/i, "")
-    .replace(/\s+/g, "")
-    .toUpperCase();
+export type { BinResolver } from "./warehouse-xlsx-bin-location.util";
+export {
+  compactBinLocationKey,
+  createBinResolver,
+} from "./warehouse-xlsx-bin-location.util";
 
-export type BinIndex = Map<string, { id: number; locationCode: string }>;
-
-export const buildBinIndex = (
-  rows: Array<{ id: number; locationCode: string }>,
-): BinIndex => {
-  const index = new Map<string, { id: number; locationCode: string }>();
-  for (const row of rows) {
-    const key = normalizeBinLocationKey(row.locationCode);
-    if (!key || index.has(key)) continue;
-    index.set(key, row);
-  }
-  return index;
-};
-
-export const resolveBinFromIndex = (
-  index: BinIndex,
-  rawBinLocation: string,
-  warehouseId: number,
-) => {
-  const trimmed = String(rawBinLocation ?? "").trim();
-  if (!trimmed) return null;
-
-  const keys = [
-    normalizeBinLocationKey(trimmed),
-    normalizeBinLocationKey(`W${warehouseId}-${trimmed}`),
-  ].filter(Boolean);
-
-  for (const key of keys) {
-    const hit = index.get(key);
-    if (hit) return hit;
-  }
-
-  return null;
-};
+const productCodeMatchSql = (column: unknown, key: string) =>
+  sql`upper(replace(replace(${column}, '-', ''), ' ', '')) = ${key}`;
 
 export async function resolveEntryIdForWarehouseRow(
   legacyReference: string,
   warehouseId: number,
 ): Promise<number | null> {
   const code = normalizeLegacyReference(legacyReference);
+  const looseKey = normalizeProductReferenceKey(legacyReference);
   if (!code) return null;
+
+  const entryFilters = (extra?: ReturnType<typeof sql>) =>
+    and(
+      eq(entries.warehouseId, warehouseId),
+      eq(entries.entryTypeId, EntryTypeIds.ITEM),
+      extra,
+    );
 
   const [itemMatch] = await db
     .select({ entryId: items.entryId })
     .from(items)
     .innerJoin(entries, eq(entries.id, items.entryId))
     .where(
-      and(
-        eq(entries.warehouseId, warehouseId),
-        eq(entries.entryTypeId, EntryTypeIds.ITEM),
-        sql`upper(replace(${items.itemCode}, ' ', '')) = ${code}`,
+      entryFilters(
+        sql`(${productCodeMatchSql(items.itemCode, code)} OR ${productCodeMatchSql(items.itemCode, looseKey)})`,
       ),
     )
     .limit(1);
@@ -91,7 +67,7 @@ export async function resolveEntryIdForWarehouseRow(
     .innerJoin(entries, eq(entries.id, items.entryId))
     .where(
       and(
-        eq(sql`upper(replace(${directOrderProducts.directOrderCode}, ' ', ''))`, code),
+        sql`(${productCodeMatchSql(directOrderProducts.directOrderCode, code)} OR ${productCodeMatchSql(directOrderProducts.directOrderCode, looseKey)})`,
         eq(entries.warehouseId, warehouseId),
         eq(entries.entryTypeId, EntryTypeIds.ITEM),
         eq(variants.isDeleted, false),
@@ -113,7 +89,7 @@ export async function resolveEntryIdForWarehouseRow(
     .innerJoin(entries, eq(entries.id, items.entryId))
     .where(
       and(
-        eq(sql`upper(replace(${items.itemCode}, ' ', ''))`, code),
+        sql`(${productCodeMatchSql(items.itemCode, code)} OR ${productCodeMatchSql(items.itemCode, looseKey)})`,
         eq(entries.warehouseId, warehouseId),
         eq(entries.entryTypeId, EntryTypeIds.ITEM),
         eq(variants.isDeleted, false),
@@ -154,7 +130,7 @@ export async function getDefaultOperatorUserId() {
 export async function syncWarehouseRowToBin({
   row,
   warehouseId,
-  binIndex,
+  binResolver,
   operatorUserId,
   transfersRepository,
   dryRun,
@@ -162,13 +138,13 @@ export async function syncWarehouseRowToBin({
 }: {
   row: WarehouseRow;
   warehouseId: number;
-  binIndex: BinIndex;
+  binResolver: BinResolver;
   operatorUserId: number;
   transfersRepository: WarehouseTransfersRepository;
   dryRun: boolean;
   syncQuantity: boolean;
 }) {
-  const bin = resolveBinFromIndex(binIndex, row.binLocation, warehouseId);
+  const bin = binResolver.resolve(row.binLocation, warehouseId);
   if (!bin) {
     return { status: "missing_bin" as const, reference: row.legacyReference };
   }
