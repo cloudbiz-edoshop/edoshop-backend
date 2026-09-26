@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   createPromoBannerCardsRequestSchema,
+  createPromoBannerStripRequestSchema,
   MAX_PROMO_BANNER_CARDS,
   MIN_PROMO_BANNER_CARDS,
   updatePromoBannerCardsRequestSchema,
@@ -56,6 +57,19 @@ describe("promo-banners.schema", () => {
   it("allows partial update without cards", () => {
     const result = updatePromoBannerCardsRequestSchema.safeParse({
       isActive: true,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts ribbon strip customization fields", () => {
+    const result = createPromoBannerStripRequestSchema.safeParse({
+      text: "Free shipping",
+      backgroundColor: "#ffe14a",
+      textColor: "#1a1a1a",
+      fontSizePx: 15,
+      textAnimation: "scrolling",
+      isActive: true,
+      scheduleType: "permanent",
     });
     expect(result.success).toBe(true);
   });

@@ -80,12 +80,42 @@ const refinePromoCardSet = (
   }
 };
 
+const hexColorSchema = z
+  .string()
+  .regex(/^#[0-9A-Fa-f]{6}$/, "Color must be a hex value like #RRGGBB");
+
+const ribbonBackgroundSchema = z.union([
+  z.enum(["yellow", "red"]),
+  hexColorSchema,
+]);
+
+export const promoRibbonTextAnimationSchema = z.enum([
+  "fixed",
+  "blinking",
+  "scrolling",
+]);
+
+const ribbonStyleFields = {
+  textColor: hexColorSchema.default("#1a1a1a"),
+  fontSizePx: z.number().int().min(10).max(48).default(13),
+  textAnimation: promoRibbonTextAnimationSchema.default("fixed"),
+};
+
+const ribbonStyleFieldsOptional = {
+  textColor: hexColorSchema.optional(),
+  fontSizePx: z.number().int().min(10).max(48).optional(),
+  textAnimation: promoRibbonTextAnimationSchema.optional(),
+};
+
 export const promoBannerResponseSchema = z.object({
   id: z.number(),
   name: z.string().nullable().optional(),
   text: z.string(),
   cards: z.array(promoBannerCardSchema),
-  backgroundColor: z.enum(["yellow", "red"]),
+  backgroundColor: ribbonBackgroundSchema,
+  textColor: hexColorSchema,
+  fontSizePx: z.number().int(),
+  textAnimation: promoRibbonTextAnimationSchema,
   isActive: z.boolean(),
   scheduleType: z.enum(["permanent", "temporary"]).optional(),
   startsAt: z.string().nullable().optional(),
@@ -170,13 +200,15 @@ const promoBannerCardsUpdateFieldsSchema = z.object({
 
 const promoBannerStripFieldsSchema = z.object({
   text: z.string().min(1).max(255),
-  backgroundColor: z.enum(["yellow", "red"]).default("yellow"),
+  backgroundColor: ribbonBackgroundSchema.default("yellow"),
+  ...ribbonStyleFields,
   ...scheduleFields,
 });
 
 const promoBannerStripUpdateFieldsSchema = z.object({
   text: z.string().min(1).max(255).optional(),
-  backgroundColor: z.enum(["yellow", "red"]).optional(),
+  backgroundColor: ribbonBackgroundSchema.optional(),
+  ...ribbonStyleFieldsOptional,
   ...scheduleFieldsOptional,
 });
 

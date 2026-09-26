@@ -81,14 +81,27 @@ const isPubliclyVisible = (
   return true;
 };
 
+const normalizeRibbonBackground = (value: string | null | undefined) => {
+  const raw = String(value || "yellow").trim();
+  if (raw === "red" || raw === "yellow") return raw;
+  if (/^#[0-9A-Fa-f]{6}$/.test(raw)) return raw;
+  return "yellow";
+};
+
 const serialize = (row: typeof promoBanners.$inferSelect) => ({
   id: row.id,
   name: row.name,
   text: row.text || "",
   cards: parseCards(row.cards),
-  backgroundColor: (row.backgroundColor === "red" ? "red" : "yellow") as
-    | "yellow"
-    | "red",
+  backgroundColor: normalizeRibbonBackground(row.backgroundColor),
+  textColor: /^#[0-9A-Fa-f]{6}$/.test(String(row.textColor || ""))
+    ? String(row.textColor)
+    : "#1a1a1a",
+  fontSizePx: Number(row.fontSizePx) > 0 ? Number(row.fontSizePx) : 13,
+  textAnimation:
+    row.textAnimation === "blinking" || row.textAnimation === "scrolling"
+      ? row.textAnimation
+      : "fixed",
   isActive: row.isActive,
   scheduleType: inferScheduleType(row),
   startsAt: toIso(row.startsAt),
@@ -209,8 +222,20 @@ export class PromoBannersService {
         cards: cardSet && "cards" in data ? data.cards : [],
         backgroundColor:
           cardSet ? "yellow" : "backgroundColor" in data
-            ? (data.backgroundColor ?? "yellow")
+            ? normalizeRibbonBackground(data.backgroundColor ?? "yellow")
             : "yellow",
+        textColor:
+          !cardSet && "textColor" in data && data.textColor
+            ? data.textColor
+            : "#1a1a1a",
+        fontSizePx:
+          !cardSet && "fontSizePx" in data && data.fontSizePx
+            ? data.fontSizePx
+            : 13,
+        textAnimation:
+          !cardSet && "textAnimation" in data && data.textAnimation
+            ? data.textAnimation
+            : "fixed",
         isActive: data.isActive ?? false,
         startsAt: schedule.startsAt,
         endsAt: schedule.endsAt,
@@ -251,7 +276,12 @@ export class PromoBannersService {
           text: "",
         }),
         ...(data.backgroundColor !== undefined && {
-          backgroundColor: data.backgroundColor,
+          backgroundColor: normalizeRibbonBackground(data.backgroundColor),
+        }),
+        ...(data.textColor !== undefined && { textColor: data.textColor }),
+        ...(data.fontSizePx !== undefined && { fontSizePx: data.fontSizePx }),
+        ...(data.textAnimation !== undefined && {
+          textAnimation: data.textAnimation,
         }),
         ...(data.isActive !== undefined && { isActive: data.isActive }),
         ...(schedule && {

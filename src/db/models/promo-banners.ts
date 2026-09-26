@@ -31,6 +31,11 @@ export const promoBanners = pgTable("promo_banners", {
   backgroundColor: varchar("background_color", { length: 16 })
     .notNull()
     .default("yellow"),
+  textColor: varchar("text_color", { length: 16 }).notNull().default("#1a1a1a"),
+  fontSizePx: integer("font_size_px").notNull().default(13),
+  textAnimation: varchar("text_animation", { length: 16 })
+    .notNull()
+    .default("fixed"),
   isActive: boolean("is_active").notNull().default(false),
   startsAt: timestamp("starts_at"),
   endsAt: timestamp("ends_at"),
