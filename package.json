@@ -25,6 +25,7 @@
     "users:upsert-team": "tsx src/scripts/upsert-team-admin-users.ts",
     "users:remove-nabeel": "tsx src/scripts/remove-nabeel-admin-logins.ts",
     "rayons:repair-bins": "tsx src/scripts/repair-rayon-bin-layouts.ts",
+    "rayons:reset-layout": "tsx src/scripts/reset-warehouse-bin-layout.ts --prod",
     "rayons:provision-from-xlsx": "tsx src/scripts/provision-warehouse-bins-from-xlsx.ts --prod",
     "entries:provision-from-xlsx": "tsx src/scripts/provision-warehouse-item-entries-from-xlsx.ts --prod",
     "rayons:normalize-rows": "tsx src/scripts/normalize-rayon-bin-rows.ts",
