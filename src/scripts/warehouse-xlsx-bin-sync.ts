@@ -18,6 +18,7 @@ import {
   normalizeProductReferenceKey,
 } from "./warehouse-import-utils";
 import type { BinResolver } from "./warehouse-xlsx-bin-location.util";
+import { isPlausibleSpreadsheetBinLocation } from "./warehouse-xlsx-bin-location.util";
 
 export type { BinResolver } from "./warehouse-xlsx-bin-location.util";
 export {
@@ -146,6 +147,12 @@ export async function syncWarehouseRowToBin({
 }) {
   const bin = binResolver.resolve(row.binLocation, warehouseId);
   if (!bin) {
+    if (!isPlausibleSpreadsheetBinLocation(row.binLocation)) {
+      return {
+        status: "invalid_bin" as const,
+        reference: row.legacyReference,
+      };
+    }
     return { status: "missing_bin" as const, reference: row.legacyReference };
   }
 

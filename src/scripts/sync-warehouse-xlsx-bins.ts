@@ -75,6 +75,7 @@ async function main() {
     wouldAssign: 0,
     missingBin: 0,
     missingEntry: 0,
+    invalidBin: 0,
   };
   const missingBins: string[] = [];
   const missingEntries: string[] = [];
@@ -109,6 +110,9 @@ async function main() {
           missingEntries.push(row.legacyReference);
         }
         break;
+      case "invalid_bin":
+        summary.invalidBin += 1;
+        break;
       default:
         break;
     }
@@ -121,6 +125,7 @@ async function main() {
     console.log(`Would assign: ${summary.wouldAssign}`);
   }
   console.log(`Missing EWMS bin: ${summary.missingBin}`);
+  console.log(`Invalid bin in sheet (fix Excel): ${summary.invalidBin}`);
   console.log(`Missing EWMS item entry: ${summary.missingEntry}`);
 
   if (missingBins.length) {

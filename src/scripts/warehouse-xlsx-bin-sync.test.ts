@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   compactBinLocationKey,
   createBinResolver,
+  isPlausibleSpreadsheetBinLocation,
   parseSpreadsheetBinSlot,
   spreadsheetBinLocationKeys,
 } from "./warehouse-xlsx-bin-location.util";
@@ -16,6 +17,12 @@ describe("warehouse bin location matching", () => {
   it("maps compact keys from EWMS rayon names", () => {
     expect(compactBinLocationKey("Rayon 4B2")).toBe("4B2");
     expect(compactBinLocationKey("W1-4B2")).toBe("4B2");
+  });
+
+  it("rejects invalid excel bin cells", () => {
+    expect(isPlausibleSpreadsheetBinLocation("200000")).toBe(false);
+    expect(isPlausibleSpreadsheetBinLocation("2E5.")).toBe(false);
+    expect(isPlausibleSpreadsheetBinLocation("4B2")).toBe(true);
   });
 
   it("parses spreadsheet slots for provisioning", () => {

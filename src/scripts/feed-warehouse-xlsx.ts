@@ -88,15 +88,24 @@ async function main() {
     );
 
     if (!skipBins) {
-      const binArgs = [
-        ...sharedArgs,
-        target.name === "LOCAL" ? "--local" : "--prod",
-        "--sync-quantity",
-      ];
+      const targetFlag = target.name === "LOCAL" ? "--local" : "--prod";
+      const provisionArgs = [...sharedArgs, targetFlag];
+      runStep(
+        `${target.name}: provision EWMS bins from sheet`,
+        "provision-warehouse-bins-from-xlsx.ts",
+        provisionArgs,
+        env,
+      );
+      runStep(
+        `${target.name}: provision EWMS item entries`,
+        "provision-warehouse-item-entries-from-xlsx.ts",
+        provisionArgs,
+        env,
+      );
       runStep(
         `${target.name}: sync EWMS bin locations`,
         "sync-warehouse-xlsx-bins.ts",
-        binArgs,
+        [...provisionArgs, "--sync-quantity"],
         env,
       );
     }

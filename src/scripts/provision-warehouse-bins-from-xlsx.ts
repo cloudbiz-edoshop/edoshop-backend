@@ -14,7 +14,10 @@ import {
 } from "./warehouse-xlsx-path";
 import { resolveWarehouseDatabaseUrl } from "./warehouse-db-url";
 import { loadWorkbookRowsByReference } from "./warehouse-import-utils";
-import { parseSpreadsheetBinSlot } from "./warehouse-xlsx-bin-location.util";
+import {
+  isPlausibleSpreadsheetBinLocation,
+  parseSpreadsheetBinSlot,
+} from "./warehouse-xlsx-bin-location.util";
 
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
@@ -55,6 +58,7 @@ async function main() {
   const slotMap = new Map<string, ReturnType<typeof parseSpreadsheetBinSlot>>();
 
   for (const row of rowsByReference.values()) {
+    if (!isPlausibleSpreadsheetBinLocation(row.binLocation)) continue;
     const slot = parseSpreadsheetBinSlot(row.binLocation);
     if (!slot) continue;
     slotMap.set(slot.locationCode, slot);
