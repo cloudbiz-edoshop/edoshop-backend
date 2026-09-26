@@ -14,6 +14,7 @@ import {
 } from "./warehouse-xlsx-path";
 import { resolveWarehouseDatabaseUrl } from "./warehouse-db-url";
 import { loadWorkbookRowsByReference } from "./warehouse-import-utils";
+import { pruneWarehouseOrphanBins } from "./prune-warehouse-orphan-bins";
 import {
   compactBinLocationKey,
   createBinResolver,
@@ -24,6 +25,7 @@ import {
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
 const syncQuantity = args.includes("--sync-quantity");
+const skipPrune = args.includes("--no-prune");
 const warehouseArg = args.find((arg) => arg.startsWith("--warehouse-id="));
 const warehouseId = warehouseArg
   ? Number(warehouseArg.split("=")[1])
@@ -143,6 +145,14 @@ async function main() {
     for (const reference of missingEntries) {
       console.log(`  - ${reference}`);
     }
+  }
+
+  if (!skipPrune) {
+    await pruneWarehouseOrphanBins({
+      warehouseId,
+      xlsxPath,
+      dryRun,
+    });
   }
 
   console.log(
