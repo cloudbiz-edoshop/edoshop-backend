@@ -65,7 +65,9 @@ export const list = createRoute({
   ] as const,
   request: {
     params: z.object({
-      productId: z.string(),
+      productId: z
+        .string()
+        .regex(/^\d+$/, "productId must be a positive integer"),
     }),
     headers: jwtHeaderSchema,
   },

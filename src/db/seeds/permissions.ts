@@ -264,7 +264,19 @@ export default async function seed(db: Database) {
     );
   }
 
-  await insertPermissionsInChunks(db, permissionsToInsert);
+  // Role templates overlap (e.g. manager: all entities + TICKETING_ENTITIES,
+  // admin: all entities + ROLES), so dedupe to respect `unique_permission`.
+  const seen = new Set<string>();
+  const uniquePermissions = permissionsToInsert.filter((permission) => {
+    const key = `${permission.roleId}:${permission.entityId}:${permission.operationId}`;
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+
+  await insertPermissionsInChunks(db, uniquePermissions);
 }
 
 export { getRolePermissionsFromTemplate };

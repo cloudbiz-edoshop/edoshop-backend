@@ -1322,11 +1322,64 @@ async function ensurePredefinedRolePermissions(permCols: PermissionColumns) {
     `),
   );
 
+  // terms (SQL migration 0023) — required by `/public/terms` and the admin
+  // Terms editor; created here so runtime-only deploys have the table.
+  await db.execute(
+    sql.raw(`
+      CREATE TABLE IF NOT EXISTS "terms" (
+        "id" serial PRIMARY KEY,
+        "language_code" varchar(5) NOT NULL,
+        "title" varchar(255) NOT NULL,
+        "effective_date" varchar(100) NOT NULL,
+        "version" varchar(50) NOT NULL,
+        "acceptance_label" text NOT NULL,
+        "contact" jsonb NOT NULL DEFAULT '{}'::jsonb,
+        "sections" jsonb NOT NULL DEFAULT '[]'::jsonb,
+        "created_at" timestamp NOT NULL DEFAULT now(),
+        "updated_at" timestamp NOT NULL DEFAULT now(),
+        "created_by" integer NOT NULL REFERENCES "users"("id"),
+        "updated_by" integer NOT NULL REFERENCES "users"("id"),
+        "is_deleted" boolean NOT NULL DEFAULT false,
+        "deleted_at" timestamp,
+        "deleted_by" integer REFERENCES "users"("id")
+      )
+    `),
+  );
+
+  // promo_banners: create first, then bring older tables up to the current
+  // model (columns from SQL migration 0028 are also applied here so deploys
+  // that only run runtime migrations do not break `/public/promo-cards`).
+  await db.execute(
+    sql.raw(`
+      CREATE TABLE IF NOT EXISTS "promo_banners" (
+        "id" serial PRIMARY KEY,
+        "name" varchar(255),
+        "text" varchar(255) NOT NULL DEFAULT '',
+        "cards" jsonb NOT NULL DEFAULT '[]'::jsonb,
+        "background_color" varchar(16) NOT NULL DEFAULT 'yellow',
+        "text_color" varchar(16) NOT NULL DEFAULT '#1a1a1a',
+        "font_size_px" integer NOT NULL DEFAULT 13,
+        "text_animation" varchar(16) NOT NULL DEFAULT 'fixed',
+        "is_active" boolean NOT NULL DEFAULT false,
+        "starts_at" timestamp,
+        "ends_at" timestamp,
+        "display_duration_hours" integer,
+        "created_at" timestamp NOT NULL DEFAULT now(),
+        "updated_at" timestamp NOT NULL DEFAULT now(),
+        "created_by" integer REFERENCES "users"("id"),
+        "updated_by" integer REFERENCES "users"("id")
+      )
+    `),
+  );
+
   await db.execute(
     sql.raw(`
       ALTER TABLE "promo_banners"
       ADD COLUMN IF NOT EXISTS "name" varchar(255),
-      ADD COLUMN IF NOT EXISTS "cards" jsonb NOT NULL DEFAULT '[]'::jsonb
+      ADD COLUMN IF NOT EXISTS "cards" jsonb NOT NULL DEFAULT '[]'::jsonb,
+      ADD COLUMN IF NOT EXISTS "text_color" varchar(16) NOT NULL DEFAULT '#1a1a1a',
+      ADD COLUMN IF NOT EXISTS "font_size_px" integer NOT NULL DEFAULT 13,
+      ADD COLUMN IF NOT EXISTS "text_animation" varchar(16) NOT NULL DEFAULT 'fixed'
     `),
   );
 
@@ -1340,24 +1393,6 @@ async function ensurePredefinedRolePermissions(permCols: PermissionColumns) {
   await db.execute(
     sql.raw(`
       UPDATE "promo_banners" SET "text" = '' WHERE "text" IS NULL
-    `),
-  );
-
-  await db.execute(
-    sql.raw(`
-      CREATE TABLE IF NOT EXISTS "promo_banners" (
-        "id" serial PRIMARY KEY,
-        "text" varchar(255) NOT NULL,
-        "background_color" varchar(16) NOT NULL DEFAULT 'yellow',
-        "is_active" boolean NOT NULL DEFAULT false,
-        "starts_at" timestamp,
-        "ends_at" timestamp,
-        "display_duration_hours" integer,
-        "created_at" timestamp NOT NULL DEFAULT now(),
-        "updated_at" timestamp NOT NULL DEFAULT now(),
-        "created_by" integer REFERENCES "users"("id"),
-        "updated_by" integer REFERENCES "users"("id")
-      )
     `),
   );
 
@@ -1407,7 +1442,20 @@ async function ensurePredefinedRolePermissions(permCols: PermissionColumns) {
     sql.raw(`
       ALTER TABLE "packages"
       ADD COLUMN IF NOT EXISTS "label_photo_url" varchar(1024),
-      ADD COLUMN IF NOT EXISTS "label_photo_uploaded_at" timestamp
+      ADD COLUMN IF NOT EXISTS "label_photo_uploaded_at" timestamp,
+      ADD COLUMN IF NOT EXISTS "fulfillment_completed_at" timestamp
+    `),
+  );
+
+  // Backfill: packages completed under the old video-based flow.
+  await db.execute(
+    sql.raw(`
+      UPDATE "packages" p
+      SET "fulfillment_completed_at" = v."released_to_customer_at"
+      FROM "package_packaging_videos" v
+      WHERE v."package_id" = p."id"
+        AND v."released_to_customer_at" IS NOT NULL
+        AND p."fulfillment_completed_at" IS NULL
     `),
   );
 

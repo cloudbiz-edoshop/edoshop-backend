@@ -337,6 +337,12 @@ export class WarehouseTicketsRepository {
     const { warehouseId, search, page = 1, limit = 50 } = params;
     const whereConditions = [eq(products.isDeleted, false)];
 
+    // NOTE: Drizzle renders column references unqualified when the outer
+    // query has no joins, so `${products.id}` inside a correlated subquery
+    // becomes a bare "id" that binds to the subquery's own table. Use
+    // explicitly qualified identifiers for everything inside the subqueries.
+    const productIdRef = sql.raw(`"products"."id"`);
+
     const trimmedSearch = search?.trim();
     if (trimmedSearch) {
       const searchPattern = `%${trimmedSearch}%`;
@@ -344,18 +350,18 @@ export class WarehouseTicketsRepository {
         sql`(
           ${products.name} ILIKE ${searchPattern}
           OR COALESCE(${products.shortDescription}, '') ILIKE ${searchPattern}
-          OR CAST(${products.id} AS TEXT) ILIKE ${searchPattern}
+          OR CAST(${productIdRef} AS TEXT) ILIKE ${searchPattern}
           OR EXISTS (
-            SELECT 1 FROM ${directOrderProducts}
-            WHERE ${directOrderProducts.productId} = ${products.id}
-              AND ${directOrderProducts.directOrderCode} ILIKE ${searchPattern}
+            SELECT 1 FROM "direct_order_products"
+            WHERE "direct_order_products"."product_id" = ${productIdRef}
+              AND "direct_order_products"."direct_order_code" ILIKE ${searchPattern}
           )
           OR EXISTS (
-            SELECT 1 FROM ${variants}
-            INNER JOIN ${items} ON ${items.id} = ${variants.itemId}
-            WHERE ${variants.productId} = ${products.id}
-              AND ${variants.isDeleted} = false
-              AND ${items.itemCode} ILIKE ${searchPattern}
+            SELECT 1 FROM "variants"
+            INNER JOIN "items" ON "items"."id" = "variants"."item_id"
+            WHERE "variants"."product_id" = ${productIdRef}
+              AND "variants"."is_deleted" = false
+              AND "items"."item_code" ILIKE ${searchPattern}
           )
         )`,
       );
@@ -370,28 +376,28 @@ export class WarehouseTicketsRepository {
       .where(whereClause);
 
     const directOrderCodeSql = sql<string | null>`(
-      SELECT ${directOrderProducts.directOrderCode}
-      FROM ${directOrderProducts}
-      WHERE ${directOrderProducts.productId} = ${products.id}
-      ORDER BY ${directOrderProducts.id}
+      SELECT "direct_order_products"."direct_order_code"
+      FROM "direct_order_products"
+      WHERE "direct_order_products"."product_id" = ${productIdRef}
+      ORDER BY "direct_order_products"."id"
       LIMIT 1
     )`;
 
     const dropshippingCodeSql = sql<string | null>`(
-      SELECT ${dropshippingProducts.dropshippingCode}
-      FROM ${dropshippingProducts}
-      WHERE ${dropshippingProducts.productId} = ${products.id}
-      ORDER BY ${dropshippingProducts.id}
+      SELECT "dropshipping_products"."dropshipping_code"
+      FROM "dropshipping_products"
+      WHERE "dropshipping_products"."product_id" = ${productIdRef}
+      ORDER BY "dropshipping_products"."id"
       LIMIT 1
     )`;
 
     const ewmsItemCodeSql = sql<string | null>`(
-      SELECT ${items.itemCode}
-      FROM ${variants}
-      INNER JOIN ${items} ON ${items.id} = ${variants.itemId}
-      WHERE ${variants.productId} = ${products.id}
-        AND ${variants.isDeleted} = false
-      ORDER BY ${variants.id}
+      SELECT "items"."item_code"
+      FROM "variants"
+      INNER JOIN "items" ON "items"."id" = "variants"."item_id"
+      WHERE "variants"."product_id" = ${productIdRef}
+        AND "variants"."is_deleted" = false
+      ORDER BY "variants"."id"
       LIMIT 1
     )`;
 

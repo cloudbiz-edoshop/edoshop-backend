@@ -210,7 +210,9 @@ export const getEntriesByType = createRoute({
   request: {
     headers: jwtHeaderSchema,
     params: z.object({
-      entryTypeId: z.string(),
+      entryTypeId: z
+        .string()
+        .regex(/^\d+$/, "entryTypeId must be a positive integer"),
     }),
     query: entriesQueryParamsSchema,
   },
