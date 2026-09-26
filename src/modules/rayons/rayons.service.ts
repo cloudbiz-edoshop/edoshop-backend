@@ -3,6 +3,7 @@
 import { ConflictError, NotFoundError } from "@/core/errors";
 import db from "@/db";
 import { WarehouseRepository } from "../warehouses/warehouses.repository";
+import { repairRayonBinLayoutsForWarehouse } from "./rayon-bin-layout-repair";
 import { RayonsRepository } from "./rayons.repository";
 
 export class RayonsService {
@@ -560,5 +561,14 @@ export class RayonsService {
     return await db.transaction(async (tx) => {
       return await this.rayonsRepository.deleteRayonForWarehouse(tx, rayonId);
     });
+  }
+
+  async repairBinLayoutForWarehouse(warehouseId: number, operatorUserId: number) {
+    const warehouse = await this.warehouseRepository.findById(warehouseId);
+    if (!warehouse) {
+      throw new NotFoundError(`Warehouse not found, with id: ${warehouseId}`);
+    }
+
+    return repairRayonBinLayoutsForWarehouse(warehouseId, operatorUserId);
   }
 }

@@ -222,6 +222,16 @@ export const createBinsResponseSchema = z.object({
 
 export type CreateBinsResponseSchema = z.infer<typeof createBinsResponseSchema>;
 
+export const repairRayonBinLayoutResponseSchema = z.object({
+  shelvesCreated: z.number(),
+  binsCreated: z.number(),
+  skipped: z.number(),
+});
+
+export type RepairRayonBinLayoutResponseSchema = z.infer<
+  typeof repairRayonBinLayoutResponseSchema
+>;
+
 export const getAllShelvesForRayonResponseSchema = z.array(
   z.object({
     id: z.number(),

@@ -27,6 +27,11 @@ router.openapi(
 );
 
 router.openapi(
+  routes.repairRayonBinLayoutForWarehouse,
+  handlers.repairRayonBinLayoutForWarehouse,
+);
+
+router.openapi(
   routes.createRayonsForWarehouse,
   handlers.createRayonsForWarehouse,
 );

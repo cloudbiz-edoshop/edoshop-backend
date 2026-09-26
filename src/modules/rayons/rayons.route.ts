@@ -15,7 +15,7 @@ import { idParams } from "@/lib/openapi/schemas";
 import { createSuccessResponseSchema, createSuccessResponseSchemaWithPagination } from "@/lib/openapi/schemas/create-api-response";
 import commonQueryParamsSchema from "@/lib/openapi/schemas/query-params-schema";
 import { jwtHeaderSchema } from "@/lib/zod-schemas";
-import { createBinsRequestSchema, createBinsResponseSchema, createRayonsRequestSchema, createShelvesForRayonResponseSchema, createShelvesForRayonsRequestSchema, deleteRayonResponseSchema, getAllShelvesForRayonResponseSchema, getRayonsForWarehouseResponseSchema, getRayonsStatsForAWarehouseResponseSchema, updateBinsRequestSchema, updateBinsResponseSchema, updateRayonRequestSchema, updateRayonResponseSchema, updateShelvesRequestSchema, updateShelvesResponseSchema } from "./rayons.schema";
+import { createBinsRequestSchema, createBinsResponseSchema, createRayonsRequestSchema, createShelvesForRayonResponseSchema, createShelvesForRayonsRequestSchema, deleteRayonResponseSchema, getAllShelvesForRayonResponseSchema, getRayonsForWarehouseResponseSchema, getRayonsStatsForAWarehouseResponseSchema, repairRayonBinLayoutResponseSchema, updateBinsRequestSchema, updateBinsResponseSchema, updateRayonRequestSchema, updateRayonResponseSchema, updateShelvesRequestSchema, updateShelvesResponseSchema } from "./rayons.schema";
 
 const tags = ["Rayons"];
 
@@ -65,6 +65,53 @@ export const getRayonsStatsForAWarehouse = createRoute({
 });
 
 export type GetRayonsStatsForAWarehouseRoute = typeof getRayonsStatsForAWarehouse;
+
+export const repairRayonBinLayoutForWarehouse = createRoute({
+  path: "/rayons/{warehouseId}/repair-bin-layout",
+  method: "post",
+  tags,
+  summary: "Repair missing shelves and bins for a warehouse",
+  description:
+    "Creates missing shelf and bin grid cells for all rayons in one request (replaces many per-bin API calls).",
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.EWMS_MANAGEMENT, operation: OperationType.UPDATE },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    params: z.object({
+      warehouseId: z.coerce.number().openapi({
+        param: {
+          name: "warehouseId",
+          in: "path",
+          required: true,
+        },
+        required: ["warehouseId"],
+      }),
+    }),
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(repairRayonBinLayoutResponseSchema),
+      "Repair summary for the warehouse bin layout",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.FORBIDDEN,
+        HttpStatusCodes.UNPROCESSABLE_ENTITY,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+        HttpStatusCodes.NOT_FOUND,
+      ],
+      z.object({}),
+    ),
+  },
+});
+
+export type RepairRayonBinLayoutForWarehouseRoute =
+  typeof repairRayonBinLayoutForWarehouse;
 
 export const getRayonsForWarehouse = createRoute({
   path: "/rayons/{warehouseId}",

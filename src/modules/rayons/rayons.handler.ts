@@ -6,12 +6,13 @@ import type {
   GetAllShelvesForRayonRoute,
   GetRayonsForWarehouseRoute,
   GetRayonsStatsForAWarehouseRoute,
+  RepairRayonBinLayoutForWarehouseRoute,
   UpdateBinsForShelfRoute,
   UpdateRayonForWarehouseRoute,
   UpdateShelvesForRayonRoute,
 } from "./rayons.route";
 
-import type { CreateBinsResponseSchema, CreateShelvesForRayonResponseSchema, DeleteRayonResponseSchema, GetAllShelvesForRayonResponseSchema, GetRayonsForWarehouseResponseSchema, GetRayonsStatsForAWarehouseResponseSchema, UpdateShelvesResponseSchema } from "./rayons.schema";
+import type { CreateBinsResponseSchema, CreateShelvesForRayonResponseSchema, DeleteRayonResponseSchema, GetAllShelvesForRayonResponseSchema, GetRayonsForWarehouseResponseSchema, GetRayonsStatsForAWarehouseResponseSchema, RepairRayonBinLayoutResponseSchema, UpdateShelvesResponseSchema } from "./rayons.schema";
 
 import type { AppRouteHandler } from "@/lib/types";
 import { successResponse, successResponseWithPagination } from "@/lib/api-response";
@@ -39,6 +40,25 @@ export const getRayonsStatsForAWarehouse: AppRouteHandler<
       pagination,
       result.searchableFields,
       `Rayons stats retrieved successfully for warehouse ${warehouseId}`,
+    ),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const repairRayonBinLayoutForWarehouse: AppRouteHandler<
+  RepairRayonBinLayoutForWarehouseRoute
+> = async (c) => {
+  const { warehouseId } = c.req.valid("param");
+  const payload = c.get("accessTokenPayload");
+  const operatorUserId = payload.userId;
+
+  const result: RepairRayonBinLayoutResponseSchema =
+    await rayonsService.repairBinLayoutForWarehouse(warehouseId, operatorUserId);
+
+  return c.json(
+    successResponse(
+      result,
+      `Bin layout repair completed for warehouse ${warehouseId}`,
     ),
     HttpStatusCodes.OK,
   );
