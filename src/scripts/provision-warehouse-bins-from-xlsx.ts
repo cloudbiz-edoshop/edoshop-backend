@@ -3,6 +3,7 @@ import "dotenv/config";
 
 import { and, eq } from "drizzle-orm";
 
+import { isSlotWithinWarehouseRayonPhysicalLayout } from "@/constants/warehouse-rayon-physical-layout.constants";
 import { WarehouseIds } from "@/constants/warehouses.constants";
 import db from "@/db";
 import { bins, rayons, shelves } from "@/db/models";
@@ -80,8 +81,25 @@ async function main() {
   let binsCreated = 0;
   let skipped = 0;
 
+  let outsidePhysicalLayout = 0;
+
   for (const slot of slots) {
     if (!slot) continue;
+
+    if (
+      !isSlotWithinWarehouseRayonPhysicalLayout(
+        warehouseId,
+        slot.rayonNumber,
+        slot.columnLabel,
+        slot.rowNumber,
+      )
+    ) {
+      console.warn(
+        `Skipping ${slot.locationCode}: outside W1 physical grid for rayon ${slot.rayonNumber}`,
+      );
+      outsidePhysicalLayout++;
+      continue;
+    }
 
     let rayon = await findRayon(warehouseId, slot.rayonNumber);
     if (!rayon && dryRun) {
@@ -207,6 +225,9 @@ async function main() {
   console.log(`Shelves created: ${shelvesCreated}`);
   console.log(`Bins created: ${binsCreated}`);
   console.log(`Skipped (already exists / conflict): ${skipped}`);
+  if (outsidePhysicalLayout > 0) {
+    console.log(`Skipped (outside physical W1 grid): ${outsidePhysicalLayout}`);
+  }
   if (dryRun) {
     console.log("(Dry run — no database changes.)");
   }

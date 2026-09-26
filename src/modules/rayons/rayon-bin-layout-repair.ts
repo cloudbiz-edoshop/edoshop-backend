@@ -1,5 +1,11 @@
 import { and, eq } from "drizzle-orm";
 
+import {
+  getWarehouseRayonPhysicalLayout,
+  numberToColumnLabel,
+  parseRayonIndexFromName,
+} from "@/constants/warehouse-rayon-physical-layout.constants";
+import { WarehouseIds } from "@/constants/warehouses.constants";
 import db from "@/db";
 import { bins, shelves } from "@/db/models";
 
@@ -9,19 +15,6 @@ const buildLocationPrefix = (name: string | null) => {
   const compact = withoutRayonPrefix.replace(/[^a-z0-9]/gi, "");
   const fallback = trimmedName.replace(/[^a-z0-9]/gi, "");
   return (compact || fallback).toUpperCase();
-};
-
-const numberToColumnLabel = (value: number) => {
-  let number = value;
-  let label = "";
-
-  while (number > 0) {
-    const remainder = (number - 1) % 26;
-    label = String.fromCharCode(65 + remainder) + label;
-    number = Math.floor((number - 1) / 26);
-  }
-
-  return label;
 };
 
 const columnLabelToNumber = (value: string) =>
@@ -64,28 +57,47 @@ export async function repairRayonBinLayoutsForWarehouse(
   const now = new Date().toISOString();
 
   for (const rayon of rayonRows) {
+    const physical = getWarehouseRayonPhysicalLayout(warehouseId, rayon.name);
+
+    if (warehouseId === WarehouseIds.WAREHOUSE_1) {
+      const rayonIndex = parseRayonIndexFromName(rayon.name);
+      if (rayonIndex === 6) {
+        skippedCount++;
+        continue;
+      }
+    }
+
     const inferredMaxRow = Math.max(
       0,
       ...rayon.shelves.flatMap((shelf) => shelf.bins.map((bin) => bin.rowNumber)),
     );
-    const maxRowNumber =
-      inferredMaxRow > 0 ? inferredMaxRow : rayon.shelves.length > 0 ? 1 : 0;
 
-    if (maxRowNumber === 0) {
-      skippedCount++;
-      continue;
-    }
+    let maxRowNumber: number;
+    let maxColumnNumber: number;
 
-    const maxColumnNumber = Math.max(
-      0,
-      ...rayon.shelves
-        .map((shelf) => columnLabelToNumber(shelf.columnLabel))
-        .filter((value) => Number.isFinite(value) && value > 0),
-    );
+    if (physical) {
+      maxRowNumber = physical.rowCount;
+      maxColumnNumber = physical.maxColumnNumber;
+    } else {
+      maxRowNumber =
+        inferredMaxRow > 0 ? inferredMaxRow : rayon.shelves.length > 0 ? 1 : 0;
 
-    if (maxColumnNumber === 0) {
-      skippedCount++;
-      continue;
+      if (maxRowNumber === 0) {
+        skippedCount++;
+        continue;
+      }
+
+      maxColumnNumber = Math.max(
+        0,
+        ...rayon.shelves
+          .map((shelf) => columnLabelToNumber(shelf.columnLabel))
+          .filter((value) => Number.isFinite(value) && value > 0),
+      );
+
+      if (maxColumnNumber === 0) {
+        skippedCount++;
+        continue;
+      }
     }
 
     const locationPrefix = buildLocationPrefix(rayon.name);

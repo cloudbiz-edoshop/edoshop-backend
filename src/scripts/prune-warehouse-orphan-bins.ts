@@ -1,5 +1,6 @@
 import { eq, inArray } from "drizzle-orm";
 
+import { isSlotWithinWarehouseRayonPhysicalLayout } from "@/constants/warehouse-rayon-physical-layout.constants";
 import db from "@/db";
 import { bins, shelves, storage, warehouseTransfers } from "@/db/models";
 
@@ -44,11 +45,22 @@ export async function pruneWarehouseOrphanBins({
 
   const orphanBins = binRows.filter((bin) => {
     const compact = compactBinLocationKey(bin.locationCode);
-    return compact && !allowed.has(compact);
+    if (!compact) return false;
+    if (!allowed.has(compact)) return true;
+
+    const slot = parseSpreadsheetBinSlot(compact);
+    if (!slot) return false;
+
+    return !isSlotWithinWarehouseRayonPhysicalLayout(
+      warehouseId,
+      slot.rayonNumber,
+      slot.columnLabel,
+      slot.rowNumber,
+    );
   });
 
   if (!orphanBins.length) {
-    console.log("Orphan bins (not in spreadsheet): 0");
+    console.log("Orphan bins (not in spreadsheet / outside physical grid): 0");
     return { removedBins: 0, removedShelves: 0, removedStorage: 0 };
   }
 
@@ -56,7 +68,7 @@ export async function pruneWarehouseOrphanBins({
   const orphanShelfIds = [...new Set(orphanBins.map((bin) => bin.shelfId))];
 
   console.log(
-    `\nOrphan bins to remove (not in spreadsheet): ${orphanBins.length}`,
+    `\nOrphan bins to remove (not in spreadsheet or outside W1 physical grid): ${orphanBins.length}`,
   );
   for (const bin of orphanBins.slice(0, 20)) {
     console.log(`  - ${bin.locationCode}`);
