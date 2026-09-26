@@ -7,6 +7,7 @@ import { NotFoundError } from "@/core/errors";
 
 import type {
   CreatePromoBannerRequest,
+  PromoBannerCardInput,
   UpdatePromoBannerRequest,
 } from "./promo-banners.schema";
 
@@ -266,22 +267,34 @@ export class PromoBannersService {
     const schedule = shouldReschedule ? resolveSchedule(data) : null;
     const cardSet = isCardSetPayload(data);
 
+    // The request is a union of the card-set and ribbon shapes; read optional
+    // fields from a loose view so either variant can be patched.
+    const fields = data as Partial<{
+      name: string;
+      text: string;
+      cards: PromoBannerCardInput[];
+      backgroundColor: string;
+      textColor: string;
+      fontSizePx: number;
+      textAnimation: "fixed" | "blinking" | "scrolling";
+    }>;
+
     const [row] = await db
       .update(promoBanners)
       .set({
-        ...(data.name !== undefined && { name: data.name }),
-        ...(data.text !== undefined && { text: data.text }),
-        ...(cardSet && {
-          cards: data.cards,
+        ...(fields.name !== undefined && { name: fields.name }),
+        ...(fields.text !== undefined && { text: fields.text }),
+        ...(cardSet && fields.cards && {
+          cards: fields.cards,
           text: "",
         }),
-        ...(data.backgroundColor !== undefined && {
-          backgroundColor: normalizeRibbonBackground(data.backgroundColor),
+        ...(fields.backgroundColor !== undefined && {
+          backgroundColor: normalizeRibbonBackground(fields.backgroundColor),
         }),
-        ...(data.textColor !== undefined && { textColor: data.textColor }),
-        ...(data.fontSizePx !== undefined && { fontSizePx: data.fontSizePx }),
-        ...(data.textAnimation !== undefined && {
-          textAnimation: data.textAnimation,
+        ...(fields.textColor !== undefined && { textColor: fields.textColor }),
+        ...(fields.fontSizePx !== undefined && { fontSizePx: fields.fontSizePx }),
+        ...(fields.textAnimation !== undefined && {
+          textAnimation: fields.textAnimation,
         }),
         ...(data.isActive !== undefined && { isActive: data.isActive }),
         ...(schedule && {

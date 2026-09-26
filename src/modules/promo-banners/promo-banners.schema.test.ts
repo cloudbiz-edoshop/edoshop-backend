@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   createPromoBannerCardsRequestSchema,
+  createPromoBannerRequestSchema,
   createPromoBannerStripRequestSchema,
   MAX_PROMO_BANNER_CARDS,
   MIN_PROMO_BANNER_CARDS,
   updatePromoBannerCardsRequestSchema,
+  updatePromoBannerRequestSchema,
 } from "./promo-banners.schema";
 
 const validCard = {
@@ -72,6 +74,39 @@ describe("promo-banners.schema", () => {
       scheduleType: "permanent",
     });
     expect(result.success).toBe(true);
+  });
+
+  it("route-level create schema accepts the admin ribbon payload (no name/cards)", () => {
+    const result = createPromoBannerRequestSchema.safeParse({
+      text: "Free Shipping this week",
+      backgroundColor: "#ffe14a",
+      textColor: "#1a1a1a",
+      fontSizePx: 13,
+      textAnimation: "scrolling",
+      isActive: true,
+      scheduleType: "permanent",
+      startsAt: null,
+      endsAt: null,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("route-level update schema keeps ribbon fields on a ribbon-only patch", () => {
+    const result = updatePromoBannerRequestSchema.safeParse({
+      text: "Updated ribbon",
+      textAnimation: "blinking",
+      isActive: false,
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.text).toBe("Updated ribbon");
+      expect(result.data.textAnimation).toBe("blinking");
+    }
+  });
+
+  it("route-level update schema still enforces card rules", () => {
+    const result = updatePromoBannerRequestSchema.safeParse({ cards: buildCards(2) });
+    expect(result.success).toBe(false);
   });
 
   it("rejects more than max cards on create", () => {

@@ -235,7 +235,26 @@ export const updatePromoBannerCardsRequestSchema =
 export const updatePromoBannerStripRequestSchema =
   promoBannerStripUpdateFieldsSchema.superRefine(refinePromoSchedule);
 
-export const updatePromoBannerRequestSchema = z.union([
-  updatePromoBannerCardsRequestSchema,
-  updatePromoBannerStripRequestSchema,
-]);
+/**
+ * Update accepts a single merged object rather than a union: both update
+ * variants are all-optional, so `z.union` would always match the first member
+ * and silently strip ribbon fields (text/colour/animation) from a ribbon patch.
+ */
+export const updatePromoBannerRequestSchema = z
+  .object({
+    name: z.string().min(1).max(255).optional(),
+    cards: z
+      .array(promoBannerCardSchema)
+      .min(MIN_PROMO_BANNER_CARDS)
+      .max(MAX_PROMO_BANNER_CARDS)
+      .optional(),
+    text: z.string().min(1).max(255).optional(),
+    backgroundColor: ribbonBackgroundSchema.optional(),
+    ...ribbonStyleFieldsOptional,
+    ...scheduleFieldsOptional,
+  })
+  .superRefine((data, ctx) => refinePromoCardSet(data, ctx, { requireCards: true }))
+  .superRefine(refinePromoSchedule);
+
+export type CreatePromoBannerRequest = z.infer<typeof createPromoBannerRequestSchema>;
+export type UpdatePromoBannerRequest = z.infer<typeof updatePromoBannerRequestSchema>;
