@@ -65,6 +65,12 @@ const MIGRATION_CHECKS: Record<string, string> = {
       WHERE table_schema = 'public' AND table_name = 'newsletter_subscribers'
     ) AS ok
   `,
+  "0021_user_shipping_address": `
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'home_area'
+    ) AS ok
+  `,
   "0009_user_home_location": `
     SELECT EXISTS (
       SELECT 1 FROM information_schema.columns

@@ -210,6 +210,9 @@ export const updateCurrentUserRequestSchema = z
     profilePhotoUrl: z.string().trim().optional().or(z.literal("")),
     homeLatitude: z.union([z.number(), z.string()]).optional().nullable(),
     homeLongitude: z.union([z.number(), z.string()]).optional().nullable(),
+    homeArea: z.string().trim().max(128).optional().nullable(),
+    homeTown: z.string().trim().max(128).optional().nullable(),
+    homeCountry: z.string().trim().max(128).optional().nullable(),
   })
   .partial();
 

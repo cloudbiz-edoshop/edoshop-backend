@@ -361,6 +361,15 @@ export class UsersService {
         ...(userData.homeLongitude !== undefined
           ? { homeLongitude: normalizeCoordinateField(userData.homeLongitude) }
           : {}),
+        ...(userData.homeArea !== undefined
+          ? { homeArea: userData.homeArea?.trim() || null }
+          : {}),
+        ...(userData.homeTown !== undefined
+          ? { homeTown: userData.homeTown?.trim() || null }
+          : {}),
+        ...(userData.homeCountry !== undefined
+          ? { homeCountry: userData.homeCountry?.trim() || null }
+          : {}),
         updatedBy: userId,
       } as any);
     });
