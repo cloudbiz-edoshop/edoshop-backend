@@ -111,13 +111,17 @@ export class OrdersService {
     if (!existingOrderItem) {
       throw new NotFoundError("Order Item not found");
     }
-    // If the Quantity Available is less than Quantity Asked then Notes is required field
+    // Notes are required when Quantity Available is below what is still left to pack
+    const remainingToPack = Math.max(
+      0,
+      existingOrderItem.quantity - (existingOrderItem.quantityPacked ?? 0),
+    );
     if (
-      orderItemData.quantityAvailable < existingOrderItem.quantity &&
+      orderItemData.quantityAvailable < remainingToPack &&
       !orderItemData.notes
     ) {
       throw new ValidationError(
-        `Notes is required when Quantity Available(${orderItemData.quantityAvailable}) is less than Quantity Asked(${existingOrderItem.quantity})`,
+        `Notes is required when Quantity Available(${orderItemData.quantityAvailable}) is less than the quantity left to pack(${remainingToPack})`,
       );
     }
     // Update the order item
