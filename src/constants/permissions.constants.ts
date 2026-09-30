@@ -1,6 +1,9 @@
 import { EntityType, OperationType } from "@/constants";
 
-import { TICKETING_PAGE_ENTITIES } from "./ticketing-pages.constants";
+import {
+  TICKETING_PAGE_ENTITIES,
+  TICKETING_PAGE_READ_PERMISSIONS,
+} from "./ticketing-pages.constants";
 
 export const PROTECTED_ROLE_NAMES = {
   SUPER_ADMIN: "super_admin",
@@ -175,5 +178,79 @@ export function isProtectedRoleName(roleName: string) {
   return (
     normalized === PROTECTED_ROLE_NAMES.SUPER_ADMIN ||
     normalized === PROTECTED_ROLE_NAMES.ADMIN
+  );
+}
+
+const sectionHasAnyPermission = (
+  permissionSet: Set<string>,
+  entities: EntityType[],
+  operations: OperationType[] = STANDARD_CRUD_OPERATIONS,
+) =>
+  entities.some((entity) =>
+    operations.some((operation) =>
+      permissionSet.has(formatPermissionKey(entity, operation)),
+    ),
+  );
+
+/** Derive sidebar section flags from flat role permission keys. */
+export function buildSectionAccess(permissions: string[]) {
+  const permissionSet = new Set(permissions);
+  const sectionAnchorEntities: Record<AccessSection, EntityType> = {
+    settings: EntityType.SETTINGS,
+    store: EntityType.STORES,
+    cms: EntityType.BANNERS,
+    dialogue: EntityType.CHAT,
+    notifications: EntityType.NOTIFICATIONS,
+    tracking: EntityType.TRACKING,
+    ewms_w1: EntityType.WAREHOUSE_1,
+    ewms_w2: EntityType.WAREHOUSE_2,
+    ewms_management: EntityType.EWMS_MANAGEMENT,
+    delivery: EntityType.DELIVERY_PLANS,
+    ticketing: EntityType.TICKETING,
+    tv_app: EntityType.TV_APP,
+    best_deals: EntityType.DISCOUNTS,
+  };
+
+  return Object.keys(SECTION_ENTITY_MAP).reduce(
+    (sections, section) => {
+      const accessSection = section as AccessSection;
+
+      if (accessSection === "cms") {
+        sections.cms = sectionHasAnyPermission(
+          permissionSet,
+          CMS_ENTITIES,
+          READ_ONLY_OPERATIONS,
+        );
+        return sections;
+      }
+
+      if (accessSection === "store") {
+        sections.store = sectionHasAnyPermission(permissionSet, STORE_ENTITIES);
+        return sections;
+      }
+
+      if (accessSection === "ticketing") {
+        sections.ticketing =
+          TICKETING_PAGE_READ_PERMISSIONS.some(({ entity, operation }) =>
+            permissionSet.has(formatPermissionKey(entity, operation)),
+          ) ||
+          sectionHasAnyPermission(permissionSet, TICKETING_CORE_ENTITIES) ||
+          sectionHasAnyPermission(
+            permissionSet,
+            TICKET_BORROW_LIMIT_ENTITIES,
+            READ_ONLY_OPERATIONS,
+          );
+        return sections;
+      }
+
+      sections[accessSection] = permissionSet.has(
+        formatPermissionKey(
+          sectionAnchorEntities[accessSection],
+          OperationType.READ,
+        ),
+      );
+      return sections;
+    },
+    {} as Record<AccessSection, boolean>,
   );
 }
