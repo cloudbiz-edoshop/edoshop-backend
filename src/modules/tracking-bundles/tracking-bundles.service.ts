@@ -65,6 +65,7 @@ export class TrackingBundlesService {
 
     const stepOrder = bundle.currentStep?.stepOrder ?? 0;
     if (stepOrder >= BUNDLE_ORDERS_VISIBLE_FROM_STEP_ORDER) {
+      await this.repository.backfillTrackingBundleItems();
       await this.repository.syncBundleOrdersToTrackingItems(bundle.id, null);
     }
 

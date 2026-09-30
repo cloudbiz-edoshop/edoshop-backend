@@ -556,7 +556,9 @@ export class TrackingBundlesRepository {
   async syncBundleOrdersToTrackingItems(bundleId: number, userId: number | null) {
     const bundle = await this.findById(bundleId);
     const sourceBundleId = bundle?.sourceBundleId ?? bundle?.sourceBundle?.id ?? null;
-    if (!sourceBundleId) return;
+    if (!sourceBundleId || !bundle?.id) return;
+
+    const trackingBundleId = bundle.id;
 
     const linkedOrders = await db
       .selectDistinct({ orderId: orders.id })
@@ -571,7 +573,7 @@ export class TrackingBundlesRepository {
     for (const row of linkedOrders) {
       const existing = await db.query.trackingBundleItems.findFirst({
         where: and(
-          eq(trackingBundleItems.bundleId, bundleId),
+          eq(trackingBundleItems.bundleId, trackingBundleId),
           eq(trackingBundleItems.orderId, row.orderId),
         ),
       });
@@ -579,7 +581,7 @@ export class TrackingBundlesRepository {
       if (existing) continue;
 
       await db.insert(trackingBundleItems).values({
-        bundleId,
+        bundleId: trackingBundleId,
         orderId: row.orderId,
         createdAt: now,
         createdBy: userId,

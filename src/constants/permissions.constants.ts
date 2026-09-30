@@ -27,7 +27,6 @@ export const STORE_ENTITIES: EntityType[] = [
   EntityType.CUSTOMERS,
   EntityType.RETAILERS,
   EntityType.DISCOUNTS,
-  EntityType.FILTERS,
   EntityType.CATEGORIES,
   EntityType.REVIEWS,
   EntityType.PRODUCTS,
@@ -47,6 +46,7 @@ export const CMS_ENTITIES: EntityType[] = [
   EntityType.TESTIMONIALS,
   EntityType.ABOUT_US,
   EntityType.TERMS,
+  EntityType.FILTERS,
 ];
 
 export const DIALOGUE_ENTITIES: EntityType[] = [EntityType.CHAT];

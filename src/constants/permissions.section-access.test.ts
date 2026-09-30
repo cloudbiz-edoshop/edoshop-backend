@@ -7,6 +7,15 @@ import {
 } from "@/constants/permissions.constants";
 
 describe("buildSectionAccess", () => {
+  it("opens Page Content when the role has filters read only", () => {
+    const sections = buildSectionAccess([
+      formatPermissionKey(EntityType.FILTERS, OperationType.READ),
+    ]);
+
+    expect(sections.cms).toBe(true);
+    expect(sections.store).toBe(false);
+  });
+
   it("opens Store when the role has products create without stores read", () => {
     const sections = buildSectionAccess([
       formatPermissionKey(EntityType.PRODUCTS, OperationType.CREATE),
