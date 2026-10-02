@@ -1,0 +1,16 @@
+---
+description: Log and track Edoshop bugs in GitHub Issues when finding or fixing defects
+alwaysApply: false
+---
+
+# Bug tracking
+
+When you **discover**, **fix**, or **verify** a bug in Edoshop (backend, admin, or storefront):
+
+1. Read `docs/BUG_TRACKING_AGENT.md` in this repo for repo mapping and `gh issue create` format.
+2. **Search** existing issues before creating duplicates (`gh issue list --search "…"`).
+3. **File** a new issue on the correct repo (`edoshop-backend`, `edoshop-admin`, or `edoshop`) with repro steps, environment, and expected vs actual.
+4. When shipping a fix, **reference** the issue in the PR body (`Fixes #123`) or comment on the issue with the commit/PR link.
+5. For Steve/WhatsApp-reported issues, cite the report in the issue body.
+
+Do not log secrets, passwords, or full PII in issues.
