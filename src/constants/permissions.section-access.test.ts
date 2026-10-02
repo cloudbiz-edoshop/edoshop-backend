@@ -37,6 +37,23 @@ describe("buildSectionAccess", () => {
     expect(sections.ticketing).toBe(true);
   });
 
+  it("opens Warehouse 2 when the role has entries read without warehouse_2 read", () => {
+    const sections = buildSectionAccess([
+      formatPermissionKey(EntityType.ENTRIES, OperationType.READ),
+    ]);
+
+    expect(sections.ewms_w2).toBe(true);
+    expect(sections.ewms_w1).toBe(true);
+  });
+
+  it("opens Delivery when the role has shipping_labels read only", () => {
+    const sections = buildSectionAccess([
+      formatPermissionKey(EntityType.SHIPPING_LABELS, OperationType.READ),
+    ]);
+
+    expect(sections.delivery).toBe(true);
+  });
+
   it("keeps Ticket Management closed without ticket_page_management read", () => {
     const permissions = [
       formatPermissionKey(EntityType.TICKET_PAGE_CREATE, OperationType.READ),

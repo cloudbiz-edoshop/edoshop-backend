@@ -195,21 +195,6 @@ const sectionHasAnyPermission = (
 /** Derive sidebar section flags from flat role permission keys. */
 export function buildSectionAccess(permissions: string[]) {
   const permissionSet = new Set(permissions);
-  const sectionAnchorEntities: Record<AccessSection, EntityType> = {
-    settings: EntityType.SETTINGS,
-    store: EntityType.STORES,
-    cms: EntityType.BANNERS,
-    dialogue: EntityType.CHAT,
-    notifications: EntityType.NOTIFICATIONS,
-    tracking: EntityType.TRACKING,
-    ewms_w1: EntityType.WAREHOUSE_1,
-    ewms_w2: EntityType.WAREHOUSE_2,
-    ewms_management: EntityType.EWMS_MANAGEMENT,
-    delivery: EntityType.DELIVERY_PLANS,
-    ticketing: EntityType.TICKETING,
-    tv_app: EntityType.TV_APP,
-    best_deals: EntityType.DISCOUNTS,
-  };
 
   return Object.keys(SECTION_ENTITY_MAP).reduce(
     (sections, section) => {
@@ -243,11 +228,9 @@ export function buildSectionAccess(permissions: string[]) {
         return sections;
       }
 
-      sections[accessSection] = permissionSet.has(
-        formatPermissionKey(
-          sectionAnchorEntities[accessSection],
-          OperationType.READ,
-        ),
+      sections[accessSection] = sectionHasAnyPermission(
+        permissionSet,
+        SECTION_ENTITY_MAP[accessSection],
       );
       return sections;
     },
