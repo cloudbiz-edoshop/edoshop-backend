@@ -3,8 +3,9 @@ import type { OrderDetailsForCustomerToFulfill, OrdersToFulfill } from "./orders
 import type { UpdateOrderItems } from "@/db/models/order-items";
 import type { TX } from "@/lib/types";
 
-import { and, asc, count, desc, eq, exists, inArray, like, ne, not, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, exists, gte, inArray, like, ne, not, or, sql } from "drizzle-orm";
 import { OrderStatusTypeIds } from "@/constants";
+import { BUNDLE_ORDERS_VISIBLE_FROM_STEP_ORDER } from "@/constants/bundle-tracking.constants";
 import { AddressTypeIds } from "@/constants/address-types.constants";
 import { OrderItemFulfillmentStatusIds } from "@/constants/order-item-fulfillment-statuses.constants";
 import { OrderTypeIds } from "@/constants/order-types.constants";
@@ -1008,7 +1009,9 @@ export class OrdersRepository {
           trackingSteps,
           eq(trackingBundles.currentStepId, trackingSteps.id),
         )
-        .where(eq(trackingBundles.status, "active"));
+        .where(
+          gte(trackingSteps.stepOrder, BUNDLE_ORDERS_VISIBLE_FROM_STEP_ORDER),
+        );
 
       trackableOrderIds = bundleAssignments.map((row) => row.orderId);
       for (const row of bundleAssignments) {

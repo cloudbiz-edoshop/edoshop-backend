@@ -6,7 +6,8 @@ import type {
   CreateKiloBillRequest,
 } from "./tracking-bundles.schema";
 
-import { and, asc, count, desc, eq, gte, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, ilike, inArray, isNull, ne, or, sql } from "drizzle-orm";
+import { TrackingBundleStatus } from "@/constants/tracking-steps.constants";
 import db from "@/db";
 import {
   BUNDLE_MANUAL_STEP_MAX,
@@ -39,6 +40,7 @@ import {
   getDropshippingOrderLegStepDefinitions,
   getDropshippingOrderLegTargetStatusId,
   resolveDropshippingOrderLegStepLabel,
+  resolveDropshippingOrderLegTrackingStage,
 } from "@/modules/orders/order-tracking.util";
 
 export class TrackingBundlesRepository {
@@ -163,6 +165,17 @@ export class TrackingBundlesRepository {
     if (parsedFilters.minBundleStepOrder) {
       whereConditions.push(
         gte(trackingSteps.stepOrder, Number(parsedFilters.minBundleStepOrder)),
+      );
+    }
+
+    const includeClosed = parsedFilters.includeClosed === true
+      || String(parsedFilters.includeClosed) === "true";
+    if (!includeClosed) {
+      whereConditions.push(
+        or(
+          isNull(trackingBundles.id),
+          ne(trackingBundles.status, TrackingBundleStatus.CLOSED),
+        ),
       );
     }
 
@@ -526,11 +539,75 @@ export class TrackingBundlesRepository {
       createdBy: userId,
     });
 
-    if (step.code === BUNDLE_TO_ORDER_STEP_CODE) {
-      await this.syncBundleOrdersToTrackingItems(bundle.id, userId);
+    if (step.code === BUNDLE_TO_ORDER_STEP_CODE && !isBackward) {
+      await this.finalizeBundleToOrder(bundle.id, userId);
+    } else if (
+      isBackward
+      && step.stepOrder < BUNDLE_ORDERS_VISIBLE_FROM_STEP_ORDER
+      && bundle.status === TrackingBundleStatus.CLOSED
+    ) {
+      await db
+        .update(trackingBundles)
+        .set({
+          status: TrackingBundleStatus.ACTIVE,
+          updatedAt: now,
+          updatedBy: userId,
+        })
+        .where(eq(trackingBundles.id, bundle.id));
     }
 
     return this.findById(bundle.id);
+  }
+
+  /**
+   * Step 6a: link customer orders to order tracking, advance order leg, close bundle.
+   */
+  async finalizeBundleToOrder(trackingBundleId: number, userId: number | null) {
+    await this.syncBundleOrdersToTrackingItems(trackingBundleId, userId);
+    await this.promoteBundleOrdersToOrderTracking(trackingBundleId, userId);
+
+    const now = new Date().toISOString();
+    await db
+      .update(trackingBundles)
+      .set({
+        status: TrackingBundleStatus.CLOSED,
+        updatedAt: now,
+        ...(userId ? { updatedBy: userId } : {}),
+      })
+      .where(eq(trackingBundles.id, trackingBundleId));
+  }
+
+  async promoteBundleOrdersToOrderTracking(
+    trackingBundleId: number,
+    userId: number | null,
+  ) {
+    const paymentOfKiloStatusId = getDropshippingOrderLegTargetStatusId(7);
+    if (!paymentOfKiloStatusId) return;
+
+    const linked = await db
+      .select({ orderId: trackingBundleItems.orderId })
+      .from(trackingBundleItems)
+      .where(eq(trackingBundleItems.bundleId, trackingBundleId));
+
+    const now = new Date().toISOString();
+    for (const row of linked) {
+      const order = await db.query.orders.findFirst({
+        where: eq(orders.id, row.orderId),
+      });
+      if (!order) continue;
+
+      const legStage = resolveDropshippingOrderLegTrackingStage(order.statusId);
+      if (legStage > 0) continue;
+
+      await db
+        .update(orders)
+        .set({
+          statusId: paymentOfKiloStatusId,
+          updatedAt: now,
+          ...(userId ? { updatedBy: userId } : {}),
+        })
+        .where(eq(orders.id, order.id));
+    }
   }
 
   async backfillTrackingBundleItems() {

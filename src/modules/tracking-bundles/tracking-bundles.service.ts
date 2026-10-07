@@ -8,6 +8,7 @@ import type {
 
 import { NotificationTypeIds } from "@/constants/notification-types.constants";
 import { BUNDLE_ORDERS_VISIBLE_FROM_STEP_ORDER, BUNDLE_TO_ORDER_STEP_CODE } from "@/constants/bundle-tracking.constants";
+import { TrackingBundleStatus } from "@/constants/tracking-steps.constants";
 import { notificationDeliveryService } from "../notifications/notification-delivery.service";
 import { TrackingBundlesRepository } from "./tracking-bundles.repository";
 
@@ -60,13 +61,22 @@ export class TrackingBundlesService {
   }
 
   async getOne(id: number) {
-    const bundle = await this.repository.findById(id);
+    let bundle = await this.repository.findById(id);
     if (!bundle) return null;
 
     const stepOrder = bundle.currentStep?.stepOrder ?? 0;
     if (stepOrder >= BUNDLE_ORDERS_VISIBLE_FROM_STEP_ORDER) {
       await this.repository.backfillTrackingBundleItems();
-      await this.repository.syncBundleOrdersToTrackingItems(bundle.id, null);
+      if (
+        bundle.currentStep?.code === BUNDLE_TO_ORDER_STEP_CODE
+        && bundle.status === TrackingBundleStatus.ACTIVE
+      ) {
+        await this.repository.finalizeBundleToOrder(bundle.id, null);
+        bundle = await this.repository.findById(id);
+        if (!bundle) return null;
+      } else {
+        await this.repository.syncBundleOrdersToTrackingItems(bundle.id, null);
+      }
     }
 
     const orders = await this.repository.getBundleOrders(id);
