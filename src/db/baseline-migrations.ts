@@ -116,6 +116,14 @@ const MIGRATION_CHECKS: Record<string, string> = {
       WHERE table_schema = 'public' AND table_name = 'package_packaging_videos'
     ) AS ok
   `,
+  "0030_direct_order_legacy_product_code": `
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'direct_order_products'
+        AND column_name = 'legacy_direct_order_code'
+    ) AS ok
+  `,
 };
 
 type ExistsRow = { ok: boolean };

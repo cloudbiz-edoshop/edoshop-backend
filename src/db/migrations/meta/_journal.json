@@ -134,6 +134,13 @@
       "when": 1778454700218,
       "tag": "0021_user_shipping_address",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1778454700219,
+      "tag": "0030_direct_order_legacy_product_code",
+      "breakpoints": true
     }
   ]
 }
