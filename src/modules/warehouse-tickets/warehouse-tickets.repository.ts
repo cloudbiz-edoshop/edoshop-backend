@@ -354,7 +354,10 @@ export class WarehouseTicketsRepository {
           OR EXISTS (
             SELECT 1 FROM "direct_order_products"
             WHERE "direct_order_products"."product_id" = ${productIdRef}
-              AND "direct_order_products"."direct_order_code" ILIKE ${searchPattern}
+              AND (
+                "direct_order_products"."direct_order_code" ILIKE ${searchPattern}
+                OR COALESCE("direct_order_products"."legacy_direct_order_code", '') ILIKE ${searchPattern}
+              )
           )
           OR EXISTS (
             SELECT 1 FROM "variants"

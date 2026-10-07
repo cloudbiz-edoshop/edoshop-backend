@@ -96,7 +96,8 @@ const ORDER_TRACKING_INTENT_PATTERN =
   /\b(track|tracking|where is my order|order status|status of my order|delivery status|shipment status)\b/i;
 const AGENT_HANDOFF_PATTERN =
   /\b(talk to (a )?(human )?agent|live agent|support agent|human support|admin support|connect me to agent|real person|representative)\b/i;
-const ORDER_CODE_PATTERN = /\b(ORD-\d{8}-\d{4,})\b/i;
+const ORDER_CODE_PATTERN =
+  /\b(ORD-(?:DO|DS)-\d{8}-\d{4,}|ORD-\d{8}-\d{4,})\b/i;
 const TRACKING_REFERENCE_PATTERN = /\b(TXN-[A-Z0-9-]{6,}|TRK-[A-Z0-9-]{4,})\b/i;
 const NUMERIC_ORDER_ID_PATTERN = /\border\s*(?:id|#)?\s*[:#-]?\s*(\d{1,12})\b/i;
 const CONVERSATIONAL_SHORTCUT_PATTERN =

@@ -6,7 +6,7 @@ import type {
 import type { NewProducts } from "@/db/models/products";
 import type { TX } from "@/lib/types";
 
-import { and, count, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, or, sql } from "drizzle-orm";
 import db from "@/db";
 import {
   categories,
@@ -117,6 +117,7 @@ export class ProductsRepository {
       tags: productTagRecords,
       categories: productCategoryRecords,
       directOrderCode: directProduct?.directOrderCode ?? null,
+      legacyDirectOrderCode: directProduct?.legacyDirectOrderCode ?? null,
       totalItems: directProduct?.totalItems ?? dropshippingProduct?.totalItems ?? null,
       dropshippingDetails: dropshippingProduct
         ? {
@@ -225,13 +226,24 @@ export class ProductsRepository {
       whereConditions.push(filterCondition);
     }
 
-    const searchCondition = createSearchCondition(
-      searchableFields,
-      products,
-      search,
-    );
-    if (searchCondition) {
-      whereConditions.push(searchCondition);
+    if (search?.trim()) {
+      const term = `%${search.trim()}%`;
+      const textSearch = createSearchCondition(
+        searchableFields,
+        products,
+        search,
+      );
+      const productIdSearch = sql`exists (
+        select 1 from direct_order_products dop
+        where dop.product_id = ${products.id}
+          and (
+            dop.direct_order_code ilike ${term}
+            or dop.legacy_direct_order_code ilike ${term}
+          )
+      )`;
+      whereConditions.push(
+        textSearch ? or(textSearch, productIdSearch)! : productIdSearch,
+      );
     }
 
     const whereClause =
@@ -329,6 +341,7 @@ export class ProductsRepository {
             tags: productTagRecords,
             categories: productCategoryRecords,
             directOrderCode: directProduct?.directOrderCode ?? null,
+      legacyDirectOrderCode: directProduct?.legacyDirectOrderCode ?? null,
             totalItems: directProduct?.totalItems ?? dropshippingProduct?.totalItems ?? null,
             dropshippingDetails: dropshippingProduct
               ? {
@@ -388,11 +401,26 @@ export class ProductsRepository {
   async insertDirectProduct(
     tx: TX,
     productId: number,
-    data: { directOrderCode: string; totalItems?: number | null; createdBy: number },
+    data: {
+      directOrderCode: string;
+      legacyDirectOrderCode?: string | null;
+      totalItems?: number | null;
+      createdBy: number;
+    },
   ) {
+    const { shouldStoreLegacyDirectOrderCode } = await import(
+      "@/lib/direct-order-product-identifier.util"
+    );
+    const legacyDirectOrderCode =
+      data.legacyDirectOrderCode?.trim()
+      || (shouldStoreLegacyDirectOrderCode(data.directOrderCode)
+        ? data.directOrderCode.trim()
+        : null);
+
     await tx.insert(directOrderProducts).values({
       productId,
       directOrderCode: data.directOrderCode,
+      legacyDirectOrderCode,
       totalItems: data.totalItems ?? null,
       createdAt: new Date().toISOString(),
       createdBy: data.createdBy,
@@ -604,21 +632,12 @@ export class ProductsRepository {
    * @returns Product ID if found, null otherwise
    */
   async findProductIdByCode(productCode: string): Promise<number | null> {
-    // First try direct order products
-    const directProduct = await db
-      .select({ productId: directOrderProducts.productId })
-      .from(directOrderProducts)
-      .innerJoin(products, eq(directOrderProducts.productId, products.id))
-      .where(
-        and(
-          eq(directOrderProducts.directOrderCode, productCode),
-          eq(products.isDeleted, false),
-        ),
-      )
-      .limit(1);
-
-    if (directProduct.length > 0 && directProduct[0].productId) {
-      return directProduct[0].productId;
+    const { findDirectOrderProductIdByIdentifier } = await import(
+      "@/lib/direct-order-product-identifier.util"
+    );
+    const directProductId = await findDirectOrderProductIdByIdentifier(productCode);
+    if (directProductId) {
+      return directProductId;
     }
 
     // If not found, try dropshipping products

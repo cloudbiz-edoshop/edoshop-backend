@@ -176,6 +176,7 @@ export const productResponseSchema = productsSchema.extend({
     .optional(),
   series: seriesSchema.nullable().optional(),
   directOrderCode: z.string().nullable().optional(),
+  legacyDirectOrderCode: z.string().nullable().optional(),
   totalItems: z.number().nullable().optional(),
   dropshippingDetails: z
     .object({

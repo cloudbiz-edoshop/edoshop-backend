@@ -319,7 +319,25 @@ export class ProductsService {
           .update(directOrderProducts)
           .set({
             ...(productData.directOrderCode?.trim()
-              ? { directOrderCode: productData.directOrderCode.trim() }
+              ? {
+                  directOrderCode: productData.directOrderCode.trim(),
+                  ...(await (async () => {
+                    const next = productData.directOrderCode!.trim();
+                    const prev = product.directOrderCode?.trim() ?? "";
+                    const { isLegacyExcelDirectOrderCode } = await import(
+                      "./direct-order-product-code.util"
+                    );
+                    if (
+                      prev
+                      && isLegacyExcelDirectOrderCode(prev)
+                      && !isLegacyExcelDirectOrderCode(next)
+                      && !product.legacyDirectOrderCode
+                    ) {
+                      return { legacyDirectOrderCode: prev };
+                    }
+                    return {};
+                  })()),
+                }
               : {}),
             ...(productData.totalItems !== undefined
               ? { totalItems: productData.totalItems }

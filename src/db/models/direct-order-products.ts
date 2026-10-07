@@ -18,6 +18,8 @@ export const directOrderProducts = pgTable("direct_order_products", {
   productId: integer().references(() => products.id),
   seriesId: integer(),
   directOrderCode: varchar({ length: 50 }).unique(),
+  /** Previous spreadsheet / warehouse label ID (searchable alias). */
+  legacyDirectOrderCode: varchar({ length: 50 }),
   totalItems: integer(),
   createdAt: timestamp({ mode: "string" }).notNull(),
   updatedAt: timestamp({ mode: "string" }),

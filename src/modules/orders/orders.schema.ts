@@ -311,6 +311,9 @@ export type UpdateAvailableQuantityResponse = z.infer<
 export const directOrderTrackingRowSchema = z.object({
   orderId: z.number(),
   orderCode: z.string(),
+  orderCodeStoreKind: z
+    .enum(["direct", "dropshipping", "legacy", "unknown"])
+    .optional(),
   customerId: z.number(),
   customerCode: z.string().nullable().optional(),
   customerName: z.string().nullable().optional(),

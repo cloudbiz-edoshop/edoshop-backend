@@ -742,7 +742,8 @@ export class OrdersRepository {
         : country.id;
 
     const now = new Date().toISOString();
-    const orderCode = `ORD-${now.slice(0, 10).replace(/-/g, "")}-${Math.floor(Math.random() * 9000 + 1000)}`;
+    const { generateOrderCode } = await import("@/lib/order-code.util");
+    const orderCode = generateOrderCode(OrderTypeIds.DIRECT_ORDER);
 
     const resolvedItems = [];
     for (const item of params.items) {
@@ -1613,10 +1614,13 @@ export class OrdersRepository {
       .innerJoin(users, eq(customers.userId, users.id))
       .where(whereClause);
 
+    const { resolveOrderCodeStoreKind } = await import("@/lib/order-code.util");
+
     return {
       data: rows.map((row) => ({
         ...row,
         fulfillmentMethod: row.fulfillmentMethod ?? FulfillmentMethod.DELIVERY,
+        orderCodeStoreKind: resolveOrderCodeStoreKind(row.orderCode),
         currentStepLabel: resolveDirectOrderTrackingStepLabel(
           row.orderStatusId,
           row.fulfillmentMethod ?? FulfillmentMethod.DELIVERY,
