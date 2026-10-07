@@ -7,6 +7,7 @@ const router = createRouter();
 router.openapi(routes.list, handlers.list);
 router.openapi(routes.create, handlers.create);
 router.openapi(routes.getAllProductCodes, handlers.getAllProductCodes);
+router.openapi(routes.getWarehouseItemIds, handlers.getWarehouseItemIds);
 router.openapi(routes.getAllProductIds, handlers.getAllProductIds);
 router.openapi(routes.getAllGroupCriteriaTypes, handlers.getAllGroupCriteriaTypes);
 router.openapi(routes.getOne, handlers.getOne);

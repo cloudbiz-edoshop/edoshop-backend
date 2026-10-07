@@ -257,6 +257,43 @@ export const getAllProductCodes = createRoute({
   },
 });
 
+export const getWarehouseItemIds = createRoute({
+  path: "/products/warehouse-items/ids",
+  method: "get",
+  tags,
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.PRODUCTS, operation: OperationType.READ },
+    ]),
+  ] as const,
+  summary: "EWMS item codes for product forms",
+  description:
+    "Returns warehouse item codes (bundle → series → item) for Direct Order product ID pickers. Same data as GET /entries/items/ids but gated on products:read.",
+  request: { headers: jwtHeaderSchema },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      z.object({
+        ids: z.array(
+          z.object({
+            id: z.number(),
+            itemCode: z.string(),
+          }),
+        ),
+      }),
+      "Warehouse item IDs",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.FORBIDDEN,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      z.object({}),
+    ),
+  },
+});
+
 export const getAllProductIds = createRoute({
   path: "/products/ids",
   method: "get",
@@ -293,4 +330,5 @@ export type GetOneRoute = typeof getOne;
 export type PatchRoute = typeof patch;
 export type RemoveSelectedRoute = typeof removeSelected;
 export type GetAllProductCodesRoute = typeof getAllProductCodes;
+export type GetWarehouseItemIdsRoute = typeof getWarehouseItemIds;
 export type GetAllProductIdsRoute = typeof getAllProductIds;

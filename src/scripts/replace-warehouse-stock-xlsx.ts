@@ -141,6 +141,29 @@ async function main() {
     runStep("Upload embedded product images", "import-warehouse-product-images.ts", sharedArgs);
   }
 
+  const prodFlag = args.includes("--prod") ? ["--prod"] : args.includes("--local") ? ["--local"] : ["--prod"];
+  if (!dryRun) {
+    runStep(
+      "Provision EWMS bins from sheet",
+      "provision-warehouse-bins-from-xlsx.ts",
+      [...sharedArgs.filter((a) => a !== "--force"), ...prodFlag],
+    );
+    runStep(
+      "Provision EWMS item entries",
+      "provision-warehouse-item-entries-from-xlsx.ts",
+      [...sharedArgs.filter((a) => a !== "--force"), ...prodFlag],
+    );
+    runStep(
+      "Sync EWMS bin locations",
+      "sync-warehouse-xlsx-bins.ts",
+      [
+        ...sharedArgs.filter((a) => a !== "--force"),
+        ...prodFlag,
+        "--sync-quantity",
+      ],
+    );
+  }
+
   console.log("\nReplace import complete.");
 }
 

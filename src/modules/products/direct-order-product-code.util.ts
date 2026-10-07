@@ -4,8 +4,12 @@ import { AppError } from "@/core/errors/app-error";
 import db from "@/db";
 import { items } from "@/db/models/items";
 
-/** Legacy warehouse spreadsheet references — not valid storefront product IDs. */
-const LEGACY_EXCEL_DIRECT_ORDER_CODE = /^DO-[A-Z]{2}-B\d+-[A-Z0-9]+$/i;
+/** Legacy warehouse spreadsheet references — not valid for new storefront products. */
+export const LEGACY_EXCEL_DIRECT_ORDER_CODE = /^DO-[A-Z]{2}-B\d+-[A-Z0-9]+$/i;
+
+export function isLegacyExcelDirectOrderCode(code: string) {
+  return LEGACY_EXCEL_DIRECT_ORDER_CODE.test(code.trim());
+}
 
 /**
  * Direct Order products must link to an existing EWMS Item code
@@ -17,7 +21,7 @@ export async function assertValidDirectOrderProductCode(code: string) {
     throw new AppError("Direct Order Product ID is required");
   }
 
-  if (LEGACY_EXCEL_DIRECT_ORDER_CODE.test(trimmed)) {
+  if (isLegacyExcelDirectOrderCode(trimmed)) {
     throw new AppError(
       "Product ID must be an EWMS Item code (e.g. PK_A01_B1_S1_I1), not a legacy spreadsheet reference.",
     );

@@ -308,7 +308,11 @@ export class ProductsService {
         (productData.directOrderCode?.trim() || productData.totalItems !== undefined)
       ) {
         if (productData.directOrderCode?.trim()) {
-          await assertValidDirectOrderProductCode(productData.directOrderCode.trim());
+          const nextCode = productData.directOrderCode.trim();
+          const previousCode = product.directOrderCode?.trim() ?? "";
+          if (nextCode !== previousCode) {
+            await assertValidDirectOrderProductCode(nextCode);
+          }
         }
 
         await tx

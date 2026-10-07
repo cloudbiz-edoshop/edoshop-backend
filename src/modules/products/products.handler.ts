@@ -2,6 +2,7 @@ import type {
   CreateRoute,
   GetAllGroupCriteriaTypesRoute,
   GetAllProductCodesRoute,
+  GetWarehouseItemIdsRoute,
   GetAllProductIdsRoute,
   GetOneRoute,
   ListRoute,
@@ -20,9 +21,11 @@ import { successResponse } from "@/lib/api-response";
 import * as HttpStatusCodes from "@/lib/http-status-codes";
 import { createPagination } from "@/lib/searching-sorting";
 
+import { EntriesService } from "@/modules/entries/entries.service";
 import { ProductsService } from "./products.service";
 
 const productsService = new ProductsService();
+const entriesService = new EntriesService();
 
 export const getAllGroupCriteriaTypes: AppRouteHandler<GetAllGroupCriteriaTypesRoute> = async (
   c,
@@ -144,6 +147,13 @@ export const getAllProductCodes: AppRouteHandler<
 > = async (c) => {
   const codes = await productsService.getAllProductCodes();
   return c.json({ codes });
+};
+
+export const getWarehouseItemIds: AppRouteHandler<
+  GetWarehouseItemIdsRoute
+> = async (c) => {
+  const ids = await entriesService.getAllItemIds();
+  return c.json({ ids });
 };
 
 export const getAllProductIds: AppRouteHandler<GetAllProductIdsRoute> = async (
