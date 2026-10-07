@@ -465,6 +465,34 @@ export class EntriesRepository {
     }[];
   }
 
+  /** EWMS items not already used as an active Direct Order product ID. */
+  async getCatalogAvailableItemIds(): Promise<
+    { id: number; itemCode: string; seriesCode: string | null }[]
+  > {
+    const result = await db.execute(sql`
+      select
+        i.id,
+        i.item_code as "itemCode",
+        s.series_code as "seriesCode"
+      from items i
+      left join series s on i.series_id = s.id
+      where not exists (
+        select 1
+        from direct_order_products dop
+        inner join products p on p.id = dop.product_id
+        where p.is_deleted = false
+          and upper(replace(replace(dop.direct_order_code, '-', ''), ' ', ''))
+            = upper(replace(replace(i.item_code, '-', ''), ' ', ''))
+      )
+      order by i.item_code
+    `);
+    return result as unknown as {
+      id: number;
+      itemCode: string;
+      seriesCode: string | null;
+    }[];
+  }
+
   async getAllPackageIds(): Promise<{ id: number; packageCode: string }[]> {
     const result = await db
       .select({

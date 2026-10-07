@@ -269,8 +269,13 @@ export const getWarehouseItemIds = createRoute({
   ] as const,
   summary: "EWMS item codes for product forms",
   description:
-    "Returns warehouse item codes (bundle → series → item) for Direct Order product ID pickers. Same data as GET /entries/items/ids but gated on products:read.",
-  request: { headers: jwtHeaderSchema },
+    "Returns warehouse item codes (bundle → series → item) for Direct Order product ID pickers. Use availableForCatalog=true to list only IDs not already on an active catalog product.",
+  request: {
+    headers: jwtHeaderSchema,
+    query: z.object({
+      availableForCatalog: z.enum(["true", "false"]).optional(),
+    }),
+  },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
       z.object({

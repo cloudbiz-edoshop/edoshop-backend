@@ -38,7 +38,8 @@
     "products:sync-warehouse-xlsx-bins": "tsx src/scripts/sync-warehouse-xlsx-bins.ts --prod",
     "rayons:prune-orphan-bins": "tsx src/scripts/prune-warehouse-orphan-bins-cli.ts --prod",
     "products:replace-warehouse-xlsx": "tsx src/scripts/replace-warehouse-stock-xlsx.ts",
-    "products:audit-warehouse-images": "tsx src/scripts/audit-warehouse-images.ts"
+    "products:audit-warehouse-images": "tsx src/scripts/audit-warehouse-images.ts",
+    "products:compare-warehouse-xlsx": "tsx src/scripts/compare-warehouse-xlsx-prod.ts"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^8.5.0",

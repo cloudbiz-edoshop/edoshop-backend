@@ -160,6 +160,10 @@ export class EntriesService {
     return this.entriesRepository.getAllItemIds();
   }
 
+  async getCatalogAvailableItemIds(): Promise<{ id: number; itemCode: string }[]> {
+    return this.entriesRepository.getCatalogAvailableItemIds();
+  }
+
   async getAllPackageIds(): Promise<{ id: number; packageCode: string }[]> {
     return this.entriesRepository.getAllPackageIds();
   }

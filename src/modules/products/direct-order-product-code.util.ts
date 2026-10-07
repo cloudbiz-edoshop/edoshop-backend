@@ -21,17 +21,16 @@ export async function assertValidDirectOrderProductCode(code: string) {
     throw new AppError("Direct Order Product ID is required");
   }
 
-  if (isLegacyExcelDirectOrderCode(trimmed)) {
-    throw new AppError(
-      "Product ID must be an EWMS Item code (e.g. PK_A01_B1_S1_I1), not a legacy spreadsheet reference.",
-    );
-  }
-
   const item = await db.query.items.findFirst({
     where: eq(items.itemCode, trimmed),
   });
 
   if (!item) {
+    if (isLegacyExcelDirectOrderCode(trimmed)) {
+      throw new AppError(
+        "Product ID must be an EWMS Item code (e.g. PK_A01_B1_S1_I1), or an existing warehouse item from EWMS. Spreadsheet-only IDs are not allowed.",
+      );
+    }
     throw new AppError(
       `No warehouse item exists with code "${trimmed}". Create the Item entry in EWMS first, then select that ID here.`,
     );

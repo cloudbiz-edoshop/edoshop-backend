@@ -152,7 +152,10 @@ export const getAllProductCodes: AppRouteHandler<
 export const getWarehouseItemIds: AppRouteHandler<
   GetWarehouseItemIdsRoute
 > = async (c) => {
-  const ids = await entriesService.getAllItemIds();
+  const availableForCatalog = c.req.query("availableForCatalog") === "true";
+  const ids = availableForCatalog
+    ? await entriesService.getCatalogAvailableItemIds()
+    : await entriesService.getAllItemIds();
   return c.json({ ids });
 };
 
