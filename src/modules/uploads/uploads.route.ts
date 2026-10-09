@@ -27,20 +27,32 @@ import {
 
 const tags = ["Uploads"];
 
-const uploadAcl = (
-  operation: OperationType,
+/** Store staff often have products create/update but not variant_images — allow either. */
+const mediaUploadAcl = (
+  variantImagesOperation: OperationType,
+  productOperations: OperationType[] = [
+    OperationType.CREATE,
+    OperationType.UPDATE,
+  ],
 ): [MiddlewareHandler, MiddlewareHandler] => [
   jwtMiddleware(),
-  rolesAndPermissionsMiddleware([
-    { entity: EntityType.VARIANT_IMAGES, operation },
-  ]),
+  rolesAndPermissionsMiddleware(
+    [
+      { entity: EntityType.VARIANT_IMAGES, operation: variantImagesOperation },
+      ...productOperations.map((operation) => ({
+        entity: EntityType.PRODUCTS,
+        operation,
+      })),
+    ],
+    "ANY",
+  ),
 ];
 
 export const presignedUrlRoute = createRoute({
   method: "post",
   path: "/presigned",
   tags,
-  middleware: uploadAcl(OperationType.CREATE),
+  middleware: mediaUploadAcl(OperationType.CREATE),
   summary: "Get presigned URL for upload",
   description: "Get a presigned URL for uploading a file directly to MinIO. This URL can be used for QR code-based mobile uploads.",
   request: {
@@ -62,7 +74,7 @@ export const getFileInfoRoute = createRoute({
   method: "get",
   path: "/info/{fileName}",
   tags,
-  middleware: uploadAcl(OperationType.READ),
+  middleware: mediaUploadAcl(OperationType.READ, [OperationType.READ]),
   summary: "Get file information",
   description: "Get metadata about a file including name, size, and content type",
   request: {
@@ -89,7 +101,7 @@ export const uploadFilesRoute = createRoute({
   method: "post",
   path: "/upload",
   tags,
-  middleware: uploadAcl(OperationType.CREATE),
+  middleware: mediaUploadAcl(OperationType.CREATE),
   summary: "Upload multiple files",
   description: "Upload multiple files at once (max 10 files per request)",
   request: {
@@ -133,7 +145,7 @@ export const listFilesRoute = createRoute({
   method: "get",
   path: "/list-all",
   tags,
-  middleware: uploadAcl(OperationType.READ),
+  middleware: mediaUploadAcl(OperationType.READ, [OperationType.READ]),
   summary: "List all files in bucket",
   description: "Get a list of all files stored in the bucket with their metadata",
   request: {
@@ -160,7 +172,7 @@ export const deleteFilesRoute = createRoute({
   method: "post",
   path: "/delete",
   tags,
-  middleware: uploadAcl(OperationType.DELETE),
+  middleware: mediaUploadAcl(OperationType.DELETE, [OperationType.UPDATE]),
   summary: "Delete multiple files",
   description: "Delete multiple files from storage at once (max 10 files per request)",
   request: {
@@ -182,7 +194,7 @@ export const replaceFilesRoute = createRoute({
   method: "post",
   path: "/replace",
   tags,
-  middleware: uploadAcl(OperationType.UPDATE),
+  middleware: mediaUploadAcl(OperationType.UPDATE),
   summary: "Replace multiple files",
   description: "Replace multiple files at once. Requires 'files' and 'existingFileNames' arrays with matching indices.",
   request: {

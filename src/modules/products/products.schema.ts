@@ -111,12 +111,15 @@ export const createProductRequestSchema = baseProductSchema
   )
   .refine(
     (data) => {
-      // Validate that price is a valid decimal
       const priceNum = Number.parseFloat(data.price);
-      return !Number.isNaN(priceNum) && priceNum > 0;
+      if (Number.isNaN(priceNum) || priceNum < 0) return false;
+      if (data.storeId === StoreIds.direct) {
+        return true;
+      }
+      return priceNum > 0;
     },
     {
-      message: "Price must be a valid positive number",
+      message: "Price must be a valid number (0 allowed for Direct Order)",
       path: ["price"],
     },
   )

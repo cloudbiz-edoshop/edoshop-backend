@@ -108,21 +108,22 @@ export class ProductsService {
 
       await assertValidDirectOrderProductCode(directOrderCode);
 
-      const existingDirectOrderProduct =
-        await db.query.directOrderProducts.findFirst({
-          where: eq(directOrderProducts.directOrderCode, directOrderCode),
-          with: {
-            product: true,
-          },
+      const { findDirectOrderProductIdByIdentifier } = await import(
+        "@/lib/direct-order-product-identifier.util"
+      );
+      const existingCatalogProductId =
+        await findDirectOrderProductIdByIdentifier(directOrderCode);
+
+      if (existingCatalogProductId) {
+        const existingProduct = await db.query.products.findFirst({
+          where: eq(products.id, existingCatalogProductId),
         });
 
-      if (
-        existingDirectOrderProduct?.product &&
-        !existingDirectOrderProduct.product.isDeleted
-      ) {
-        throw new ConflictError(
-          `Direct Order Product ID ${directOrderCode} is already used by ${existingDirectOrderProduct.product.name}`,
-        );
+        if (existingProduct && !existingProduct.isDeleted) {
+          throw new ConflictError(
+            `Direct Order Product ID ${directOrderCode} is already used by ${existingProduct.name}`,
+          );
+        }
       }
     } else if (productData.storeId === StoreIds.dropshipping) {
       if (!productData.categoryIds?.length) {
