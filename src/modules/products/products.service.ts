@@ -383,6 +383,7 @@ export class ProductsService {
         { ...product, ...productData },
         productData.updatedBy,
         product.version + 1,
+        "UPDATE",
       );
 
       // Fetch updated product with all relations using the transaction

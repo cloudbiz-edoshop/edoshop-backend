@@ -36,9 +36,10 @@ async function login(): Promise<string> {
       `Login failed (${response.status}): ${body?.message || JSON.stringify(body)}`,
     );
   }
-  const token = body?.data?.token || body?.token;
+  const token =
+    body?.data?.accessToken || body?.data?.token || body?.accessToken || body?.token;
   if (!token) {
-    throw new Error("Login response missing token");
+    throw new Error("Login response missing access token");
   }
   return token;
 }

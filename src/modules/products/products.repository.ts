@@ -576,17 +576,24 @@ export class ProductsRepository {
     product: GetProductResponse,
     createdBy: number,
     version = 1,
+    operation: "CREATE" | "UPDATE" = "CREATE",
   ) {
+    const clip = (value: string | null | undefined, maxLength: number) => {
+      const text = String(value ?? "");
+      if (text.length <= maxLength) return text;
+      return text.slice(0, maxLength);
+    };
+
     await tx.insert(productsHistory).values({
       productId: product.id,
       version,
-      name: product.name,
+      name: clip(product.name, 255),
       price: product.price,
       storeId: product.storeId,
-      shortDescription: product.shortDescription,
-      fullDescription: product.fullDescription,
-      specifications: product.specifications,
-      operation: "CREATE",
+      shortDescription: clip(product.shortDescription, 500),
+      fullDescription: clip(product.fullDescription, 255),
+      specifications: clip(product.specifications, 255),
+      operation,
       validFrom: new Date().toISOString(),
       changedBy: createdBy,
     });
