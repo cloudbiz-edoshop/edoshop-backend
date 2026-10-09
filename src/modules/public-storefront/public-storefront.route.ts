@@ -89,6 +89,26 @@ export const listProducts = publicListRoute(
   "Public products",
 );
 
+export const getProduct = createRoute({
+  path: "/public/products/{id}",
+  method: "get",
+  tags,
+  request: {
+    params: z.object({
+      id: z.coerce.number().openapi({
+        param: { name: "id", in: "path" },
+        example: 2974,
+      }),
+    }),
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(publicProductSchema),
+      "Public product by ID",
+    ),
+  },
+});
+
 export const getPromoBanner = createRoute({
   path: "/public/promo-banner",
   method: "get",
@@ -205,6 +225,7 @@ export type ListFiltersRoute = typeof listFilters;
 export type ListCategoriesRoute = typeof listCategories;
 export type ListNewArrivalProductsRoute = typeof listNewArrivalProducts;
 export type ListProductsRoute = typeof listProducts;
+export type GetProductRoute = typeof getProduct;
 export type ListDiscountsRoute = typeof listDiscounts;
 export type GetPromoBannerRoute = typeof getPromoBanner;
 export type ListReviewsRoute = typeof listReviews;

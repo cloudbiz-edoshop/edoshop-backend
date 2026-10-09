@@ -377,6 +377,17 @@ export const listProducts = async (c: any) => {
   );
 };
 
+export const getProduct = async (c: any) => {
+  const { id } = c.req.valid("param");
+  const product = await productsService.getProductById(id);
+  const [publicProduct] = enrichProductImages([product]).map(mapPublicProduct);
+
+  return c.json(
+    successResponse(publicProduct, "Public product retrieved successfully"),
+    HttpStatusCodes.OK,
+  );
+};
+
 export const listDiscounts = async (c: any) => {
   const params = getListParams(c);
   const result = await discountsService.listDiscounts({

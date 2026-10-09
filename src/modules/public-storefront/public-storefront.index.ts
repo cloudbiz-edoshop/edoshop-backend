@@ -13,6 +13,7 @@ router
   .openapi(routes.listCategories, handlers.listCategories as any)
   .openapi(routes.listNewArrivalProducts, handlers.listNewArrivalProducts as any)
   .openapi(routes.listProducts, handlers.listProducts as any)
+  .openapi(routes.getProduct, handlers.getProduct as any)
   .openapi(routes.listDiscounts, handlers.listDiscounts as any)
   .openapi(routes.getPromoBanner, handlers.getPromoBanner as any)
   .openapi(routes.getPromoCards, handlers.getPromoCards as any)
