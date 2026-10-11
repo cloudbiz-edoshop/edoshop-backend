@@ -27,6 +27,7 @@ export const STORE_ENTITIES: EntityType[] = [
   EntityType.CUSTOMERS,
   EntityType.RETAILERS,
   EntityType.DISCOUNTS,
+  EntityType.COUPONS,
   EntityType.CATEGORIES,
   EntityType.REVIEWS,
   EntityType.PRODUCTS,
@@ -146,6 +147,7 @@ export const SECTION_ENTITY_MAP: Record<AccessSection, EntityType[]> = {
   tv_app: TV_APP_ENTITIES,
   best_deals: [
     EntityType.DISCOUNTS,
+    EntityType.COUPONS,
     EntityType.NEW_ARRIVALS,
     EntityType.PROMOTIONS,
   ],

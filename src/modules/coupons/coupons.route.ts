@@ -54,7 +54,7 @@ export const list = createRoute({
   middleware: [
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
-      { entity: EntityType.DISCOUNTS, operation: OperationType.READ },
+      { entity: EntityType.COUPONS, operation: OperationType.READ },
     ]),
   ] as const,
   request: {
@@ -85,7 +85,7 @@ export const create = createRoute({
   middleware: [
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
-      { entity: EntityType.DISCOUNTS, operation: OperationType.CREATE },
+      { entity: EntityType.COUPONS, operation: OperationType.CREATE },
     ]),
   ] as const,
   request: {
@@ -117,7 +117,7 @@ export const getOne = createRoute({
   middleware: [
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
-      { entity: EntityType.DISCOUNTS, operation: OperationType.READ },
+      { entity: EntityType.COUPONS, operation: OperationType.READ },
     ]),
   ] as const,
   request: { headers: jwtHeaderSchema, params: idParams },
@@ -146,7 +146,7 @@ export const update = createRoute({
   middleware: [
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
-      { entity: EntityType.DISCOUNTS, operation: OperationType.UPDATE },
+      { entity: EntityType.COUPONS, operation: OperationType.UPDATE },
     ]),
   ] as const,
   request: {
@@ -179,7 +179,7 @@ export const remove = createRoute({
   middleware: [
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
-      { entity: EntityType.DISCOUNTS, operation: OperationType.DELETE },
+      { entity: EntityType.COUPONS, operation: OperationType.DELETE },
     ]),
   ] as const,
   request: { headers: jwtHeaderSchema, params: idParams },

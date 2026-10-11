@@ -904,13 +904,35 @@ async function ensureAclRolesAndEntities(
     sql.raw(
       permSql(`
       INSERT INTO "permissions" ("roleId", "entityId", "operationId")
+      SELECT discount_perm."roleId", coupons_entity."id", discount_perm."operationId"
+      FROM "permissions" AS discount_perm
+      INNER JOIN "entities" AS discounts_entity
+        ON discounts_entity."id" = discount_perm."entityId"
+        AND discounts_entity."name" = 'discounts'
+      INNER JOIN "entities" AS coupons_entity
+        ON coupons_entity."name" = 'coupons'
+      WHERE NOT EXISTS (
+        SELECT 1 FROM "permissions" AS existing
+        WHERE existing."roleId" = discount_perm."roleId"
+          AND existing."entityId" = coupons_entity."id"
+          AND existing."operationId" = discount_perm."operationId"
+      )
+      ON CONFLICT ("roleId", "entityId", "operationId") DO NOTHING
+    `),
+    ),
+  );
+
+  await db.execute(
+    sql.raw(
+      permSql(`
+      INSERT INTO "permissions" ("roleId", "entityId", "operationId")
       SELECT roles."id", entities."id", operations."id"
       FROM "roles" AS roles
       CROSS JOIN "entities" AS entities
       CROSS JOIN "operations" AS operations
       WHERE roles."name" = 'auditor'
         AND entities."name" IN (
-          'stores', 'orders', 'customers', 'retailers', 'discounts', 'faqs',
+          'stores', 'orders', 'customers', 'retailers', 'discounts', 'coupons', 'faqs',
           'filters', 'banners', 'categories', 'reviews', 'products', 'variants',
           'new_arrivals', 'attributes', 'colors', 'sizes', 'tags', 'promotions',
           'warehouse_1', 'warehouse_2', 'entries', 'warehouse_transfers'
@@ -937,7 +959,7 @@ async function ensureAclRolesAndEntities(
       CROSS JOIN "operations" AS operations
       WHERE roles."name" = 'w1_tech'
         AND entities."name" IN (
-          'stores', 'orders', 'customers', 'retailers', 'discounts', 'faqs',
+          'stores', 'orders', 'customers', 'retailers', 'discounts', 'coupons', 'faqs',
           'filters', 'banners', 'categories', 'reviews', 'products', 'variants',
           'new_arrivals', 'attributes', 'colors', 'sizes', 'tags', 'promotions',
           'warehouse_1', 'entries', 'warehouse_transfers', 'shipping_labels'
@@ -964,7 +986,7 @@ async function ensureAclRolesAndEntities(
       CROSS JOIN "operations" AS operations
       WHERE roles."name" = 'w2_tech'
         AND entities."name" IN (
-          'stores', 'orders', 'customers', 'retailers', 'discounts', 'faqs',
+          'stores', 'orders', 'customers', 'retailers', 'discounts', 'coupons', 'faqs',
           'filters', 'banners', 'categories', 'reviews', 'products', 'variants',
           'new_arrivals', 'attributes', 'colors', 'sizes', 'tags', 'promotions',
           'warehouse_2', 'entries', 'warehouse_transfers'
@@ -1013,7 +1035,7 @@ async function ensureAclRolesAndEntities(
       CROSS JOIN "operations" AS operations
       WHERE roles."name" = 'warehouse_supervisor'
         AND entities."name" IN (
-          'stores', 'orders', 'customers', 'retailers', 'discounts', 'faqs',
+          'stores', 'orders', 'customers', 'retailers', 'discounts', 'coupons', 'faqs',
           'filters', 'banners', 'categories', 'reviews', 'products', 'variants',
           'new_arrivals', 'attributes', 'colors', 'sizes', 'tags', 'promotions',
           'warehouse_1', 'warehouse_2', 'entries', 'warehouse_transfers',
@@ -1041,7 +1063,7 @@ async function ensureAclRolesAndEntities(
       CROSS JOIN "operations" AS operations
       WHERE roles."name" = 'digital_marketer'
         AND entities."name" IN (
-          'stores', 'orders', 'customers', 'retailers', 'discounts', 'faqs',
+          'stores', 'orders', 'customers', 'retailers', 'discounts', 'coupons', 'faqs',
           'filters', 'banners', 'categories', 'reviews', 'products', 'variants',
           'new_arrivals', 'attributes', 'colors', 'sizes', 'tags', 'promotions'
         )
