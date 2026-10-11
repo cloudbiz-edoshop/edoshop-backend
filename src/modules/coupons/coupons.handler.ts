@@ -1,5 +1,6 @@
 import type {
   CreateRoute,
+  DiscountOptionsRoute,
   GetOneRoute,
   ListRoute,
   PatchRoute,
@@ -21,6 +22,11 @@ export const validatePublic: AppRouteHandler<ValidatePublicRoute> = async (c) =>
   const result = await couponsService.validatePublicCoupon(code, subtotal);
 
   return c.json(successResponse(result), HttpStatusCodes.OK);
+};
+
+export const discountOptions: AppRouteHandler<DiscountOptionsRoute> = async (c) => {
+  const options = await couponsService.listLinkableDiscounts();
+  return c.json(successResponse(options), HttpStatusCodes.OK);
 };
 
 export const list: AppRouteHandler<ListRoute> = async (c) => {

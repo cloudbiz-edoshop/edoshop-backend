@@ -39,3 +39,13 @@ export const validateCouponResponseSchema = z.object({
 });
 
 export type ValidateCouponResponse = z.infer<typeof validateCouponResponseSchema>;
+
+export const couponDiscountOptionSchema = z.object({
+  id: z.number().int(),
+  name: z.string().nullable(),
+  discountValue: z.number(),
+});
+
+export const couponDiscountOptionsResponseSchema = z.array(
+  couponDiscountOptionSchema,
+);

@@ -17,6 +17,7 @@ import commonQueryParamsSchema from "@/lib/openapi/schemas/query-params-schema";
 import { jwtHeaderSchema } from "@/lib/zod-schemas";
 
 import {
+  couponDiscountOptionsResponseSchema,
   couponResponseSchema,
   createCouponRequestSchema,
   listCouponsResponseSchema,
@@ -43,6 +44,38 @@ export const validatePublic = createRoute({
     ...commonErrorResponses(
       [HttpStatusCodes.UNPROCESSABLE_ENTITY, HttpStatusCodes.INTERNAL_SERVER_ERROR],
       validateCouponRequestSchema,
+    ),
+  },
+});
+
+export const discountOptions = createRoute({
+  path: "/coupons/discount-options",
+  method: "get",
+  tags,
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware(
+      [
+        { entity: EntityType.COUPONS, operation: OperationType.READ },
+        { entity: EntityType.COUPONS, operation: OperationType.CREATE },
+      ],
+      "ANY",
+    ),
+  ] as const,
+  request: { headers: jwtHeaderSchema },
+  summary: "Customer discounts for linking promo codes",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(couponDiscountOptionsResponseSchema),
+      "Discount options",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.FORBIDDEN,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      z.object({}),
     ),
   },
 });
@@ -199,6 +232,7 @@ export const remove = createRoute({
 });
 
 export type ValidatePublicRoute = typeof validatePublic;
+export type DiscountOptionsRoute = typeof discountOptions;
 export type ListRoute = typeof list;
 export type CreateRoute = typeof create;
 export type GetOneRoute = typeof getOne;

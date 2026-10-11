@@ -5,6 +5,7 @@ import * as routes from "@/modules/coupons/coupons.route";
 const router = createRouter();
 
 router.openapi(routes.validatePublic, handlers.validatePublic);
+router.openapi(routes.discountOptions, handlers.discountOptions);
 router.openapi(routes.list, handlers.list);
 router.openapi(routes.create, handlers.create);
 router.openapi(routes.getOne, handlers.getOne);

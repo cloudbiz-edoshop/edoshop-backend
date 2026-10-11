@@ -7,6 +7,8 @@ import type {
 import db from "@/db";
 import { NotFoundError, ValidationError } from "@/core/errors";
 
+import { DiscountsRepository } from "@/modules/discounts/discounts.repository";
+
 import { validateCouponForCheckout } from "./coupon-validation";
 import { CouponsRepository } from "./coupons.repository";
 
@@ -23,6 +25,24 @@ const mapCouponRow = (row: Awaited<ReturnType<CouponsRepository["findById"]>>) =
 
 export class CouponsService {
   private readonly couponsRepository = new CouponsRepository();
+  private readonly discountsRepository = new DiscountsRepository();
+
+  /** Customer discounts staff can attach to a promo code (no retailer-only rows). */
+  async listLinkableDiscounts() {
+    const result = await this.discountsRepository.list({
+      page: 1,
+      limit: 500,
+      sortBy: "createdAt",
+      sortOrder: "desc",
+      filters: { retailerOnly: false, isActive: true },
+    });
+
+    return result.data.map((row) => ({
+      id: row.id,
+      name: row.name,
+      discountValue: Number(row.discountValue ?? 0),
+    }));
+  }
 
   async listCoupons(params: {
     search?: string;
