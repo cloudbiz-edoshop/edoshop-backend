@@ -3,7 +3,8 @@ import type { TX } from "@/lib/types";
 import { and, count, desc, eq, sql } from "drizzle-orm";
 
 import db from "@/db";
-import { coupons } from "@/db/models";
+import { couponWinners, coupons } from "@/db/models";
+import { normalizeCouponPhone } from "@/modules/coupons/coupon-phone";
 import {
   createFilterConditions,
   createSearchCondition,
@@ -16,7 +17,7 @@ export class CouponsRepository {
     const queryBuilder = tx ?? db;
     return queryBuilder.query.coupons.findFirst({
       where: eq(coupons.id, id),
-      with: { discount: true },
+      with: { discount: true, winners: true },
     });
   }
 
@@ -135,5 +136,23 @@ export class CouponsRepository {
 
   async delete(tx: TX, id: number) {
     await tx.delete(coupons).where(eq(coupons.id, id));
+  }
+
+  async replaceWinners(
+    tx: TX,
+    couponId: number,
+    winners: Array<{ userId: number; phoneNumber: string }>,
+  ) {
+    await tx.delete(couponWinners).where(eq(couponWinners.couponId, couponId));
+
+    if (!winners.length) return;
+
+    await tx.insert(couponWinners).values(
+      winners.map((winner) => ({
+        couponId,
+        userId: winner.userId,
+        phoneNumber: normalizeCouponPhone(winner.phoneNumber),
+      })),
+    );
   }
 }

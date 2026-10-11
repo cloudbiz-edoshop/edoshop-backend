@@ -11,6 +11,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 
+import { couponWinners } from "./coupon-winners";
 import { discounts } from "./discounts";
 import { users } from "./users";
 
@@ -35,11 +36,12 @@ export type Coupon = z.infer<typeof couponsSchema>;
 export const insertCouponSchema = createInsertSchema(coupons);
 export type NewCoupon = z.infer<typeof insertCouponSchema>;
 
-export const couponsRelations = relations(coupons, ({ one }) => ({
+export const couponsRelations = relations(coupons, ({ one, many }) => ({
   discount: one(discounts, {
     fields: [coupons.discountId],
     references: [discounts.id],
   }),
+  winners: many(couponWinners),
   createdByUser: one(users, {
     fields: [coupons.createdBy],
     references: [users.id],

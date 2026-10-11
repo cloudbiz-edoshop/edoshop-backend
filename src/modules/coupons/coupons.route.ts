@@ -3,6 +3,7 @@ import { createRoute, z } from "@hono/zod-openapi";
 import { EntityType, OperationType } from "@/constants";
 import {
   jwtMiddleware,
+  optionalJwtMiddleware,
   rolesAndPermissionsMiddleware,
 } from "@/core/middlewares";
 import * as HttpStatusCodes from "@/lib/http-status-codes";
@@ -32,6 +33,7 @@ export const validatePublic = createRoute({
   path: "/public/coupons/validate",
   method: "post",
   tags,
+  middleware: [optionalJwtMiddleware()] as const,
   request: {
     body: jsonContentRequired(validateCouponRequestSchema, "Validate coupon"),
   },

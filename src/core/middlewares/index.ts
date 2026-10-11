@@ -3,6 +3,7 @@ export { errorHandler } from "./error-handler";
 export { ipAndUserAgent } from "./ip-and-user-agent";
 export {
   jwtMiddleware,
+  optionalJwtMiddleware,
   signJwtToken,
   signRefreshToken,
   verifyJwtToken,

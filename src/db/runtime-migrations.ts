@@ -1544,4 +1544,44 @@ async function ensurePredefinedRolePermissions(permCols: PermissionColumns) {
       ADD COLUMN IF NOT EXISTS "coupon_code" varchar(64)
     `),
   );
+
+  await db.execute(
+    sql.raw(`
+      CREATE TABLE IF NOT EXISTS "coupon_redemptions" (
+        "id" serial PRIMARY KEY,
+        "coupon_id" integer NOT NULL REFERENCES "coupons"("id") ON DELETE CASCADE,
+        "user_id" integer NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+        "order_id" integer REFERENCES "orders"("id") ON DELETE SET NULL,
+        "redeemed_at" timestamp NOT NULL DEFAULT now()
+      )
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
+      CREATE UNIQUE INDEX IF NOT EXISTS "coupon_redemptions_coupon_user_unique"
+        ON "coupon_redemptions" ("coupon_id", "user_id")
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
+      CREATE TABLE IF NOT EXISTS "coupon_winners" (
+        "id" serial PRIMARY KEY,
+        "coupon_id" integer NOT NULL REFERENCES "coupons"("id") ON DELETE CASCADE,
+        "user_id" integer NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+        "phone_number" varchar(32) NOT NULL,
+        "redeemed_at" timestamp,
+        "order_id" integer REFERENCES "orders"("id") ON DELETE SET NULL,
+        "created_at" timestamp NOT NULL DEFAULT now()
+      )
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
+      CREATE UNIQUE INDEX IF NOT EXISTS "coupon_winners_coupon_user_unique"
+        ON "coupon_winners" ("coupon_id", "user_id")
+    `),
+  );
 }

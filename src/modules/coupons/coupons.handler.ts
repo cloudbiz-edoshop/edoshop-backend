@@ -19,7 +19,12 @@ const couponsService = new CouponsService();
 
 export const validatePublic: AppRouteHandler<ValidatePublicRoute> = async (c) => {
   const { code, subtotal } = c.req.valid("json");
-  const result = await couponsService.validatePublicCoupon(code, subtotal);
+  const user = c.get("user");
+  const result = await couponsService.validatePublicCoupon(
+    code,
+    subtotal,
+    user?.id,
+  );
 
   return c.json(successResponse(result), HttpStatusCodes.OK);
 };

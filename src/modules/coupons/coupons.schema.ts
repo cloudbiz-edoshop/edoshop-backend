@@ -2,6 +2,11 @@ import { z } from "@hono/zod-openapi";
 
 import { couponsSchema } from "@/db/models/coupons";
 
+export const couponWinnerInputSchema = z.object({
+  userId: z.coerce.number().int().positive(),
+  phoneNumber: z.string().trim().min(6).max(32),
+});
+
 export const couponFieldsSchema = z.object({
   code: z.string().min(2).max(64),
   discountId: z.coerce.number().int().positive(),
@@ -10,15 +15,25 @@ export const couponFieldsSchema = z.object({
   isActive: z.boolean().optional().default(true),
 });
 
-export const createCouponRequestSchema = couponFieldsSchema;
+export const createCouponRequestSchema = couponFieldsSchema.extend({
+  winners: z.array(couponWinnerInputSchema).min(1),
+});
 export type CreateCouponRequest = z.infer<typeof createCouponRequestSchema>;
 
 export const updateCouponRequestSchema = couponFieldsSchema.partial();
 export type UpdateCouponRequest = z.infer<typeof updateCouponRequestSchema>;
 
+export const couponWinnerResponseSchema = z.object({
+  id: z.number().int(),
+  userId: z.number().int(),
+  phoneNumber: z.string(),
+  redeemedAt: z.string().datetime().nullable().optional(),
+});
+
 export const couponResponseSchema = couponsSchema.extend({
   discountName: z.string().optional(),
   discountRate: z.number().optional(),
+  winners: z.array(couponWinnerResponseSchema).optional(),
 });
 
 export const listCouponsResponseSchema = z.array(couponResponseSchema);

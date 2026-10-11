@@ -37,6 +37,14 @@ export {
 export { default as discounts, discountsRelations } from "./discounts";
 export { default as coupons, couponsRelations } from "./coupons";
 export {
+  default as couponRedemptions,
+  couponRedemptionsRelations,
+} from "./coupon-redemptions";
+export {
+  default as couponWinners,
+  couponWinnersRelations,
+} from "./coupon-winners";
+export {
   default as deliveryPlans,
   deliveryPlansRelations,
 } from "./delivery-plans";

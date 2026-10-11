@@ -9,6 +9,7 @@ import { NotFoundError, ValidationError } from "@/core/errors";
 
 import { DiscountsRepository } from "@/modules/discounts/discounts.repository";
 
+import { normalizeCouponPhone } from "./coupon-phone";
 import { validateCouponForCheckout } from "./coupon-validation";
 import { CouponsRepository } from "./coupons.repository";
 
@@ -72,17 +73,31 @@ export class CouponsService {
       throw new ValidationError("A coupon with this code already exists");
     }
 
-    const created = await db.transaction(async (tx) =>
-      this.couponsRepository.create(tx, {
+    const winnerCount = data.winners.length;
+    const usageLimit = data.usageLimit ?? winnerCount;
+
+    const created = await db.transaction(async (tx) => {
+      const coupon = await this.couponsRepository.create(tx, {
         code: data.code,
         discountId: data.discountId,
-        usageLimit: data.usageLimit ?? null,
+        usageLimit,
         expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,
         isActive: data.isActive ?? true,
         createdBy: data.createdBy,
         updatedBy: data.createdBy,
-      }),
-    );
+      });
+
+      await this.couponsRepository.replaceWinners(
+        tx,
+        coupon.id,
+        data.winners.map((winner) => ({
+          userId: winner.userId,
+          phoneNumber: normalizeCouponPhone(winner.phoneNumber),
+        })),
+      );
+
+      return coupon;
+    });
 
     return mapCouponRow(await this.couponsRepository.findById(created.id));
   }
@@ -129,12 +144,39 @@ export class CouponsService {
   async validatePublicCoupon(
     code: string,
     subtotal = 0,
+    userId?: number | null,
   ): Promise<ValidateCouponResponse> {
-    const validated = await validateCouponForCheckout(code, subtotal);
-    if (!validated) {
-      return { valid: false, message: "Invalid or expired coupon code" };
+    const result = await validateCouponForCheckout(code, subtotal, userId);
+    if ("failure" in result) {
+      if (result.failure === "login_required") {
+        return {
+          valid: false,
+          message: "Please log in to use a promo code",
+        };
+      }
+      if (result.failure === "already_used") {
+        return {
+          valid: false,
+          message: "You have already used this promo code",
+        };
+      }
+      if (result.failure === "not_winner") {
+        return {
+          valid: false,
+          message: "This promo code is not assigned to your account",
+        };
+      }
+      if (result.failure === "phone_mismatch") {
+        return {
+          valid: false,
+          message:
+            "Use the phone number on your account that was registered for this promo",
+        };
+      }
+      return { valid: false, message: "Invalid or expired promo code" };
     }
 
+    const validated = result.coupon;
     return {
       valid: true,
       code: validated.code,

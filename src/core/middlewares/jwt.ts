@@ -132,6 +132,37 @@ export const verifyJwtToken = async <T>(token: string): Promise<T> => {
  *
  * @returns A middleware handler function
  */
+/** Sets `user` when a valid Bearer token is present; continues anonymously otherwise. */
+export const optionalJwtMiddleware = (): MiddlewareHandler => {
+  return async (c: AppContext, next: Next) => {
+    const token = c.req.header("Authorization")?.replace("Bearer ", "");
+    if (!token) {
+      return next();
+    }
+
+    try {
+      const decoded = await verifyJwtToken<JWTAccessTokenPayload>(token);
+      JWTAccessTokenPayloadSchema.parse(decoded);
+      const user = await db.query.users.findFirst({
+        where: eq(users.id, decoded.userId),
+      });
+      if (
+        user
+        && !user.isDeleted
+        && user.isActive
+        && user.username === decoded.username
+      ) {
+        c.set("accessTokenPayload", decoded);
+        c.set("user", user);
+      }
+    } catch {
+      // Ignore invalid tokens on optional auth routes.
+    }
+
+    return next();
+  };
+};
+
 export const jwtMiddleware = (): MiddlewareHandler => {
   return async (c: AppContext, next: Next) => {
     try {

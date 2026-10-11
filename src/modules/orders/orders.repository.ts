@@ -773,23 +773,32 @@ export class OrdersRepository {
     );
     const subtotal = subtotalNumber.toFixed(2);
 
-    let appliedCoupon: Awaited<
-      ReturnType<
-        typeof import("@/modules/coupons/coupon-validation").validateCouponForCheckout
-      >
-    > = null;
+    let appliedCoupon: import("@/modules/coupons/coupon-validation").ValidatedCoupon | null =
+      null;
     if (params.couponCode?.trim()) {
       const { validateCouponForCheckout } = await import(
         "@/modules/coupons/coupon-validation"
       );
-      appliedCoupon = await validateCouponForCheckout(
+      const couponResult = await validateCouponForCheckout(
         params.couponCode,
         subtotalNumber,
+        params.userId,
       );
-      if (!appliedCoupon) {
+      if ("failure" in couponResult) {
         const { ValidationError } = await import("@/core/errors");
-        throw new ValidationError("Invalid or expired coupon code");
+        const message =
+          couponResult.failure === "login_required"
+            ? "Please log in to use a promo code"
+            : couponResult.failure === "already_used"
+              ? "You have already used this promo code"
+              : couponResult.failure === "not_winner"
+                ? "This promo code is not assigned to your account"
+                : couponResult.failure === "phone_mismatch"
+                  ? "Use the phone number on your account that was registered for this promo"
+                  : "Invalid or expired promo code";
+        throw new ValidationError(message);
       }
+      appliedCoupon = couponResult.coupon;
     }
 
     const discountAmount = (appliedCoupon?.discountAmount ?? 0).toFixed(2);
@@ -945,12 +954,14 @@ export class OrdersRepository {
       }).returning();
 
       if (appliedCoupon?.couponId) {
-        const { incrementCouponUsage } = await import(
+        const { recordCouponRedemption } = await import(
           "@/modules/coupons/coupon-validation"
         );
-        await incrementCouponUsage(
+        await recordCouponRedemption(
           appliedCoupon.couponId,
           params.userId,
+          order.id,
+          appliedCoupon.winnerId,
           tx,
         );
       }
