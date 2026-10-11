@@ -35,6 +35,7 @@ export {
   discountTypesRelations,
 } from "./discount-types";
 export { default as discounts, discountsRelations } from "./discounts";
+export { default as coupons, couponsRelations } from "./coupons";
 export {
   default as deliveryPlans,
   deliveryPlansRelations,

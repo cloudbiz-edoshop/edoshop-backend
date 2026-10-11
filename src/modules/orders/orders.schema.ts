@@ -91,11 +91,16 @@ const applyCheckoutFulfillmentRefine = (
   }
 };
 
+const checkoutCouponFieldSchema = z.object({
+  couponCode: z.string().trim().min(1).max(64).optional(),
+});
+
 export const checkoutDirectOrderRequestSchema = checkoutFulfillmentFieldsSchema
   .extend({
     paymentMethodId: z.number().min(1).optional(),
     payOnDelivery: z.boolean().optional().default(false),
   })
+  .merge(checkoutCouponFieldSchema)
   .superRefine(applyCheckoutFulfillmentRefine);
 
 export const checkoutStripeOrderRequestSchema = checkoutFulfillmentFieldsSchema
@@ -103,6 +108,7 @@ export const checkoutStripeOrderRequestSchema = checkoutFulfillmentFieldsSchema
     currency: z.enum(["xaf", "usd", "eur"]).optional().default("xaf"),
     paymentGateway: z.enum(["stripe", "paypal"]).optional().default("stripe"),
   })
+  .merge(checkoutCouponFieldSchema)
   .superRefine(applyCheckoutFulfillmentRefine);
 
 export type CheckoutDirectOrderRequest = z.infer<
@@ -137,6 +143,8 @@ export const checkoutDirectOrderResponseSchema = z.object({
   orderCode: z.string(),
   totalAmount: z.string(),
   subtotal: z.string().optional(),
+  discountAmount: z.string().optional(),
+  couponCode: z.string().optional(),
   shippingAmount: z.string().optional(),
   fulfillmentMethod: z.string().optional(),
   paymentMethod: z.string(),

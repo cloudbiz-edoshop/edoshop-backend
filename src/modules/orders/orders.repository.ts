@@ -637,6 +637,7 @@ export class OrdersRepository {
       color?: string;
       size?: string;
     }>;
+    couponCode?: string;
     clientPlatform?: string;
   }) {
     const fulfillmentMethod =
@@ -766,9 +767,32 @@ export class OrdersRepository {
       throw new Error("Order must include at least one product");
     }
 
-    const subtotal = resolvedItems
-      .reduce((sum, item) => sum + Number(item.lineSubtotal), 0)
-      .toFixed(2);
+    const subtotalNumber = resolvedItems.reduce(
+      (sum, item) => sum + Number(item.lineSubtotal),
+      0,
+    );
+    const subtotal = subtotalNumber.toFixed(2);
+
+    let appliedCoupon: Awaited<
+      ReturnType<
+        typeof import("@/modules/coupons/coupon-validation").validateCouponForCheckout
+      >
+    > = null;
+    if (params.couponCode?.trim()) {
+      const { validateCouponForCheckout } = await import(
+        "@/modules/coupons/coupon-validation"
+      );
+      appliedCoupon = await validateCouponForCheckout(
+        params.couponCode,
+        subtotalNumber,
+      );
+      if (!appliedCoupon) {
+        const { ValidationError } = await import("@/core/errors");
+        throw new ValidationError("Invalid or expired coupon code");
+      }
+    }
+
+    const discountAmount = (appliedCoupon?.discountAmount ?? 0).toFixed(2);
     const shippingPriorityCodeId =
       fulfillmentMethod === FulfillmentMethod.DELIVERY
         ? params.shippingPriorityCodeId ?? 1
@@ -796,7 +820,7 @@ export class OrdersRepository {
       )
     ).toFixed(2);
     const totalAmount = (
-      Number(subtotal) + Number(shippingAmount)
+      Number(subtotal) - Number(discountAmount) + Number(shippingAmount)
     ).toFixed(2);
 
     const orderNotes = [
@@ -862,7 +886,9 @@ export class OrdersRepository {
           subtotal,
           taxAmount: "0.00",
           shippingAmount,
-          discountAmount: "0.00",
+          discountAmount,
+          couponId: appliedCoupon?.couponId ?? null,
+          couponCode: appliedCoupon?.code ?? null,
           totalAmount,
           notes: orderNotes || null,
           clientPlatform: params.clientPlatform ?? null,
@@ -918,6 +944,17 @@ export class OrdersRepository {
         updatedBy: params.userId,
       }).returning();
 
+      if (appliedCoupon?.couponId) {
+        const { incrementCouponUsage } = await import(
+          "@/modules/coupons/coupon-validation"
+        );
+        await incrementCouponUsage(
+          appliedCoupon.couponId,
+          params.userId,
+          tx,
+        );
+      }
+
       const paymentMethod = await tx.query.paymentMethods.findFirst({
         where: eq(paymentMethods.id, params.paymentMethodId),
       });
@@ -926,6 +963,8 @@ export class OrdersRepository {
         orderId: order.id,
         orderCode: order.orderCode,
         subtotal,
+        discountAmount,
+        couponCode: appliedCoupon?.code ?? undefined,
         shippingAmount,
         fulfillmentMethod,
         totalAmount,

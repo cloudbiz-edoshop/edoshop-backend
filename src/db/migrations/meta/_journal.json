@@ -141,6 +141,13 @@
       "when": 1778454700219,
       "tag": "0030_direct_order_legacy_product_code",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1778454700220,
+      "tag": "0031_coupons",
+      "breakpoints": true
     }
   ]
 }

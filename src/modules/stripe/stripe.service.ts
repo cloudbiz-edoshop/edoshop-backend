@@ -75,6 +75,7 @@ export class StripeService {
       pickupWarehouseId: payload.pickupWarehouseId,
       billing: payload.billing,
       items: payload.items,
+      couponCode: payload.couponCode,
     });
 
     const totalInCurrency = currenciesConfig.convertFromBase(

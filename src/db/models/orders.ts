@@ -23,6 +23,7 @@ import { paymentMethods } from "./payment-methods";
 import { paymentTransactions } from "./payment-transactions";
 import { shippingPriorityCodes } from "./shipping-priority-codes";
 import { shippingTypes } from "./shipping-types";
+import { coupons } from "./coupons";
 import users from "./users";
 import warehouses from "./warehouses";
 
@@ -43,6 +44,8 @@ export const orders = pgTable("orders", {
   taxAmount: decimal({ precision: 10, scale: 2 }).notNull().default("0"),
   shippingAmount: decimal({ precision: 10, scale: 2 }).notNull().default("0"),
   discountAmount: decimal({ precision: 10, scale: 2 }).notNull().default("0"),
+  couponId: integer().references(() => coupons.id),
+  couponCode: varchar({ length: 64 }),
   totalAmount: decimal({ precision: 10, scale: 2 }).notNull(),
   notes: text(),
   clientPlatform: varchar({ length: 20 }),

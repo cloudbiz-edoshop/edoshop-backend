@@ -12,6 +12,7 @@ import colors from "@/modules/colors/colors.index";
 import customers from "@/modules/customers/customers.index";
 import dashboard from "@/modules/dashboard/dashboard.index";
 import deliveryPlans from "@/modules/delivery-plans/delivery-plans.index";
+import coupons from "@/modules/coupons/coupons.index";
 import discounts from "@/modules/discounts/discounts.index";
 import employees from "@/modules/employees/employees.index";
 import entities from "@/modules/entities/entities.index";
@@ -127,6 +128,7 @@ const routes = [
   reviews,
   deliveryPlans,
   discounts,
+  coupons,
   newArrivals,
   ongoingGroups,
   orders,

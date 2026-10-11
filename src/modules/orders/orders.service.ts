@@ -176,6 +176,7 @@ export class OrdersService {
       shippingPriorityCodeId: payload.shippingPriorityCodeId,
       billing: payload.billing,
       items: payload.items,
+      couponCode: payload.couponCode,
       clientPlatform,
     });
 
