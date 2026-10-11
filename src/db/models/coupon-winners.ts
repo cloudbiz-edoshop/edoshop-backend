@@ -23,6 +23,7 @@ export const couponWinners = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     phoneNumber: varchar("phone_number", { length: 32 }).notNull(),
+    fullName: varchar("full_name", { length: 255 }).notNull(),
     redeemedAt: timestamp("redeemed_at"),
     orderId: integer("order_id").references(() => orders.id, {
       onDelete: "set null",

@@ -4,6 +4,7 @@ import db from "@/db";
 import { couponRedemptions, couponWinners, coupons, users } from "@/db/models";
 import type { TX } from "@/lib/types";
 
+import { normalizeCouponFullName } from "./coupon-name";
 import { normalizeCouponPhone } from "./coupon-phone";
 
 export type ValidatedCoupon = {
@@ -22,6 +23,7 @@ export type CouponValidationFailure =
   | "login_required"
   | "not_winner"
   | "phone_mismatch"
+  | "name_mismatch"
   | "already_used";
 
 const normalizeCouponCode = (code: string) =>
@@ -52,14 +54,19 @@ async function resolveWinnerSlot(
   const queryBuilder = tx ?? db;
   const user = await queryBuilder.query.users.findFirst({
     where: eq(users.id, userId),
-    columns: { id: true, phoneNumber: true },
+    columns: { id: true, phoneNumber: true, fullName: true },
   });
 
   if (!user?.phoneNumber?.trim()) {
     return { failure: "phone_mismatch" };
   }
 
+  if (!user?.fullName?.trim()) {
+    return { failure: "name_mismatch" };
+  }
+
   const accountPhone = normalizeCouponPhone(user.phoneNumber);
+  const accountName = normalizeCouponFullName(user.fullName);
   const winner = await queryBuilder.query.couponWinners.findFirst({
     where: and(
       eq(couponWinners.couponId, couponId),
@@ -77,6 +84,10 @@ async function resolveWinnerSlot(
 
   if (normalizeCouponPhone(winner.phoneNumber) !== accountPhone) {
     return { failure: "phone_mismatch" };
+  }
+
+  if (normalizeCouponFullName(winner.fullName) !== accountName) {
+    return { failure: "name_mismatch" };
   }
 
   return { winner };

@@ -794,8 +794,10 @@ export class OrdersRepository {
               : couponResult.failure === "not_winner"
                 ? "This promo code is not assigned to your account"
                 : couponResult.failure === "phone_mismatch"
-                  ? "Use the phone number on your account that was registered for this promo"
-                  : "Invalid or expired promo code";
+                  ? "Use the WhatsApp phone number on your account that was registered for this promo"
+                  : couponResult.failure === "name_mismatch"
+                    ? "Your account full name must match the name registered for this promo"
+                    : "Invalid or expired promo code";
         throw new ValidationError(message);
       }
       appliedCoupon = couponResult.coupon;

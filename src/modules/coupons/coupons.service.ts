@@ -93,6 +93,7 @@ export class CouponsService {
         data.winners.map((winner) => ({
           userId: winner.userId,
           phoneNumber: normalizeCouponPhone(winner.phoneNumber),
+          fullName: winner.fullName.trim(),
         })),
       );
 
@@ -170,7 +171,14 @@ export class CouponsService {
         return {
           valid: false,
           message:
-            "Use the phone number on your account that was registered for this promo",
+            "Use the WhatsApp phone number on your account that was registered for this promo",
+        };
+      }
+      if (result.failure === "name_mismatch") {
+        return {
+          valid: false,
+          message:
+            "Your account full name must match the name registered for this promo",
         };
       }
       return { valid: false, message: "Invalid or expired promo code" };

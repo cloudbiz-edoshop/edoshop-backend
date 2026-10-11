@@ -141,7 +141,7 @@ export class CouponsRepository {
   async replaceWinners(
     tx: TX,
     couponId: number,
-    winners: Array<{ userId: number; phoneNumber: string }>,
+    winners: Array<{ userId: number; phoneNumber: string; fullName: string }>,
   ) {
     await tx.delete(couponWinners).where(eq(couponWinners.couponId, couponId));
 
@@ -152,6 +152,7 @@ export class CouponsRepository {
         couponId,
         userId: winner.userId,
         phoneNumber: normalizeCouponPhone(winner.phoneNumber),
+        fullName: winner.fullName.trim(),
       })),
     );
   }

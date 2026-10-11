@@ -5,6 +5,7 @@ import { couponsSchema } from "@/db/models/coupons";
 export const couponWinnerInputSchema = z.object({
   userId: z.coerce.number().int().positive(),
   phoneNumber: z.string().trim().min(6).max(32),
+  fullName: z.string().trim().min(2).max(255),
 });
 
 export const couponFieldsSchema = z.object({
@@ -27,6 +28,7 @@ export const couponWinnerResponseSchema = z.object({
   id: z.number().int(),
   userId: z.number().int(),
   phoneNumber: z.string(),
+  fullName: z.string(),
   redeemedAt: z.string().datetime().nullable().optional(),
 });
 

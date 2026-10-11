@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS "coupon_winners" (
   "coupon_id" integer NOT NULL REFERENCES "coupons"("id") ON DELETE CASCADE,
   "user_id" integer NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
   "phone_number" varchar(32) NOT NULL,
+  "full_name" varchar(255) NOT NULL DEFAULT '',
   "redeemed_at" timestamp,
   "order_id" integer REFERENCES "orders"("id") ON DELETE SET NULL,
   "created_at" timestamp NOT NULL DEFAULT now()
