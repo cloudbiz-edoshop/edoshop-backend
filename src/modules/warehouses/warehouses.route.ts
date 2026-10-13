@@ -5,6 +5,8 @@ import {
   jwtMiddleware,
   rolesAndPermissionsMiddleware,
 } from "@/core/middlewares";
+
+import { warehouseListReadMiddleware } from "./warehouses.acl";
 import * as HttpStatusCodes from "@/lib/http-status-codes";
 import {
   commonErrorResponses,
@@ -30,12 +32,7 @@ export const list = createRoute({
   path: "/warehouses",
   method: "get",
   tags,
-  middleware: [
-    jwtMiddleware(),
-    rolesAndPermissionsMiddleware([
-      { entity: EntityType.WAREHOUSES, operation: OperationType.READ },
-    ]),
-  ] as const,
+  middleware: [jwtMiddleware(), warehouseListReadMiddleware] as const,
   request: {
     headers: jwtHeaderSchema,
     query: commonQueryParamsSchema,

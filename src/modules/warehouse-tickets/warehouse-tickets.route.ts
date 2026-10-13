@@ -626,12 +626,7 @@ export const searchEntryOptions = createRoute({
   path: "/warehouse-tickets/entry-options",
   method: "get",
   tags,
-  middleware: [
-    jwtMiddleware(),
-    rolesAndPermissionsMiddleware([
-      { entity: EntityType.TICKETING, operation: OperationType.CREATE },
-    ]),
-  ] as const,
+  middleware: [jwtMiddleware(), warehouseTicketFormSettingsMiddleware] as const,
   request: {
     headers: jwtHeaderSchema,
     query: z.object({
@@ -662,12 +657,7 @@ export const searchCatalogProducts = createRoute({
   path: "/warehouse-tickets/catalog-products",
   method: "get",
   tags,
-  middleware: [
-    jwtMiddleware(),
-    rolesAndPermissionsMiddleware([
-      { entity: EntityType.TICKETING, operation: OperationType.CREATE },
-    ]),
-  ] as const,
+  middleware: [jwtMiddleware(), warehouseTicketFormSettingsMiddleware] as const,
   request: {
     headers: jwtHeaderSchema,
     query: z.object({
