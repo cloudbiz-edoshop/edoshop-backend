@@ -4,6 +4,7 @@ import {
   jwtMiddleware,
   rolesAndPermissionsMiddleware,
 } from "@/core/middlewares";
+import { warehouseFloorReadMiddleware } from "@/core/middlewares/warehouse-floor-read";
 import * as HttpStatusCodes from "@/lib/http-status-codes";
 import {
   commonErrorResponses,
@@ -657,12 +658,7 @@ export const getAllBinsMovementHistory = createRoute({
   summary: "Get detailed bin PICK and PLACE history",
   description:
     "Fetches movement history for all bins in a warehouse, indicating if items were PICKED or PLACED.",
-  middleware: [
-    jwtMiddleware(),
-    rolesAndPermissionsMiddleware([
-      { entity: EntityType.EWMS_MANAGEMENT, operation: OperationType.READ },
-    ]),
-  ] as const,
+  middleware: [jwtMiddleware(), warehouseFloorReadMiddleware] as const,
   request: {
     headers: jwtHeaderSchema,
     params: idParams,
@@ -698,12 +694,7 @@ export const getStockView = createRoute({
   summary: "Get stock view for a warehouse",
   description:
     "Returns a view of the current stock levels for all entries in a specific warehouse.",
-  middleware: [
-    jwtMiddleware(),
-    rolesAndPermissionsMiddleware([
-      { entity: EntityType.EWMS_MANAGEMENT, operation: OperationType.READ },
-    ]),
-  ] as const,
+  middleware: [jwtMiddleware(), warehouseFloorReadMiddleware] as const,
   request: {
     headers: jwtHeaderSchema,
     params: idParams,

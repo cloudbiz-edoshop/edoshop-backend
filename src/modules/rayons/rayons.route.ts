@@ -4,6 +4,7 @@ import {
   jwtMiddleware,
   rolesAndPermissionsMiddleware,
 } from "@/core/middlewares";
+import { warehouseFloorReadMiddleware } from "@/core/middlewares/warehouse-floor-read";
 import * as HttpStatusCodes from "@/lib/http-status-codes";
 import {
   commonErrorResponses,
@@ -26,12 +27,7 @@ export const getRayonsStatsForAWarehouse = createRoute({
   summary: "List rayons with stats for a warehouse",
   description:
     "List all rayons with their shelves and bins for a given warehouse",
-  middleware: [
-    jwtMiddleware(),
-    rolesAndPermissionsMiddleware([
-      { entity: EntityType.EWMS_MANAGEMENT, operation: OperationType.READ },
-    ]),
-  ] as const,
+  middleware: [jwtMiddleware(), warehouseFloorReadMiddleware] as const,
   request: {
     headers: jwtHeaderSchema,
     query: commonQueryParamsSchema,
@@ -120,12 +116,7 @@ export const getRayonsForWarehouse = createRoute({
   summary: "List rayons for a warehouse",
   description:
     "List all rayons for a given warehouse",
-  middleware: [
-    jwtMiddleware(),
-    rolesAndPermissionsMiddleware([
-      { entity: EntityType.EWMS_MANAGEMENT, operation: OperationType.READ },
-    ]),
-  ] as const,
+  middleware: [jwtMiddleware(), warehouseFloorReadMiddleware] as const,
   request: {
     headers: jwtHeaderSchema,
     query: commonQueryParamsSchema,
@@ -294,12 +285,7 @@ export const getAllShelvesForRayon = createRoute({
   summary: "Get all shelves for a rayon",
   description:
     "Get all shelves for a given rayon",
-  middleware: [
-    jwtMiddleware(),
-    rolesAndPermissionsMiddleware([
-      { entity: EntityType.EWMS_MANAGEMENT, operation: OperationType.READ },
-    ]),
-  ] as const,
+  middleware: [jwtMiddleware(), warehouseFloorReadMiddleware] as const,
   request: {
     headers: jwtHeaderSchema,
     params: idParams,

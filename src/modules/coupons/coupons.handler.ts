@@ -2,6 +2,7 @@ import type {
   CreateRoute,
   DiscountOptionsRoute,
   GetOneRoute,
+  ImportGoogleQuizRoute,
   ListRoute,
   PatchRoute,
   RemoveRoute,
@@ -32,6 +33,14 @@ export const validatePublic: AppRouteHandler<ValidatePublicRoute> = async (c) =>
 export const discountOptions: AppRouteHandler<DiscountOptionsRoute> = async (c) => {
   const options = await couponsService.listLinkableDiscounts();
   return c.json(successResponse(options), HttpStatusCodes.OK);
+};
+
+export const importGoogleQuiz: AppRouteHandler<ImportGoogleQuizRoute> = async (
+  c,
+) => {
+  const body = c.req.valid("json");
+  const result = await couponsService.importWinnersFromGoogleQuiz(body);
+  return c.json(successResponse(result), HttpStatusCodes.OK);
 };
 
 export const list: AppRouteHandler<ListRoute> = async (c) => {

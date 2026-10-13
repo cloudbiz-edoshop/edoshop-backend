@@ -68,7 +68,7 @@ export class CouponsRepository {
         limit: limitVal,
         offset,
         orderBy: sortCondition ?? [desc(coupons.createdAt)],
-        with: { discount: true },
+        with: { discount: true, winners: true },
       });
 
       return { data: rows, total: totalCount };

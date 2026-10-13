@@ -4,6 +4,8 @@ import { EntityType } from "@/constants/entities.constants";
 import { OperationType } from "@/constants/operations.constants";
 import { jwtMiddleware } from "@/core/middlewares";
 import { rolesAndPermissionsMiddleware } from "@/core/middlewares/roles-and-permissions";
+
+import { entryCreateMiddleware, entryUpdateMiddleware } from "./entries.acl";
 import { entryStateSchema } from "@/db/models/entry-states";
 import * as HttpStatusCodes from "@/lib/http-status-codes";
 import {
@@ -60,12 +62,7 @@ export const getAllEntryTypes = createRoute({
 export const createEntryRoute = createRoute({
   path: "/entries",
   method: "post",
-  middleware: [
-    jwtMiddleware(),
-    rolesAndPermissionsMiddleware([
-      { entity: EntityType.ENTRIES, operation: OperationType.CREATE },
-    ]),
-  ] as const,
+  middleware: [jwtMiddleware(), entryCreateMiddleware] as const,
   request: {
     headers: jwtHeaderSchema,
     body: jsonContentRequired(
@@ -98,12 +95,7 @@ export const createEntryRoute = createRoute({
 export const updateEntryRoute = createRoute({
   path: "/entries/:id",
   method: "patch",
-  middleware: [
-    jwtMiddleware(),
-    rolesAndPermissionsMiddleware([
-      { entity: EntityType.ENTRIES, operation: OperationType.UPDATE },
-    ]),
-  ] as const,
+  middleware: [jwtMiddleware(), entryUpdateMiddleware] as const,
   summary: "Update an entry",
   description: "Update an existing entry",
   tags,

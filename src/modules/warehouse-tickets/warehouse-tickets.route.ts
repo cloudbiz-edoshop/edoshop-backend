@@ -75,12 +75,7 @@ export const create = createRoute({
   path: "/warehouse-tickets",
   method: "post",
   tags,
-  middleware: [
-    jwtMiddleware(),
-    rolesAndPermissionsMiddleware([
-      { entity: EntityType.TICKETING, operation: OperationType.CREATE },
-    ]),
-  ] as const,
+  middleware: [jwtMiddleware(), warehouseTicketRequesterWriteMiddleware] as const,
   request: {
     headers: jwtHeaderSchema,
     body: jsonContentRequired(

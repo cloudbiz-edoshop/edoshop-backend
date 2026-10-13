@@ -21,6 +21,8 @@ import {
   couponDiscountOptionsResponseSchema,
   couponResponseSchema,
   createCouponRequestSchema,
+  importGoogleQuizRequestSchema,
+  importGoogleQuizResponseSchema,
   listCouponsResponseSchema,
   updateCouponRequestSchema,
   validateCouponRequestSchema,
@@ -109,6 +111,41 @@ export const list = createRoute({
         HttpStatusCodes.INTERNAL_SERVER_ERROR,
       ],
       commonQueryParamsSchema,
+    ),
+  },
+});
+
+export const importGoogleQuiz = createRoute({
+  path: "/coupons/import-google-quiz",
+  method: "post",
+  tags,
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.COUPONS, operation: OperationType.CREATE },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    body: jsonContentRequired(
+      importGoogleQuizRequestSchema,
+      "Import quiz winners from Google Sheets",
+    ),
+  },
+  summary: "Pull quiz winners from a Google Forms response sheet",
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(importGoogleQuizResponseSchema),
+      "Imported winners and row issues",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.FORBIDDEN,
+        HttpStatusCodes.UNPROCESSABLE_ENTITY,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      importGoogleQuizRequestSchema,
     ),
   },
 });
@@ -235,6 +272,7 @@ export const remove = createRoute({
 
 export type ValidatePublicRoute = typeof validatePublic;
 export type DiscountOptionsRoute = typeof discountOptions;
+export type ImportGoogleQuizRoute = typeof importGoogleQuiz;
 export type ListRoute = typeof list;
 export type CreateRoute = typeof create;
 export type GetOneRoute = typeof getOne;

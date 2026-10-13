@@ -18,6 +18,7 @@ export const couponFieldsSchema = z.object({
 
 export const createCouponRequestSchema = couponFieldsSchema.extend({
   winners: z.array(couponWinnerInputSchema).min(1),
+  expiresAt: z.string().datetime(),
 });
 export type CreateCouponRequest = z.infer<typeof createCouponRequestSchema>;
 
@@ -66,3 +67,31 @@ export const couponDiscountOptionSchema = z.object({
 export const couponDiscountOptionsResponseSchema = z.array(
   couponDiscountOptionSchema,
 );
+
+export const importGoogleQuizRequestSchema = z.object({
+  sheetUrl: z.string().trim().min(10),
+  minScore: z.coerce.number().optional().nullable(),
+});
+export type ImportGoogleQuizRequest = z.infer<
+  typeof importGoogleQuizRequestSchema
+>;
+
+export const importGoogleQuizIssueSchema = z.object({
+  row: z.number().int(),
+  reason: z.string(),
+  phone: z.string().optional(),
+  fullName: z.string().optional(),
+});
+
+export const importGoogleQuizResponseSchema = z.object({
+  winners: z.array(couponWinnerInputSchema),
+  issues: z.array(importGoogleQuizIssueSchema),
+  detectedColumns: z.object({
+    phone: z.string(),
+    name: z.string(),
+    score: z.string().optional(),
+  }),
+});
+export type ImportGoogleQuizResponse = z.infer<
+  typeof importGoogleQuizResponseSchema
+>;
