@@ -38,7 +38,13 @@ export const list = createRoute({
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
       { entity: EntityType.CUSTOMERS, operation: OperationType.READ },
-    ]),
+      { entity: EntityType.NOTIFICATIONS, operation: OperationType.CREATE },
+      { entity: EntityType.NOTIFICATIONS, operation: OperationType.UPDATE },
+      { entity: EntityType.WAREHOUSE_1, operation: OperationType.READ },
+      { entity: EntityType.WAREHOUSE_2, operation: OperationType.READ },
+      { entity: EntityType.ENTRIES, operation: OperationType.CREATE },
+      { entity: EntityType.ENTRIES, operation: OperationType.UPDATE },
+    ], "ANY"),
   ] as const,
   request: {
     headers: jwtHeaderSchema,
@@ -135,7 +141,10 @@ export const getOne = createRoute({
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
       { entity: EntityType.CUSTOMERS, operation: OperationType.READ },
-    ]),
+      { entity: EntityType.ORDERS, operation: OperationType.READ },
+      { entity: EntityType.WAREHOUSE_1, operation: OperationType.READ },
+      { entity: EntityType.WAREHOUSE_2, operation: OperationType.READ },
+    ], "ANY"),
   ] as const,
   request: {
     headers: jwtHeaderSchema,

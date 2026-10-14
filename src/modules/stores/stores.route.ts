@@ -5,6 +5,7 @@ import {
   jwtMiddleware,
   rolesAndPermissionsMiddleware,
 } from "@/core/middlewares";
+import { staffLookupReadMiddleware } from "@/core/middlewares/staff-lookup-read";
 import { storesSchema } from "@/db/models/stores";
 import * as HttpStatusCodes from "@/lib/http-status-codes";
 import { commonErrorResponses, jsonContent } from "@/lib/openapi/helpers";
@@ -18,9 +19,7 @@ export const getAllStoresRoute = createRoute({
   tags: ["Stores"],
   middleware: [
     jwtMiddleware(),
-    rolesAndPermissionsMiddleware([
-      { entity: EntityType.STORES, operation: OperationType.READ },
-    ]),
+    staffLookupReadMiddleware(),
   ] as const,
   request: { headers: jwtHeaderSchema },
   responses: {

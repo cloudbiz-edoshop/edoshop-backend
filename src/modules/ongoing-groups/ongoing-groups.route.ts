@@ -353,7 +353,10 @@ export const adminGroups = createRoute({
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
       { entity: EntityType.ONGOING_GROUP_REQUESTS, operation: OperationType.READ },
-    ]),
+      { entity: EntityType.ORDERS, operation: OperationType.READ },
+      { entity: EntityType.SUPPLIERS, operation: OperationType.CREATE },
+      { entity: EntityType.SUPPLIERS, operation: OperationType.UPDATE },
+    ], "ANY"),
   ] as const,
   request: {
     headers: jwtHeaderSchema,

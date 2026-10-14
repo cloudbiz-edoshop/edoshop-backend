@@ -30,6 +30,16 @@ const acl = (
   rolesAndPermissionsMiddleware([{ entity, operation }]),
 ];
 
+const aclAny = (
+  ...permissions: Array<[EntityType, OperationType]>
+): [MiddlewareHandler, MiddlewareHandler] => [
+  jwtMiddleware(),
+  rolesAndPermissionsMiddleware(
+    permissions.map(([entity, operation]) => ({ entity, operation })),
+    "ANY",
+  ),
+];
+
 export const createPackage = createRoute({
   path: "/packages",
   method: "post",
@@ -64,7 +74,10 @@ export const editPackage = createRoute({
   path: "/packages/{id}",
   method: "patch",
   tags,
-  middleware: acl(EntityType.WAREHOUSE_1, OperationType.UPDATE),
+  middleware: aclAny(
+    [EntityType.WAREHOUSE_1, OperationType.UPDATE],
+    [EntityType.WAREHOUSE_2, OperationType.UPDATE],
+  ),
   summary: "Update a package",
   description: "Update package details",
   request: {
@@ -96,7 +109,10 @@ export const createShippingLabel = createRoute({
   path: "/packages/shipping-labels",
   method: "post",
   tags,
-  middleware: acl(EntityType.WAREHOUSE_1, OperationType.CREATE),
+  middleware: aclAny(
+    [EntityType.WAREHOUSE_1, OperationType.CREATE],
+    [EntityType.SHIPPING_LABELS, OperationType.CREATE],
+  ),
   summary: "Create a shipping label",
   description: "Create a new shipping label for a package",
   request: {
@@ -130,7 +146,10 @@ export const editShippingLabel = createRoute({
   path: "/packages/shipping-labels/{id}",
   method: "patch",
   tags,
-  middleware: acl(EntityType.WAREHOUSE_1, OperationType.UPDATE),
+  middleware: aclAny(
+    [EntityType.WAREHOUSE_1, OperationType.UPDATE],
+    [EntityType.SHIPPING_LABELS, OperationType.UPDATE],
+  ),
   summary: "Update a shipping label",
   description: "Update shipping label details",
   request: {
@@ -165,7 +184,11 @@ export const getPackageManagementW1 = createRoute({
   path: "/packages/management/w1",
   method: "get",
   tags,
-  middleware: acl(EntityType.WAREHOUSE_1, OperationType.READ),
+  middleware: aclAny(
+    [EntityType.WAREHOUSE_1, OperationType.READ],
+    [EntityType.WAREHOUSE_2, OperationType.READ],
+    [EntityType.SHIPPING_LABELS, OperationType.READ],
+  ),
   summary: "Get package management for warehouse 1",
   description:
     "Retrieve all packages for warehouse 1 management with pagination, filtering and sorting",
@@ -217,7 +240,10 @@ export const createPackageWithItems = createRoute({
   path: "/packages/with-items",
   method: "post",
   tags,
-  middleware: acl(EntityType.WAREHOUSE_1, OperationType.CREATE),
+  middleware: aclAny(
+    [EntityType.WAREHOUSE_1, OperationType.CREATE],
+    [EntityType.WAREHOUSE_2, OperationType.CREATE],
+  ),
   summary: "Create package with order items",
   description:
     "Create a package and add multiple order items to it in a single atomic transaction",
@@ -436,7 +462,11 @@ export const getShippingPriorityCodes = createRoute({
   path: "/packages/shipping-priority-codes",
   method: "get",
   tags,
-  middleware: acl(EntityType.SHIPPING_LABELS, OperationType.READ),
+  middleware: aclAny(
+    [EntityType.SHIPPING_LABELS, OperationType.READ],
+    [EntityType.WAREHOUSE_1, OperationType.READ],
+    [EntityType.WAREHOUSE_2, OperationType.READ],
+  ),
   summary: "Get all shipping priority codes",
   description: "Retrieve all available shipping priority codes",
   request: { headers: jwtHeaderSchema },
@@ -459,7 +489,11 @@ export const getShippingTypes = createRoute({
   path: "/packages/shipping-types",
   method: "get",
   tags,
-  middleware: acl(EntityType.SHIPPING_LABELS, OperationType.READ),
+  middleware: aclAny(
+    [EntityType.SHIPPING_LABELS, OperationType.READ],
+    [EntityType.WAREHOUSE_1, OperationType.READ],
+    [EntityType.WAREHOUSE_2, OperationType.READ],
+  ),
   summary: "Get all shipping types",
   description: "Retrieve all available shipping types",
   request: { headers: jwtHeaderSchema },

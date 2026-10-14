@@ -255,7 +255,8 @@ export const createFeeRule = createRoute({
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
       { entity: EntityType.DELIVERY_PLANS, operation: OperationType.UPDATE },
-    ]),
+      { entity: EntityType.DELIVERY_PLANS, operation: OperationType.CREATE },
+    ], "ANY"),
   ] as const,
   request: {
     headers: jwtHeaderSchema,

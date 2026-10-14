@@ -4,6 +4,7 @@ import {
   jwtMiddleware,
   rolesAndPermissionsMiddleware,
 } from "@/core/middlewares";
+import { warehouseTransferAcl } from "@/core/middlewares/warehouse-transfer-acl";
 import { warehouseFloorReadMiddleware } from "@/core/middlewares/warehouse-floor-read";
 import * as HttpStatusCodes from "@/lib/http-status-codes";
 import {
@@ -55,10 +56,7 @@ export const getTransferableEntriesList = createRoute({
     "List transferable entries for a specific warehouse with pagination, filtering, and sorting",
   middleware: [
     jwtMiddleware(),
-    rolesAndPermissionsMiddleware([
-      { entity: EntityType.WAREHOUSE_1, operation: OperationType.READ },
-      { entity: EntityType.ENTRIES, operation: OperationType.READ },
-    ]),
+    warehouseTransferAcl(OperationType.READ, OperationType.READ),
   ] as const,
   request: {
     headers: jwtHeaderSchema,
@@ -97,14 +95,7 @@ export const sendTransferableEntries = createRoute({
     "Send transferable entries based on product codes from source warehouse to destination warehouse",
   middleware: [
     jwtMiddleware(),
-    rolesAndPermissionsMiddleware([
-      { entity: EntityType.WAREHOUSE_1, operation: OperationType.UPDATE },
-      { entity: EntityType.ENTRIES, operation: OperationType.UPDATE },
-      {
-        entity: EntityType.WAREHOUSE_TRANSFERS,
-        operation: OperationType.CREATE,
-      },
-    ]),
+    warehouseTransferAcl(OperationType.CREATE, OperationType.UPDATE, "body"),
   ] as const,
   request: {
     headers: jwtHeaderSchema,
@@ -146,10 +137,7 @@ export const getReversibleEntriesList = createRoute({
     "List reversible (sent) entries with pagination, filtering, and sorting",
   middleware: [
     jwtMiddleware(),
-    rolesAndPermissionsMiddleware([
-      { entity: EntityType.WAREHOUSE_1, operation: OperationType.READ },
-      { entity: EntityType.ENTRIES, operation: OperationType.READ },
-    ]),
+    warehouseTransferAcl(OperationType.READ, OperationType.READ),
   ] as const,
   request: {
     headers: jwtHeaderSchema,
@@ -187,14 +175,7 @@ export const reverseSentEntries = createRoute({
     "Reverse sent warehouse transfer entries based on provided IDs, transfer codes, and product codes",
   middleware: [
     jwtMiddleware(),
-    rolesAndPermissionsMiddleware([
-      { entity: EntityType.WAREHOUSE_1, operation: OperationType.UPDATE },
-      { entity: EntityType.ENTRIES, operation: OperationType.UPDATE },
-      {
-        entity: EntityType.WAREHOUSE_TRANSFERS,
-        operation: OperationType.UPDATE,
-      },
-    ]),
+    warehouseTransferAcl([OperationType.CREATE, OperationType.UPDATE], OperationType.UPDATE),
   ] as const,
   request: {
     headers: jwtHeaderSchema,
@@ -247,13 +228,7 @@ export const getPendingReceiptsList = createRoute({
     "List warehouse transfer entries that are sent to the given warehouse but not received",
   middleware: [
     jwtMiddleware(),
-    rolesAndPermissionsMiddleware([
-      { entity: EntityType.WAREHOUSE_2, operation: OperationType.READ },
-      {
-        entity: EntityType.WAREHOUSE_TRANSFERS,
-        operation: OperationType.READ,
-      },
-    ]),
+    warehouseTransferAcl(OperationType.READ, OperationType.READ),
   ] as const,
   request: {
     headers: jwtHeaderSchema,
@@ -291,14 +266,7 @@ export const receiveTransfers = createRoute({
     "Confirms the physical receipt of products at the destination warehouse and updates official inventory location",
   middleware: [
     jwtMiddleware(),
-    rolesAndPermissionsMiddleware([
-      { entity: EntityType.WAREHOUSE_2, operation: OperationType.UPDATE },
-      { entity: EntityType.ENTRIES, operation: OperationType.UPDATE },
-      {
-        entity: EntityType.WAREHOUSE_TRANSFERS,
-        operation: OperationType.UPDATE,
-      },
-    ]),
+    warehouseTransferAcl([OperationType.CREATE, OperationType.UPDATE], OperationType.UPDATE),
   ] as const,
   request: {
     headers: jwtHeaderSchema,
@@ -347,13 +315,7 @@ export const getReceivedEntriesList = createRoute({
     "List all received warehouse transfer entries for a specific warehouse",
   middleware: [
     jwtMiddleware(),
-    rolesAndPermissionsMiddleware([
-      { entity: EntityType.WAREHOUSE_2, operation: OperationType.READ },
-      {
-        entity: EntityType.WAREHOUSE_TRANSFERS,
-        operation: OperationType.READ,
-      },
-    ]),
+    warehouseTransferAcl(OperationType.READ, OperationType.READ),
   ] as const,
   request: {
     headers: jwtHeaderSchema,
@@ -391,14 +353,7 @@ export const undoReceivedEntries = createRoute({
     "Undoes the receipt of products at the destination warehouse and updates official inventory location",
   middleware: [
     jwtMiddleware(),
-    rolesAndPermissionsMiddleware([
-      { entity: EntityType.WAREHOUSE_2, operation: OperationType.UPDATE },
-      {
-        entity: EntityType.WAREHOUSE_TRANSFERS,
-        operation: OperationType.UPDATE,
-      },
-      { entity: EntityType.ENTRIES, operation: OperationType.UPDATE },
-    ]),
+    warehouseTransferAcl([OperationType.CREATE, OperationType.UPDATE], OperationType.UPDATE),
   ] as const,
   request: {
     headers: jwtHeaderSchema,
@@ -446,7 +401,10 @@ export const getAllTransfersForAWarehouse = createRoute({
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
       { entity: EntityType.EWMS_MANAGEMENT, operation: OperationType.READ },
-    ]),
+      { entity: EntityType.WAREHOUSE_TRANSFERS, operation: OperationType.READ },
+      { entity: EntityType.WAREHOUSE_1, operation: OperationType.READ },
+      { entity: EntityType.WAREHOUSE_2, operation: OperationType.READ },
+    ], "ANY"),
   ] as const,
   request: {
     headers: jwtHeaderSchema,
@@ -489,7 +447,10 @@ export const getAllBinLocationsForWarehouse = createRoute({
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
       { entity: EntityType.EWMS_MANAGEMENT, operation: OperationType.READ },
-    ]),
+      { entity: EntityType.WAREHOUSE_TRANSFERS, operation: OperationType.READ },
+      { entity: EntityType.WAREHOUSE_1, operation: OperationType.READ },
+      { entity: EntityType.WAREHOUSE_2, operation: OperationType.READ },
+    ], "ANY"),
   ] as const,
   request: {
     headers: jwtHeaderSchema,
@@ -574,7 +535,6 @@ export const assignEntryToBin = createRoute({
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
       { entity: EntityType.WAREHOUSE_1, operation: OperationType.UPDATE },
-      { entity: EntityType.ENTRIES, operation: OperationType.UPDATE },
     ]),
   ] as const,
   request: {
@@ -616,7 +576,6 @@ export const unassignEntryFromBin = createRoute({
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
       { entity: EntityType.WAREHOUSE_1, operation: OperationType.UPDATE },
-      { entity: EntityType.ENTRIES, operation: OperationType.UPDATE },
     ]),
   ] as const,
   request: {

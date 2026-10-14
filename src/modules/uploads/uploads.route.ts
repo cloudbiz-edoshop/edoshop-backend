@@ -3,6 +3,7 @@ import type { MiddlewareHandler } from "hono";
 import { createRoute, z } from "@hono/zod-openapi";
 
 import { EntityType, OperationType } from "@/constants";
+import { CMS_ENTITIES, TV_APP_ENTITIES } from "@/constants/permissions.constants";
 import {
   jwtMiddleware,
   rolesAndPermissionsMiddleware,
@@ -39,10 +40,12 @@ const mediaUploadAcl = (
   rolesAndPermissionsMiddleware(
     [
       { entity: EntityType.VARIANT_IMAGES, operation: variantImagesOperation },
-      ...productOperations.map((operation) => ({
-        entity: EntityType.PRODUCTS,
-        operation,
-      })),
+      ...productOperations.flatMap((operation) =>
+        [EntityType.PRODUCTS, ...CMS_ENTITIES, EntityType.CATEGORIES, EntityType.PROMOTIONS, ...TV_APP_ENTITIES].map((entity) => ({
+          entity,
+          operation,
+        })),
+      ),
     ],
     "ANY",
   ),

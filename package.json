@@ -15,6 +15,7 @@
     "test:watch": "cross-env NODE_ENV=test vitest",
     "smoke:api": "tsx scripts/api-smoke.ts",
     "test:permission-dummies": "tsx scripts/permission-dummy-accounts.ts",
+    "test:acl-matrix": "tsx scripts/acl-matrix.ts --strict",
     "minio:start": "sh ./scripts/start-minio.sh",
     "minio:start:win": "powershell -ExecutionPolicy Bypass -File ./scripts/start-minio.ps1",
     "db:generate": "drizzle-kit generate",

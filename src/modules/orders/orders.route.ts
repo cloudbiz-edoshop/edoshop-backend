@@ -27,7 +27,8 @@ export const getOrdersToFulfill = createRoute({
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
       { entity: EntityType.ORDERS, operation: OperationType.READ },
-    ]),
+      { entity: EntityType.WAREHOUSE_1, operation: OperationType.READ },
+    ], "ANY"),
   ] as const,
   request: {
     headers: jwtHeaderSchema,
@@ -60,7 +61,9 @@ export const getOrderDetailsForACustomer = createRoute({
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
       { entity: EntityType.ORDERS, operation: OperationType.READ },
-    ]),
+      { entity: EntityType.WAREHOUSE_1, operation: OperationType.READ },
+      { entity: EntityType.WAREHOUSE_2, operation: OperationType.READ },
+    ], "ANY"),
   ] as const,
   request: {
     headers: jwtHeaderSchema,

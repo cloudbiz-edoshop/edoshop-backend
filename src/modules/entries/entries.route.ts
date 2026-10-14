@@ -3,6 +3,7 @@ import { createRoute, z } from "@hono/zod-openapi";
 import { EntityType } from "@/constants/entities.constants";
 import { OperationType } from "@/constants/operations.constants";
 import { jwtMiddleware } from "@/core/middlewares";
+import { staffLookupReadMiddleware } from "@/core/middlewares/staff-lookup-read";
 import { rolesAndPermissionsMiddleware } from "@/core/middlewares/roles-and-permissions";
 
 import { entryCreateMiddleware, entryUpdateMiddleware } from "./entries.acl";
@@ -39,9 +40,7 @@ export const getAllEntryTypes = createRoute({
   method: "get",
   middleware: [
     jwtMiddleware(),
-    rolesAndPermissionsMiddleware([
-      { entity: EntityType.ENTRIES, operation: OperationType.READ },
-    ]),
+    staffLookupReadMiddleware(),
   ] as const,
   summary: "List all entry types",
   description: "List all entry types",
@@ -166,7 +165,10 @@ export const list = createRoute({
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
       { entity: EntityType.ENTRIES, operation: OperationType.READ },
-    ]),
+      { entity: EntityType.SUPPLIERS, operation: OperationType.READ },
+      { entity: EntityType.WAREHOUSE_1, operation: OperationType.READ },
+      { entity: EntityType.WAREHOUSE_2, operation: OperationType.READ },
+    ], "ANY"),
   ] as const,
   request: {
     headers: jwtHeaderSchema,
@@ -255,9 +257,7 @@ export const getAllBundleIds = createRoute({
   tags,
   middleware: [
     jwtMiddleware(),
-    rolesAndPermissionsMiddleware([
-      { entity: EntityType.ENTRIES, operation: OperationType.READ },
-    ]),
+    staffLookupReadMiddleware(),
   ] as const,
   summary: "Get all bundle IDs",
   description: "Returns all bundle IDs.",
@@ -291,9 +291,7 @@ export const getAllSeriesIds = createRoute({
   tags,
   middleware: [
     jwtMiddleware(),
-    rolesAndPermissionsMiddleware([
-      { entity: EntityType.ENTRIES, operation: OperationType.READ },
-    ]),
+    staffLookupReadMiddleware(),
   ] as const,
   summary: "Get all series IDs",
   description: "Returns all series IDs.",
@@ -327,9 +325,7 @@ export const getAllItemIds = createRoute({
   tags,
   middleware: [
     jwtMiddleware(),
-    rolesAndPermissionsMiddleware([
-      { entity: EntityType.ENTRIES, operation: OperationType.READ },
-    ]),
+    staffLookupReadMiddleware(),
   ] as const,
   summary: "Get all item IDs",
   description: "Returns all item IDs.",
@@ -363,9 +359,7 @@ export const getAllPackageIds = createRoute({
   tags,
   middleware: [
     jwtMiddleware(),
-    rolesAndPermissionsMiddleware([
-      { entity: EntityType.ENTRIES, operation: OperationType.READ },
-    ]),
+    staffLookupReadMiddleware(),
   ] as const,
   summary: "Get all Package IDs",
   description: "Returns all Package IDs.",
@@ -401,7 +395,9 @@ export const previewBundleCodesRoute = createRoute({
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
       { entity: EntityType.ENTRIES, operation: OperationType.READ },
-    ]),
+      { entity: EntityType.SUPPLIERS, operation: OperationType.CREATE },
+      { entity: EntityType.SUPPLIERS, operation: OperationType.UPDATE },
+    ], "ANY"),
   ] as const,
   summary: "Preview next bundle codes for a supplier",
   description:

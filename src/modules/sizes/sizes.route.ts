@@ -5,6 +5,7 @@ import {
   jwtMiddleware,
   rolesAndPermissionsMiddleware,
 } from "@/core/middlewares";
+import { staffLookupReadMiddleware } from "@/core/middlewares/staff-lookup-read";
 import * as HttpStatusCodes from "@/lib/http-status-codes";
 import {
   commonErrorResponses,
@@ -32,9 +33,7 @@ export const list = createRoute({
   tags,
   middleware: [
     jwtMiddleware(),
-    rolesAndPermissionsMiddleware([
-      { entity: EntityType.SIZES, operation: OperationType.READ },
-    ]),
+    staffLookupReadMiddleware(),
   ] as const,
   request: {
     headers: jwtHeaderSchema,

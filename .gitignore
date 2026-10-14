@@ -11,3 +11,5 @@ tools/minio/data/
 !.env.example
 .env.test
 data/imports/*.xlsx
+
+acl-matrix-report.md

@@ -32,7 +32,8 @@ export const list = createRoute({
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
       { entity: EntityType.PROMOTIONS, operation: OperationType.READ },
-    ]),
+      { entity: EntityType.BANNERS, operation: OperationType.READ },
+    ], "ANY"),
   ] as const,
   request: { headers: jwtHeaderSchema, query: commonQueryParamsSchema },
   summary: "List promo banners",
@@ -58,7 +59,8 @@ export const create = createRoute({
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
       { entity: EntityType.PROMOTIONS, operation: OperationType.CREATE },
-    ]),
+      { entity: EntityType.BANNERS, operation: OperationType.CREATE },
+    ], "ANY"),
   ] as const,
   request: {
     headers: jwtHeaderSchema,
@@ -85,7 +87,8 @@ export const getOne = createRoute({
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
       { entity: EntityType.PROMOTIONS, operation: OperationType.READ },
-    ]),
+      { entity: EntityType.BANNERS, operation: OperationType.READ },
+    ], "ANY"),
   ] as const,
   request: { headers: jwtHeaderSchema, params: idParams },
   summary: "Get promo banner",
@@ -109,7 +112,8 @@ export const patch = createRoute({
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
       { entity: EntityType.PROMOTIONS, operation: OperationType.UPDATE },
-    ]),
+      { entity: EntityType.BANNERS, operation: OperationType.UPDATE },
+    ], "ANY"),
   ] as const,
   request: {
     headers: jwtHeaderSchema,
@@ -137,7 +141,8 @@ export const removeSelected = createRoute({
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
       { entity: EntityType.PROMOTIONS, operation: OperationType.DELETE },
-    ]),
+      { entity: EntityType.BANNERS, operation: OperationType.DELETE },
+    ], "ANY"),
   ] as const,
   request: {
     headers: jwtHeaderSchema,

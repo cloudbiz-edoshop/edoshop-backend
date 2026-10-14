@@ -34,7 +34,10 @@ export const list = createRoute({
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
       { entity: EntityType.FILTERS, operation: OperationType.READ },
-    ]),
+      { entity: EntityType.PRODUCTS, operation: OperationType.READ },
+      { entity: EntityType.PRODUCTS, operation: OperationType.CREATE },
+      { entity: EntityType.PRODUCTS, operation: OperationType.UPDATE },
+    ], "ANY"),
   ] as const,
   request: {
     headers: jwtHeaderSchema,
@@ -73,7 +76,9 @@ export const create = createRoute({
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
       { entity: EntityType.FILTERS, operation: OperationType.CREATE },
-    ]),
+      { entity: EntityType.PRODUCTS, operation: OperationType.CREATE },
+      { entity: EntityType.PRODUCTS, operation: OperationType.UPDATE },
+    ], "ANY"),
   ] as const,
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
@@ -100,7 +105,10 @@ export const getOne = createRoute({
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
       { entity: EntityType.FILTERS, operation: OperationType.READ },
-    ]),
+      { entity: EntityType.PRODUCTS, operation: OperationType.READ },
+      { entity: EntityType.PRODUCTS, operation: OperationType.CREATE },
+      { entity: EntityType.PRODUCTS, operation: OperationType.UPDATE },
+    ], "ANY"),
   ] as const,
   request: {
     headers: jwtHeaderSchema,
@@ -134,7 +142,9 @@ export const patch = createRoute({
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
       { entity: EntityType.FILTERS, operation: OperationType.UPDATE },
-    ]),
+      { entity: EntityType.PRODUCTS, operation: OperationType.CREATE },
+      { entity: EntityType.PRODUCTS, operation: OperationType.UPDATE },
+    ], "ANY"),
   ] as const,
   request: {
     headers: jwtHeaderSchema,

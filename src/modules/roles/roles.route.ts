@@ -34,7 +34,9 @@ export const list = createRoute({
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
       { entity: EntityType.ROLES, operation: OperationType.READ },
-    ]),
+      { entity: EntityType.EMPLOYEES, operation: OperationType.CREATE },
+      { entity: EntityType.EMPLOYEES, operation: OperationType.UPDATE },
+    ], "ANY"),
   ] as const,
   request: {
     headers: jwtHeaderSchema,

@@ -30,7 +30,8 @@ export const listAll = createRoute({
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
       { entity: EntityType.REVIEWS, operation: OperationType.READ },
-    ]),
+      { entity: EntityType.TESTIMONIALS, operation: OperationType.READ },
+    ], "ANY"),
   ] as const,
   request: {
     query: commonQueryParamsSchema,
@@ -162,7 +163,8 @@ export const updateStatus = createRoute({
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
       { entity: EntityType.REVIEWS, operation: OperationType.UPDATE },
-    ]),
+      { entity: EntityType.TESTIMONIALS, operation: OperationType.UPDATE },
+    ], "ANY"),
   ] as const,
   request: {
     params: idParams,
@@ -194,7 +196,8 @@ export const remove = createRoute({
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
       { entity: EntityType.REVIEWS, operation: OperationType.DELETE },
-    ]),
+      { entity: EntityType.TESTIMONIALS, operation: OperationType.DELETE },
+    ], "ANY"),
   ] as const,
   request: {
     params: idParams,

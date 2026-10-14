@@ -1,10 +1,10 @@
 import { createRoute } from "@hono/zod-openapi";
 
-import { EntityType, OperationType } from "@/constants";
 import {
   jwtMiddleware,
-  rolesAndPermissionsMiddleware,
 } from "@/core/middlewares";
+
+import { dashboardMetricsReadMiddleware } from "./dashboard.acl";
 import * as HttpStatusCodes from "@/lib/http-status-codes";
 import { commonErrorResponses, jsonContent } from "@/lib/openapi/helpers";
 import { createSuccessResponseSchema } from "@/lib/openapi/schemas/create-api-response";
@@ -21,22 +21,7 @@ export const getMetrics = createRoute({
   path: "/dashboard/metrics",
   method: "get",
   tags,
-  middleware: [
-    jwtMiddleware(),
-    rolesAndPermissionsMiddleware(
-      [
-        { entity: EntityType.EWMS_MANAGEMENT, operation: OperationType.READ },
-        { entity: EntityType.WAREHOUSE_1, operation: OperationType.READ },
-        { entity: EntityType.WAREHOUSE_2, operation: OperationType.READ },
-        { entity: EntityType.ENTRIES, operation: OperationType.READ },
-        { entity: EntityType.ORDERS, operation: OperationType.READ },
-        { entity: EntityType.STORES, operation: OperationType.READ },
-        { entity: EntityType.PRODUCTS, operation: OperationType.READ },
-        { entity: EntityType.CUSTOMERS, operation: OperationType.READ },
-      ],
-      "ANY",
-    ),
-  ] as const,
+  middleware: [jwtMiddleware(), dashboardMetricsReadMiddleware] as const,
   request: {
     headers: jwtHeaderSchema,
     query: dashboardMetricsQuerySchema,

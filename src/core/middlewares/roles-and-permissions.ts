@@ -22,6 +22,29 @@ export interface Permission {
  */
 export type PermissionCheckType = "ANY" | "ALL";
 
+export interface AclMetadata {
+  permissions: Permission[];
+  checkType: PermissionCheckType;
+  /** Only the warehouse_N permission matching the request's warehouse applies. */
+  warehouseScoped?: boolean;
+}
+
+export type AclMiddlewareHandler = MiddlewareHandler & { acl: AclMetadata };
+
+/** Any grant on an entity also allows reading it: create/update/delete forms load the record first. */
+export const grantSatisfies = (
+  granted: ReadonlySet<string>,
+  { entity, operation }: Permission,
+) =>
+  granted.has(`${entity}:${operation}`)
+  || (operation === "read"
+    && ["create", "update", "delete"].some((op) => granted.has(`${entity}:${op}`)));
+
+export const aclAllows = (granted: ReadonlySet<string>, acl: AclMetadata) =>
+  acl.checkType === "ANY"
+    ? acl.permissions.some((permission) => grantSatisfies(granted, permission))
+    : acl.permissions.every((permission) => grantSatisfies(granted, permission));
+
 /**
  * Middleware for checking roles and permissions
  *
@@ -32,8 +55,8 @@ export type PermissionCheckType = "ANY" | "ALL";
 export const rolesAndPermissionsMiddleware = (
   permissions: Permission[],
   checkType: PermissionCheckType = "ALL",
-): MiddlewareHandler => {
-  return async (c: AppContext, next) => {
+): AclMiddlewareHandler => {
+  const handler: MiddlewareHandler = async (c: AppContext, next) => {
     const user = c.get("user");
     const isAdmin = user.isAdmin;
     const employeeService = new EmployeeService();
@@ -87,27 +110,12 @@ export const rolesAndPermissionsMiddleware = (
       });
     }
 
-    let hasPermission = false;
-
-    if (checkType === "ALL") {
-      // Check if user has ALL of the required permissions
-      hasPermission = permissions.every(({ entity, operation }) => {
-        return roleWithPermissions.permissions.some(
-          (permission) =>
-            permission.entity.name === entity &&
-            permission.operation.name === operation,
-        );
-      });
-    } else {
-      // Check if user has ANY of the required permissions (default)
-      hasPermission = permissions.some(({ entity, operation }) => {
-        return roleWithPermissions.permissions.some(
-          (permission) =>
-            permission.entity.name === entity &&
-            permission.operation.name === operation,
-        );
-      });
-    }
+    const granted = new Set(
+      roleWithPermissions.permissions.map(
+        (permission) => `${permission.entity.name}:${permission.operation.name}`,
+      ),
+    );
+    const hasPermission = aclAllows(granted, { permissions, checkType });
 
     if (!hasPermission) {
       c.var.logger.info(
@@ -125,4 +133,6 @@ export const rolesAndPermissionsMiddleware = (
 
     return next();
   };
+
+  return Object.assign(handler, { acl: { permissions, checkType } });
 };

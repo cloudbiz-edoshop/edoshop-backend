@@ -73,7 +73,9 @@ export const create = createRoute({
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
       { entity: EntityType.VARIANTS, operation: OperationType.CREATE },
-    ]),
+      { entity: EntityType.PRODUCTS, operation: OperationType.CREATE },
+      { entity: EntityType.PRODUCTS, operation: OperationType.UPDATE },
+    ], "ANY"),
   ] as const,
   responses: {
     [HttpStatusCodes.OK]: jsonContent(

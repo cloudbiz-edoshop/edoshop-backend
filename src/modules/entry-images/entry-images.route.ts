@@ -42,7 +42,9 @@ export const listEntryImagesRoute = createRoute({
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
       { entity: EntityType.ENTRIES, operation: OperationType.READ },
-    ]),
+      { entity: EntityType.WAREHOUSE_1, operation: OperationType.READ },
+      { entity: EntityType.WAREHOUSE_2, operation: OperationType.READ },
+    ], "ANY"),
   ] as const,
   summary: "List images for an entry",
   description: "Get all images associated with a specific entry",

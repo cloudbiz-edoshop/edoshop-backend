@@ -18,6 +18,7 @@ export const entryUpdateMiddleware = rolesAndPermissionsMiddleware(
     { entity: EntityType.ENTRIES, operation: OperationType.UPDATE },
     { entity: EntityType.WAREHOUSE_1, operation: OperationType.UPDATE },
     { entity: EntityType.WAREHOUSE_2, operation: OperationType.UPDATE },
+    { entity: EntityType.SUPPLIERS, operation: OperationType.UPDATE },
   ],
   "ANY",
 );

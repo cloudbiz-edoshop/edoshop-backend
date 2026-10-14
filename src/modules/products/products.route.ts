@@ -60,7 +60,20 @@ export const list = createRoute({
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
       { entity: EntityType.PRODUCTS, operation: OperationType.READ },
-    ]),
+      { entity: EntityType.NEW_ARRIVALS, operation: OperationType.READ },
+      { entity: EntityType.NEW_ARRIVALS, operation: OperationType.UPDATE },
+      { entity: EntityType.TV_CATALOG, operation: OperationType.READ },
+      { entity: EntityType.TV_CATALOG, operation: OperationType.UPDATE },
+      { entity: EntityType.DISCOUNTS, operation: OperationType.CREATE },
+      { entity: EntityType.DISCOUNTS, operation: OperationType.UPDATE },
+      { entity: EntityType.COUPONS, operation: OperationType.CREATE },
+      { entity: EntityType.COUPONS, operation: OperationType.UPDATE },
+      { entity: EntityType.PROMOTIONS, operation: OperationType.CREATE },
+      { entity: EntityType.PROMOTIONS, operation: OperationType.UPDATE },
+      { entity: EntityType.ENTRIES, operation: OperationType.READ },
+      { entity: EntityType.ENTRIES, operation: OperationType.CREATE },
+      { entity: EntityType.ENTRIES, operation: OperationType.UPDATE },
+    ], "ANY"),
   ] as const,
   request: {
     headers: jwtHeaderSchema,
@@ -126,7 +139,10 @@ export const getOne = createRoute({
     jwtMiddleware(),
     rolesAndPermissionsMiddleware([
       { entity: EntityType.PRODUCTS, operation: OperationType.READ },
-    ]),
+      { entity: EntityType.VARIANTS, operation: OperationType.READ },
+      { entity: EntityType.VARIANTS, operation: OperationType.CREATE },
+      { entity: EntityType.VARIANTS, operation: OperationType.UPDATE },
+    ], "ANY"),
   ] as const,
   request: {
     headers: jwtHeaderSchema,
