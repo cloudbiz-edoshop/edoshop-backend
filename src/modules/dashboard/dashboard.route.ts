@@ -26,6 +26,8 @@ export const getMetrics = createRoute({
     rolesAndPermissionsMiddleware(
       [
         { entity: EntityType.EWMS_MANAGEMENT, operation: OperationType.READ },
+        { entity: EntityType.WAREHOUSE_1, operation: OperationType.READ },
+        { entity: EntityType.WAREHOUSE_2, operation: OperationType.READ },
         { entity: EntityType.ENTRIES, operation: OperationType.READ },
         { entity: EntityType.ORDERS, operation: OperationType.READ },
         { entity: EntityType.STORES, operation: OperationType.READ },
