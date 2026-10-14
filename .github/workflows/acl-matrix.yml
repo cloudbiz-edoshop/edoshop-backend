@@ -1,42 +1,15 @@
 name: ACL matrix
 
-# Every admin page x every role template / module / single permission:
-# fails when a page the UI lets someone open calls an API the backend refuses.
-# Needs secret ADMIN_REPO_TOKEN (read access to cloudbiz-edoshop/edoshop-admin).
+# Runs in cloudbiz-edoshop/edoshop-admin (checks out this public API repo).
+# Kept here only as a pointer so backend pushes do not fail on a missing admin token.
 
 on:
-  push:
-    branches: [main]
-  pull_request:
   workflow_dispatch:
 
 jobs:
-  acl-matrix:
+  note:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with:
-          path: backend
-      - uses: actions/checkout@v4
-        with:
-          repository: cloudbiz-edoshop/edoshop-admin
-          token: ${{ secrets.ADMIN_REPO_TOKEN }}
-          path: Frontend
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: backend/package-lock.json
-      - run: npm ci
-        working-directory: backend
-      - run: npm run test:acl-matrix -- --report=acl-matrix-report.md
-        working-directory: backend
-        env:
-          FRONTEND_DIR: ${{ github.workspace }}/Frontend
-          DATABASE_URL: postgres://acl:acl@127.0.0.1:1/acl
-          JWT_SECRET: acl-matrix
-      - if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: acl-matrix-report
-          path: backend/acl-matrix-report.md
+      - run: |
+          echo "ACL matrix runs from edoshop-admin/.github/workflows/acl-matrix.yml"
+          echo "Trigger it from the admin repo or use workflow_dispatch there."
