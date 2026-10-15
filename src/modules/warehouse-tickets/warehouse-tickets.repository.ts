@@ -1,6 +1,6 @@
 import type { TX } from "@/lib/types";
 
-import { and, count, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, or, sql } from "drizzle-orm";
 
 import db from "@/db";
 import {
@@ -281,6 +281,113 @@ export class WarehouseTicketsRepository {
     return catalogMap;
   }
 
+  /** Catalog / legacy IDs (e.g. DO-TR-B3-E360-G) — also match without trailing heritage suffix. */
+  private buildCatalogSearchPatterns(search: string) {
+    const trimmed = search.trim();
+    if (!trimmed) {
+      return [];
+    }
+
+    const patterns = new Set<string>([`%${trimmed}%`]);
+    if (/^DO-[A-Z]{2}-B\d+-[A-Z0-9]+-[A-Z]$/i.test(trimmed)) {
+      patterns.add(`%${trimmed.replace(/-[A-Z]$/i, "")}%`);
+    }
+
+    return [...patterns];
+  }
+
+  private productCatalogCodeExistsSql(
+    productIdRef: ReturnType<typeof sql.raw>,
+    pattern: string,
+  ) {
+    return sql`(
+      EXISTS (
+        SELECT 1 FROM "direct_order_products"
+        WHERE "direct_order_products"."product_id" = ${productIdRef}
+          AND (
+            "direct_order_products"."direct_order_code" ILIKE ${pattern}
+            OR COALESCE("direct_order_products"."legacy_direct_order_code", '') ILIKE ${pattern}
+          )
+      )
+      OR EXISTS (
+        SELECT 1 FROM "dropshipping_products"
+        WHERE "dropshipping_products"."product_id" = ${productIdRef}
+          AND "dropshipping_products"."dropshipping_code" ILIKE ${pattern}
+      )
+      OR EXISTS (
+        SELECT 1 FROM "variants"
+        INNER JOIN "items" ON "items"."id" = "variants"."item_id"
+        WHERE "variants"."product_id" = ${productIdRef}
+          AND "variants"."is_deleted" = false
+          AND "items"."item_code" ILIKE ${pattern}
+      )
+    )`;
+  }
+
+  private entryLinkedCatalogCodeExistsSql(entryIdRef: typeof entries.id, pattern: string) {
+    return sql`(
+      EXISTS (
+        SELECT 1
+        FROM ${entryProducts} ep
+        INNER JOIN ${products} p ON p.id = ep.product_id
+        WHERE ep.entry_id = ${entryIdRef}
+          AND (
+            p.name ILIKE ${pattern}
+            OR CAST(p.id AS TEXT) ILIKE ${pattern}
+          )
+      )
+      OR EXISTS (
+        SELECT 1
+        FROM ${entryProducts} ep
+        INNER JOIN ${directOrderProducts} dop ON dop.product_id = ep.product_id
+        WHERE ep.entry_id = ${entryIdRef}
+          AND (
+            dop.direct_order_code ILIKE ${pattern}
+            OR COALESCE(dop.legacy_direct_order_code, '') ILIKE ${pattern}
+          )
+      )
+      OR EXISTS (
+        SELECT 1
+        FROM ${entryProducts} ep
+        INNER JOIN ${dropshippingProducts} dsp ON dsp.product_id = ep.product_id
+        WHERE ep.entry_id = ${entryIdRef}
+          AND dsp.dropshipping_code ILIKE ${pattern}
+      )
+      OR EXISTS (
+        SELECT 1
+        FROM ${items} i
+        INNER JOIN ${variants} v ON v.item_id = i.id AND v.is_deleted = false
+        INNER JOIN ${products} p ON p.id = v.product_id
+        WHERE i.entry_id = ${entryIdRef}
+          AND (
+            p.name ILIKE ${pattern}
+            OR CAST(p.id AS TEXT) ILIKE ${pattern}
+            OR EXISTS (
+              SELECT 1 FROM ${directOrderProducts} dop
+              WHERE dop.product_id = p.id
+                AND (
+                  dop.direct_order_code ILIKE ${pattern}
+                  OR COALESCE(dop.legacy_direct_order_code, '') ILIKE ${pattern}
+                )
+            )
+          )
+      )
+      OR EXISTS (
+        SELECT 1
+        FROM ${series} s
+        INNER JOIN ${directOrderProducts} dop ON dop.series_id = s.id
+        INNER JOIN ${products} p ON p.id = dop.product_id
+        WHERE s.entry_id = ${entryIdRef}
+          AND (
+            p.name ILIKE ${pattern}
+            OR CAST(p.id AS TEXT) ILIKE ${pattern}
+            OR dop.direct_order_code ILIKE ${pattern}
+            OR COALESCE(dop.legacy_direct_order_code, '') ILIKE ${pattern}
+          )
+      )
+    )`;
+  }
+
   private getEntryProductCodeSql() {
     return sql<string>`COALESCE(
       (SELECT ${bundles.bundleCode} FROM ${bundles} WHERE ${bundles.entryId} = ${entries.id} LIMIT 1),
@@ -343,31 +450,15 @@ export class WarehouseTicketsRepository {
     // explicitly qualified identifiers for everything inside the subqueries.
     const productIdRef = sql.raw(`"products"."id"`);
 
-    const trimmedSearch = search?.trim();
-    if (trimmedSearch) {
-      const searchPattern = `%${trimmedSearch}%`;
-      whereConditions.push(
-        sql`(
-          ${products.name} ILIKE ${searchPattern}
-          OR COALESCE(${products.shortDescription}, '') ILIKE ${searchPattern}
-          OR CAST(${productIdRef} AS TEXT) ILIKE ${searchPattern}
-          OR EXISTS (
-            SELECT 1 FROM "direct_order_products"
-            WHERE "direct_order_products"."product_id" = ${productIdRef}
-              AND (
-                "direct_order_products"."direct_order_code" ILIKE ${searchPattern}
-                OR COALESCE("direct_order_products"."legacy_direct_order_code", '') ILIKE ${searchPattern}
-              )
-          )
-          OR EXISTS (
-            SELECT 1 FROM "variants"
-            INNER JOIN "items" ON "items"."id" = "variants"."item_id"
-            WHERE "variants"."product_id" = ${productIdRef}
-              AND "variants"."is_deleted" = false
-              AND "items"."item_code" ILIKE ${searchPattern}
-          )
-        )`,
-      );
+    const searchPatterns = this.buildCatalogSearchPatterns(search ?? "");
+    if (searchPatterns.length) {
+      const clauses = searchPatterns.flatMap((searchPattern) => [
+        sql`${products.name} ILIKE ${searchPattern}`,
+        sql`COALESCE(${products.shortDescription}, '') ILIKE ${searchPattern}`,
+        sql`CAST(${productIdRef} AS TEXT) ILIKE ${searchPattern}`,
+        this.productCatalogCodeExistsSql(productIdRef, searchPattern),
+      ]);
+      whereConditions.push(or(...clauses)!);
     }
 
     const whereClause = and(...whereConditions);
@@ -481,48 +572,15 @@ export class WarehouseTicketsRepository {
       eq(entries.isDeleted, false),
     ];
 
-    const trimmedSearch = search?.trim();
-    if (trimmedSearch) {
-      const searchPattern = `%${trimmedSearch}%`;
-      whereConditions.push(
-        sql`(
-          ${productCodeSql} ILIKE ${searchPattern}
-          OR CAST(${entries.id} AS TEXT) ILIKE ${searchPattern}
-          OR COALESCE(${entries.description}, '') ILIKE ${searchPattern}
-          OR EXISTS (
-            SELECT 1
-            FROM ${entryProducts} ep
-            INNER JOIN ${products} p ON p.id = ep.product_id
-            WHERE ep.entry_id = ${entries.id}
-              AND (
-                p.name ILIKE ${searchPattern}
-                OR CAST(p.id AS TEXT) ILIKE ${searchPattern}
-              )
-          )
-          OR EXISTS (
-            SELECT 1
-            FROM ${items} i
-            INNER JOIN ${variants} v ON v.item_id = i.id AND v.is_deleted = false
-            INNER JOIN ${products} p ON p.id = v.product_id
-            WHERE i.entry_id = ${entries.id}
-              AND (
-                p.name ILIKE ${searchPattern}
-                OR CAST(p.id AS TEXT) ILIKE ${searchPattern}
-              )
-          )
-          OR EXISTS (
-            SELECT 1
-            FROM ${series} s
-            INNER JOIN ${directOrderProducts} dop ON dop.series_id = s.id
-            INNER JOIN ${products} p ON p.id = dop.product_id
-            WHERE s.entry_id = ${entries.id}
-              AND (
-                p.name ILIKE ${searchPattern}
-                OR CAST(p.id AS TEXT) ILIKE ${searchPattern}
-              )
-          )
-        )`,
-      );
+    const searchPatterns = this.buildCatalogSearchPatterns(search ?? "");
+    if (searchPatterns.length) {
+      const clauses = searchPatterns.flatMap((searchPattern) => [
+        sql`${productCodeSql} ILIKE ${searchPattern}`,
+        sql`CAST(${entries.id} AS TEXT) ILIKE ${searchPattern}`,
+        sql`COALESCE(${entries.description}, '') ILIKE ${searchPattern}`,
+        this.entryLinkedCatalogCodeExistsSql(entries.id, searchPattern),
+      ]);
+      whereConditions.push(or(...clauses)!);
     }
 
     const rows = await db
