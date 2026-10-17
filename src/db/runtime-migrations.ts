@@ -53,25 +53,39 @@ async function ensureDiscountColumns() {
 }
 
 async function ensureW1InventoryColumns() {
+  const [
+    inventorySourceCol,
+    unpackedFromEntryIdCol,
+    isSeriesUnpackedCol,
+    wtEntryIdCol,
+    wtStatusIdCol,
+  ] = await Promise.all([
+    resolveColumnName("entries", "inventory_source", "inventorySource"),
+    resolveColumnName("entries", "unpacked_from_entry_id", "unpackedFromEntryId"),
+    resolveColumnName("entries", "is_series_unpacked", "isSeriesUnpacked"),
+    resolveColumnName("warehouse_transfers", "entry_id", "entryId"),
+    resolveColumnName("warehouse_transfers", "status_id", "statusId"),
+  ]);
+
   await db.execute(
     sql.raw(`
       ALTER TABLE "entries"
-      ADD COLUMN IF NOT EXISTS "inventorySource" varchar(32) NOT NULL DEFAULT 'manual',
-      ADD COLUMN IF NOT EXISTS "unpackedFromEntryId" integer,
-      ADD COLUMN IF NOT EXISTS "isSeriesUnpacked" boolean NOT NULL DEFAULT false
+      ADD COLUMN IF NOT EXISTS ${quoteIdent(inventorySourceCol)} varchar(32) NOT NULL DEFAULT 'manual',
+      ADD COLUMN IF NOT EXISTS ${quoteIdent(unpackedFromEntryIdCol)} integer,
+      ADD COLUMN IF NOT EXISTS ${quoteIdent(isSeriesUnpackedCol)} boolean NOT NULL DEFAULT false
     `),
   );
 
   await db.execute(
     sql.raw(`
       UPDATE "entries" AS e
-      SET "inventorySource" = 'transfer'
-      WHERE e."inventorySource" = 'manual'
+      SET ${quoteIdent(inventorySourceCol)} = 'transfer'
+      WHERE e.${quoteIdent(inventorySourceCol)} = 'manual'
         AND EXISTS (
           SELECT 1
           FROM "warehouse_transfers" wt
-          WHERE wt."entryId" = e."id"
-            AND wt."statusId" IN (3, 4)
+          WHERE wt.${quoteIdent(wtEntryIdCol)} = e."id"
+            AND wt.${quoteIdent(wtStatusIdCol)} IN (3, 4)
         )
     `),
   );
