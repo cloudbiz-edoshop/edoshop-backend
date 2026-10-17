@@ -92,11 +92,45 @@ async function ensureW1InventoryColumns() {
 }
 
 async function ensureDropshippingPricingColumns() {
+  // Drizzle uses casing: "snake_case" — DB columns must be pricing_mode / bulk_quantity.
   await db.execute(
     sql.raw(`
       ALTER TABLE "dropshipping_products"
-      ADD COLUMN IF NOT EXISTS "pricingMode" varchar(16) NOT NULL DEFAULT 'single',
-      ADD COLUMN IF NOT EXISTS "bulkQuantity" integer
+      ADD COLUMN IF NOT EXISTS "pricing_mode" varchar(16) NOT NULL DEFAULT 'single',
+      ADD COLUMN IF NOT EXISTS "bulk_quantity" integer
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_schema = 'public'
+            AND table_name = 'dropshipping_products'
+            AND column_name = 'pricingMode'
+        ) THEN
+          EXECUTE '
+            UPDATE "dropshipping_products"
+            SET "pricing_mode" = COALESCE("pricing_mode", "pricingMode"::varchar)
+            WHERE "pricingMode" IS NOT NULL
+          ';
+        END IF;
+
+        IF EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_schema = 'public'
+            AND table_name = 'dropshipping_products'
+            AND column_name = 'bulkQuantity'
+        ) THEN
+          EXECUTE '
+            UPDATE "dropshipping_products"
+            SET "bulk_quantity" = COALESCE("bulk_quantity", "bulkQuantity")
+            WHERE "bulkQuantity" IS NOT NULL
+          ';
+        END IF;
+      END $$;
     `),
   );
 }
