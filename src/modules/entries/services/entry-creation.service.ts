@@ -5,6 +5,7 @@ import type { GeneratedCodes } from "./entry-code-generator";
 import type { ResolvedEntityIds } from "./entry-data-resolver";
 import type { TX } from "@/lib/types";
 import { EntryStateIds, EntryTypeIds } from "@/constants";
+import { InventorySource } from "@/constants/inventory-source.constants";
 import {
   ENTRY_TYPE_DESCRIPTIONS,
   EntryTypeIdToEnum,
@@ -84,6 +85,7 @@ export class EntryCreationService {
       isOpen: entryData.isOpen,
       createdBy: entryData.createdBy,
       updatedBy: entryData.createdBy,
+      inventorySource: InventorySource.MANUAL,
     };
 
     // Only add supplierId if it's defined

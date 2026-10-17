@@ -22,6 +22,8 @@ export const dropshippingProducts = pgTable("dropshipping_products", {
   totalItems: integer(),
   groupCriteriaId: integer().references(() => groupCriteriaTypes.id),
   completionCriteria: decimal({ precision: 10, scale: 2 }),
+  pricingMode: varchar({ length: 16 }).notNull().default("single"),
+  bulkQuantity: integer(),
   createdAt: timestamp({ mode: "string" }).notNull(),
   updatedAt: timestamp({ mode: "string" }),
   createdBy: integer().references(() => users.id),

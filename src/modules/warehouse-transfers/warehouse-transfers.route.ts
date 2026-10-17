@@ -40,6 +40,8 @@ import {
   unassignEntryFromBinResponseSchema,
   updateBinLocationForWarehouseTransfersResponseSchema,
   updateBinLocationsForWarehouseTransfersRequestSchema,
+  unpackSeriesRequestSchema,
+  unpackSeriesResponseSchema,
 } from "./warehouse-transfers.schema";
 
 const tags = ["Warehouse Transfers"];
@@ -677,3 +679,44 @@ export const getStockView = createRoute({
 });
 
 export type GetStockViewRoute = typeof getStockView;
+
+export const unpackSeriesAtW1 = createRoute({
+  path: "/warehouses/1/series-unpack",
+  method: "post",
+  tags,
+  summary: "Unpack a series into individual items (W1)",
+  description:
+    "Generates sequential item IDs from a series, places each item in the given bin, and retires the series from active stock.",
+  middleware: [
+    jwtMiddleware(),
+    rolesAndPermissionsMiddleware([
+      { entity: EntityType.WAREHOUSE_1, operation: OperationType.UPDATE },
+    ]),
+  ] as const,
+  request: {
+    headers: jwtHeaderSchema,
+    body: jsonContentRequired(
+      unpackSeriesRequestSchema,
+      "Series unpack parameters",
+    ),
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(unpackSeriesResponseSchema),
+      "Series unpacked successfully",
+    ),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNPROCESSABLE_ENTITY,
+        HttpStatusCodes.BAD_REQUEST,
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.FORBIDDEN,
+        HttpStatusCodes.NOT_FOUND,
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      ],
+      unpackSeriesRequestSchema,
+    ),
+  },
+});
+
+export type UnpackSeriesAtW1Route = typeof unpackSeriesAtW1;

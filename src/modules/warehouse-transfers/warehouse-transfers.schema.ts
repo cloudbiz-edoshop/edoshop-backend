@@ -355,6 +355,26 @@ export type UnassignEntryFromBinResponseSchema = z.infer<
   typeof unassignEntryFromBinResponseSchema
 >;
 
+export const unpackSeriesRequestSchema = z.object({
+  seriesEntryId: z.number().int().min(1),
+  quantity: z.number().int().min(1).max(500),
+  binId: z.number().int().min(1),
+  sizeId: z.number().int().min(1).optional(),
+});
+
+export type UnpackSeriesRequestSchema = z.infer<typeof unpackSeriesRequestSchema>;
+
+export const unpackSeriesResponseSchema = z.object({
+  seriesEntryId: z.number(),
+  seriesCode: z.string(),
+  itemCodes: z.array(z.string()),
+  itemEntryIds: z.array(z.number()),
+});
+
+export type UnpackSeriesResponseSchema = z.infer<
+  typeof unpackSeriesResponseSchema
+>;
+
 /**
  * Enum for Bin movement direction
  */

@@ -116,9 +116,14 @@ export class OrdersService {
       0,
       existingOrderItem.quantity - (existingOrderItem.quantityPacked ?? 0),
     );
+    if (orderItemData.quantityAvailable > remainingToPack) {
+      throw new ValidationError(
+        `Quantity Available (${orderItemData.quantityAvailable}) cannot exceed the quantity left to pack (${remainingToPack})`,
+      );
+    }
     if (
       orderItemData.quantityAvailable < remainingToPack &&
-      !orderItemData.notes
+      !orderItemData.notes?.trim()
     ) {
       throw new ValidationError(
         `Notes is required when Quantity Available(${orderItemData.quantityAvailable}) is less than the quantity left to pack(${remainingToPack})`,
@@ -129,7 +134,11 @@ export class OrdersService {
       return await this.ordersRepository.updateOrderItem(
         tx,
         existingOrderItem.id,
-        orderItemData,
+        {
+          quantityAvailable: orderItemData.quantityAvailable,
+          notes: orderItemData.notes?.trim() || null,
+          updatedBy: orderItemData.updatedBy,
+        },
       );
     });
     return updatedData;

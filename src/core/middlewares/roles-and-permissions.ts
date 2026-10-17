@@ -4,6 +4,11 @@ import type { AppContext } from "@/lib/types";
 
 import { HTTPException } from "hono/http-exception";
 
+import {
+  buildObservabilityLog,
+  classifyRouteCategory,
+} from "@/lib/observability";
+import { recordPermissionDenied } from "@/lib/prometheus-metrics";
 import * as HttpStatusCodes from "@/lib/http-status-codes";
 import { EmployeeService } from "@/modules/employees/employees.service";
 import { PermissionsService } from "@/modules/permissions/permissions.service";
@@ -118,8 +123,25 @@ export const rolesAndPermissionsMiddleware = (
     const hasPermission = aclAllows(granted, { permissions, checkType });
 
     if (!hasPermission) {
-      c.var.logger.info(
-        `Permission denied for ${path} ${method} with permissions: ${JSON.stringify(permissions)}, checkType: ${checkType}`,
+      const category = classifyRouteCategory(path);
+      recordPermissionDenied(category);
+      c.var.logger.warn(
+        {
+          ...buildObservabilityLog({
+            eventType: "permission_denied",
+            severity: "warning",
+            category,
+            surface: "api",
+            httpMethod: method,
+            route: path,
+            httpStatus: HttpStatusCodes.FORBIDDEN,
+            requiredPermissions: permissions,
+            checkType,
+            employeeId: employee.id,
+            roleId: employee.roleId,
+          }),
+        },
+        "Permission denied",
       );
       throw new HTTPException(HttpStatusCodes.FORBIDDEN, {
         message:

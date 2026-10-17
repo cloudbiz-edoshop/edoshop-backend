@@ -125,6 +125,8 @@ export class ProductsRepository {
             totalItems: dropshippingProduct.totalItems,
             groupCriteriaId: dropshippingProduct.groupCriteriaId,
             completionCriteria: dropshippingProduct.completionCriteria,
+            pricingMode: dropshippingProduct.pricingMode ?? "single",
+            bulkQuantity: dropshippingProduct.bulkQuantity ?? null,
           }
         : null,
       reviews: productReviews,
@@ -349,6 +351,8 @@ export class ProductsRepository {
                   totalItems: dropshippingProduct.totalItems,
                   groupCriteriaId: dropshippingProduct.groupCriteriaId,
                   completionCriteria: dropshippingProduct.completionCriteria,
+                  pricingMode: dropshippingProduct.pricingMode ?? "single",
+                  bulkQuantity: dropshippingProduct.bulkQuantity ?? null,
                 }
               : null,
             reviews: productReviews,
@@ -447,6 +451,8 @@ export class ProductsRepository {
       totalItems: number;
       groupCriteriaId: number;
       completionCriteria: string;
+      pricingMode?: string;
+      bulkQuantity?: number | null;
       createdBy: number;
     },
   ) {
@@ -456,6 +462,8 @@ export class ProductsRepository {
       totalItems: data.totalItems,
       groupCriteriaId: Number(data.groupCriteriaId),
       completionCriteria: data.completionCriteria,
+      pricingMode: data.pricingMode ?? "single",
+      bulkQuantity: data.bulkQuantity ?? null,
       createdAt: new Date().toISOString(),
       createdBy: data.createdBy,
     });

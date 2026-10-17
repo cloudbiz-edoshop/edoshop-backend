@@ -186,6 +186,11 @@ export class ProductsService {
               totalItems: productData.totalItems,
               groupCriteriaId: productData.groupCriteriaId,
               completionCriteria: productData.completionCriteria,
+              pricingMode: productData.pricingMode ?? "single",
+              bulkQuantity:
+                productData.pricingMode === "bulk"
+                  ? productData.bulkQuantity ?? null
+                  : null,
               createdBy: productData.createdBy,
             },
           );
@@ -270,6 +275,8 @@ export class ProductsService {
     delete productUpdateData.totalItems;
     delete productUpdateData.groupCriteriaId;
     delete productUpdateData.completionCriteria;
+    delete productUpdateData.pricingMode;
+    delete productUpdateData.bulkQuantity;
     delete productUpdateData.tagIds;
     delete productUpdateData.categoryIds;
 
@@ -287,16 +294,22 @@ export class ProductsService {
       // Update dropshipping details if applicable
       if (product.storeId === StoreIds.dropshipping) {
         if (
-          productData.totalItems ||
-          productData.groupCriteriaId ||
-          productData.completionCriteria
+          productData.totalItems
+          || productData.groupCriteriaId
+          || productData.completionCriteria
+          || productData.pricingMode
+          || productData.bulkQuantity !== undefined
         ) {
+          const pricingMode = productData.pricingMode ?? "single";
           await tx
             .update(dropshippingProducts)
             .set({
               totalItems: productData.totalItems,
               groupCriteriaId: Number(productData.groupCriteriaId),
               completionCriteria: productData.completionCriteria,
+              pricingMode,
+              bulkQuantity:
+                pricingMode === "bulk" ? productData.bulkQuantity ?? null : null,
               updatedAt: new Date().toISOString(),
               updatedBy: productData.updatedBy,
             })

@@ -37,6 +37,8 @@ export const baseProductSchema = z.object({
   totalItems: z.number().optional(),
   groupCriteriaId: z.number().optional(),
   completionCriteria: z.string().optional(),
+  pricingMode: z.enum(["single", "bulk"]).optional(),
+  bulkQuantity: z.number().int().min(2).optional(),
   backgroundColorId: z.number().int().positive().nullable().optional(),
 });
 
@@ -121,6 +123,21 @@ export const createProductRequestSchema = baseProductSchema
     {
       message: "Price must be a valid number (0 allowed for Direct Order)",
       path: ["price"],
+    },
+  )
+  .refine(
+    (data) => {
+      if (data.storeId !== StoreIds.dropshipping) return true;
+      if (data.pricingMode !== "bulk") return true;
+      return (
+        data.bulkQuantity !== undefined
+        && Number.isInteger(data.bulkQuantity)
+        && data.bulkQuantity >= 2
+      );
+    },
+    {
+      message: "Bulk pricing requires quantity per bulk of at least 2",
+      path: ["bulkQuantity"],
     },
   )
   .refine(

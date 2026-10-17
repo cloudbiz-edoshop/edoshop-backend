@@ -15,6 +15,11 @@ import {
   ValidationError,
 } from "@/core/errors";
 import { errorResponse } from "@/lib/api-response";
+import {
+  buildObservabilityLog,
+  classifyRouteCategory,
+  severityForHttpStatus,
+} from "@/lib/observability";
 import * as HttpStatusCodes from "@/lib/http-status-codes";
 
 /**
@@ -242,6 +247,7 @@ export const errorHandler = async (c: AppContext, next: Next) => {
     await next();
   } catch (error) {
     const details = error instanceof Error ? error.stack : undefined;
+    const { message, statusCode } = mapErrorToResponse(error);
     const logPayload = {
       message: "Request failed",
       error: error instanceof Error ? error.message : String(error),
@@ -249,6 +255,16 @@ export const errorHandler = async (c: AppContext, next: Next) => {
       path: c.req.path,
       method: c.req.method,
       ip: c.var.ipAddress,
+      ...buildObservabilityLog({
+        eventType: "api_error",
+        severity: severityForHttpStatus(statusCode),
+        category: classifyRouteCategory(c.req.path),
+        surface: "api",
+        httpMethod: c.req.method,
+        route: c.req.path,
+        httpStatus: statusCode,
+        message: error instanceof Error ? error.message : String(error),
+      }),
     };
 
     // Log the error with context. The logger itself is middleware-provided, so
@@ -271,9 +287,6 @@ export const errorHandler = async (c: AppContext, next: Next) => {
         dbError.statusCode as ContentfulStatusCode,
       );
     }
-
-    // Map the error to appropriate response
-    const { message, statusCode } = mapErrorToResponse(error);
 
     return c.json(
       errorResponse(

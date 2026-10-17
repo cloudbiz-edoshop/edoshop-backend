@@ -7,6 +7,7 @@ import { resolveCorsOrigin } from "@/config/cors-origins";
 import { ipAndUserAgent } from "@/core/middlewares";
 import { errorHandler, onError } from "@/core/middlewares/error-handler";
 import { notFound } from "@/core/middlewares/not-found";
+import { prometheusMetricsMiddleware } from "@/core/middlewares/prometheus-metrics";
 import { pinoLogger } from "@/core/middlewares/pino-logger";
 
 import { serveEmojiFavicon } from "@/core/middlewares/serve-emoji-favicon";
@@ -82,6 +83,7 @@ export default function createApp() {
 
   app.use(serveEmojiFavicon("🚀"));
   app.use(ipAndUserAgent);
+  app.use(prometheusMetricsMiddleware);
   app.use(pinoLogger());
 
   // Apply final middleware

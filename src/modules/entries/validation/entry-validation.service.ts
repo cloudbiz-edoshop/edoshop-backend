@@ -9,6 +9,7 @@ import { DatabaseConstraintsValidator } from "./validators/database-constraints.
 import { ItemValidator } from "./validators/item.validator";
 import { PackageValidator } from "./validators/package.validator";
 import { SeriesValidator } from "./validators/series.validator";
+import { validateW1ManualEntryEligibility } from "./validators/w1-manual-entry.validator";
 
 /**
  * Main validation service that orchestrates all validation layers
@@ -86,6 +87,8 @@ export class EntryValidationService {
   private async validateBusinessRules(
     data: CreateEntriesRequest,
   ): Promise<void> {
+    await validateW1ManualEntryEligibility(data);
+
     const validatorKey = `${data.entryTypeId}_${data.entryStateId}`;
     const validator = this.validators.get(validatorKey);
 

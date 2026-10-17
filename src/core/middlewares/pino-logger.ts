@@ -5,24 +5,36 @@ import pino from "pino";
 
 import { env } from "@/config";
 
-const transport = pino.transport({
-  targets: [
-    {
-      target: "pino/file",
-      options: {
-        destination: "./logs/app.log",
-        mkdir: true,
-      },
-    },
-    {
-      target: "pino-pretty",
-      options: {
-        destination: process.stdout.fd,
-        colorize: true,
-      },
-    },
-  ],
-});
+const transport =
+  env.NODE_ENV === "production"
+    ? pino.transport({
+        targets: [
+          {
+            target: "pino/file",
+            options: {
+              destination: 1,
+            },
+          },
+        ],
+      })
+    : pino.transport({
+        targets: [
+          {
+            target: "pino/file",
+            options: {
+              destination: "./logs/app.log",
+              mkdir: true,
+            },
+          },
+          {
+            target: "pino-pretty",
+            options: {
+              destination: process.stdout.fd,
+              colorize: true,
+            },
+          },
+        ],
+      });
 
 /**
  * Pino logger middleware

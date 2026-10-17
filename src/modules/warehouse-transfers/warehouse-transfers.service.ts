@@ -19,6 +19,7 @@ import { warehouseTransfers } from "@/db/models/warehouse-transfers";
 import { EntriesRepository } from "../entries/entries.repository";
 import { WarehouseRepository } from "../warehouses/warehouses.repository";
 import { WarehouseTransfersRepository } from "./warehouse-transfers.repository";
+import { recordWarehouseTransferHistory } from "./transfer-history.util";
 
 export class WarehouseTransfersService {
   private readonly transfersRepository: WarehouseTransfersRepository;
@@ -206,6 +207,15 @@ export class WarehouseTransfersService {
           tx,
           rowsForWarehouseTransfer,
         );
+
+      for (const row of insertedRows) {
+        await recordWarehouseTransferHistory(
+          tx,
+          row.id,
+          updatedBy,
+          "Transfer sent",
+        );
+      }
 
       const insertedIds = insertedRows.map((row) => row.id);
 
@@ -410,11 +420,38 @@ export class WarehouseTransfersService {
     const reqSet = new Set(data.map(this.makeKeyForIds));
     const missingKeys = this.getMissingKeys(dbSet, reqSet);
     if (missingKeys.length > 0) {
-      throw new ValidationError(
-        `Invalid Combo passed: ${missingKeys.join(", ")}. Valid combos are: ${receivableList.data
-          .map(this.makeKeyForIds)
-          .join(", ")}`,
+      const alreadyReceived = await this.transfersRepository.getWarehouseTransfersByIds(
+        data.map((item) => item.transferId),
       );
+      const receivedKeys = new Set(
+        alreadyReceived
+          .filter(
+            (transfer) =>
+              transfer.statusId === TransferStatusIds.RECEIVED
+              || transfer.statusId === TransferStatusIds.BIN_LOCATION_ASSIGNED,
+          )
+          .map((transfer) => {
+            const match = data.find((item) => item.transferId === transfer.id);
+            return match ? this.makeKeyForIds(match) : "";
+          })
+          .filter(Boolean),
+      );
+      const stillMissing = missingKeys.filter((key) => !receivedKeys.has(key));
+      if (stillMissing.length > 0) {
+        throw new ValidationError(
+          `Invalid Combo passed: ${stillMissing.join(", ")}. Valid combos are: ${receivableList.data
+            .map(this.makeKeyForIds)
+            .join(", ")}`,
+        );
+      }
+
+      const result = data.map((item) => ({
+        ...item,
+        statusId:
+          alreadyReceived.find((t) => t.id === item.transferId)?.statusId
+          ?? TransferStatusIds.RECEIVED,
+      }));
+      return result;
     }
 
     const entryIds = data.map((item) => item.id);
@@ -436,6 +473,15 @@ export class WarehouseTransfersService {
         .update(warehouseTransfers)
         .set({ statusId: TransferStatusIds.RECEIVED, receivedAt: timestamp, updatedAt: timestamp, updatedBy }) // Constructing WT-1, WT-2, etc.
         .where(inArray(warehouseTransfers.id, transferIds));
+
+      for (const transferId of transferIds) {
+        await recordWarehouseTransferHistory(
+          tx,
+          transferId,
+          updatedBy,
+          "Transfer received at destination warehouse",
+        );
+      }
 
       const result = data.map((item) => {
         return {
@@ -520,6 +566,15 @@ export class WarehouseTransfersService {
         .update(warehouseTransfers)
         .set({ statusId: TransferStatusIds.SENT, updatedAt: new Date().toISOString(), updatedBy }) // Constructing WT-1, WT-2, etc.
         .where(inArray(warehouseTransfers.id, transferIds));
+
+      for (const transferId of transferIds) {
+        await recordWarehouseTransferHistory(
+          tx,
+          transferId,
+          updatedBy,
+          "Transfer receipt undone",
+        );
+      }
 
       const result = data.map((item) => {
         return {
@@ -642,6 +697,15 @@ export class WarehouseTransfersService {
     if (!result) {
       throw new NotFoundError(`Failed to update bin location for transfer ID ${transferId} in warehouse ${warehouseId}`);
     }
+
+    await db.transaction(async (tx) => {
+      await recordWarehouseTransferHistory(
+        tx,
+        transferId,
+        userId,
+        `Bin assigned (bin ID ${binId})`,
+      );
+    });
 
     return result;
   }

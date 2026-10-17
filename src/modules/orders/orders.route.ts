@@ -96,9 +96,14 @@ export const updateAvailableQuantityForFulfillment = createRoute({
   tags,
   middleware: [
     jwtMiddleware(),
-    rolesAndPermissionsMiddleware([
-      { entity: EntityType.ORDERS, operation: OperationType.UPDATE },
-    ]),
+    rolesAndPermissionsMiddleware(
+      [
+        { entity: EntityType.ORDERS, operation: OperationType.UPDATE },
+        { entity: EntityType.WAREHOUSE_1, operation: OperationType.UPDATE },
+        { entity: EntityType.WAREHOUSE_2, operation: OperationType.UPDATE },
+      ],
+      "ANY",
+    ),
   ] as const,
   request: {
     headers: jwtHeaderSchema,

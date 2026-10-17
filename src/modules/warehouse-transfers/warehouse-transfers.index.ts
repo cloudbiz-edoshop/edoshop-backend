@@ -58,4 +58,6 @@ router.openapi(
   handlers.getStockView,
 );
 
+router.openapi(routes.unpackSeriesAtW1, handlers.unpackSeriesAtW1);
+
 export default router;

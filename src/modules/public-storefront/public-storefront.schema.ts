@@ -107,6 +107,8 @@ export const publicNewArrivalProductSchema = z.object({
       totalItems: z.number().nullable().optional(),
       groupCriteriaId: z.number().nullable().optional(),
       completionCriteria: z.union([z.string(), z.number()]).nullable().optional(),
+      pricingMode: z.enum(["single", "bulk"]).nullable().optional(),
+      bulkQuantity: z.number().int().nullable().optional(),
     })
     .nullable()
     .optional(),

@@ -1,4 +1,5 @@
-import { appConfig } from "@/config";
+import { appConfig, env } from "@/config";
+import { metricsPayload } from "@/lib/prometheus-metrics";
 import { authRateLimiter, rateLimiter } from "@/core/middlewares";
 import configureOpenAPI from "@/lib/configure-open-api";
 import createApp from "@/lib/create-app";
@@ -24,6 +25,7 @@ import index from "@/modules/index.route";
 import mobileUpload from "@/modules/mobile-upload/mobile-upload.index";
 import newArrivals from "@/modules/new-arrivals/new-arrivals.index";
 import notifications from "@/modules/notifications/notifications.index";
+import observability from "@/modules/observability/observability.index";
 import ongoingGroups from "@/modules/ongoing-groups/ongoing-groups.index";
 import operations from "@/modules/operations/operations.index";
 import orders from "@/modules/orders/orders.index";
@@ -58,6 +60,22 @@ import tvApp from "@/modules/tv-app/tv-app.index";
 import promoBanners from "@/modules/promo-banners/promo-banners.index";
 
 const app = createApp();
+
+app.get("/metrics", async (c) => {
+  const token = env.METRICS_BEARER_TOKEN;
+  if (token) {
+    const auth = c.req.header("authorization");
+    if (auth !== `Bearer ${token}`) {
+      return c.text("Unauthorized", 401);
+    }
+  }
+  c.header("Content-Type", registerContentType());
+  return c.text(await metricsPayload());
+});
+
+function registerContentType() {
+  return "text/plain; version=0.0.4; charset=utf-8";
+}
 
 configureOpenAPI(app);
 
@@ -139,6 +157,7 @@ const routes = [
   campay,
   uploads,
   publicStorefront,
+  observability,
 ] as const;
 // Register the index route
 app.route("/", index);

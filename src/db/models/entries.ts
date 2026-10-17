@@ -56,6 +56,9 @@ export const entries = pgTable("entries", {
   isDeleted: boolean().notNull().default(false),
   deletedAt: timestamp({ mode: "string" }),
   deletedBy: integer().references(() => users.id),
+  inventorySource: varchar({ length: 32 }).notNull().default("manual"),
+  unpackedFromEntryId: integer(),
+  isSeriesUnpacked: boolean().notNull().default(false),
 });
 
 export const entriesRelations = relations(entries, ({ many, one }) => ({

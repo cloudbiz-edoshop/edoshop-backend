@@ -52,8 +52,45 @@ async function ensureDiscountColumns() {
   );
 }
 
+async function ensureW1InventoryColumns() {
+  await db.execute(
+    sql.raw(`
+      ALTER TABLE "entries"
+      ADD COLUMN IF NOT EXISTS "inventorySource" varchar(32) NOT NULL DEFAULT 'manual',
+      ADD COLUMN IF NOT EXISTS "unpackedFromEntryId" integer,
+      ADD COLUMN IF NOT EXISTS "isSeriesUnpacked" boolean NOT NULL DEFAULT false
+    `),
+  );
+
+  await db.execute(
+    sql.raw(`
+      UPDATE "entries" AS e
+      SET "inventorySource" = 'transfer'
+      WHERE e."inventorySource" = 'manual'
+        AND EXISTS (
+          SELECT 1
+          FROM "warehouse_transfers" wt
+          WHERE wt."entryId" = e."id"
+            AND wt."statusId" IN (3, 4)
+        )
+    `),
+  );
+}
+
+async function ensureDropshippingPricingColumns() {
+  await db.execute(
+    sql.raw(`
+      ALTER TABLE "dropshipping_products"
+      ADD COLUMN IF NOT EXISTS "pricingMode" varchar(16) NOT NULL DEFAULT 'single',
+      ADD COLUMN IF NOT EXISTS "bulkQuantity" integer
+    `),
+  );
+}
+
 export async function ensureRuntimeMigrations() {
   await ensureDiscountColumns();
+  await ensureW1InventoryColumns();
+  await ensureDropshippingPricingColumns();
 
   const [packageStatusAudit, colorsAudit, sizesAudit, rolesAudit, permCols, bundlesBundleCodeCol, trackingBundlesBundleCodeCol, aboutUsImageUrlCol] =
     await Promise.all([

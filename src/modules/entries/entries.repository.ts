@@ -376,6 +376,7 @@ export class EntriesRepository {
       isSent: false,
       updatedBy,
       warehouseId,
+      inventorySource: "transfer",
     };
 
     const result = await tx

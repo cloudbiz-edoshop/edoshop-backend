@@ -14,6 +14,7 @@ import type {
   SendTransferableEntriesRoute,
   UndoReceivedEntriesRoute,
   UnassignEntryFromBinRoute,
+  UnpackSeriesAtW1Route,
   UpdateBinLocationsForWarehouseTransfersRoute,
 } from "./warehouse-transfers.route";
 
@@ -26,9 +27,11 @@ import {
 } from "@/lib/api-response";
 import * as HttpStatusCodes from "@/lib/http-status-codes";
 import { createPagination } from "@/lib/searching-sorting";
+import { SeriesUnpackService } from "./series-unpack.service";
 import { WarehouseTransfersService } from "./warehouse-transfers.service";
 
 const transfersService = new WarehouseTransfersService();
+const seriesUnpackService = new SeriesUnpackService();
 
 /**
  * List transferable entries for a specific warehouse
@@ -398,6 +401,23 @@ export const getStockView: AppRouteHandler<
       result.searchableFields,
       `Stock view retrieved successfully for warehouse ${id}`,
     ),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const unpackSeriesAtW1: AppRouteHandler<UnpackSeriesAtW1Route> = async (
+  c,
+) => {
+  const body = c.req.valid("json");
+  const updatedBy = c.get("userId");
+
+  const result = await seriesUnpackService.unpackSeriesAtW1({
+    ...body,
+    userId: updatedBy,
+  });
+
+  return c.json(
+    successResponse(result, "Series unpacked into individual items"),
     HttpStatusCodes.OK,
   );
 };
