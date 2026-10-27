@@ -24,6 +24,10 @@ router
   .openapi(routes.listRetailers, handlers.listRetailers as any)
   .openapi(routes.listPaymentMethods, handlers.listPaymentMethods as any)
   .openapi(routes.subscribeNewsletter, handlers.subscribeNewsletter as any)
-  .openapi(routes.createReview, handlers.createReview as any);
+  .openapi(routes.createReview, handlers.createReview as any)
+  .openapi(routes.getProductReviews, handlers.getProductReviews as any)
+  .openapi(routes.getCustomerReviewEligibility, handlers.getCustomerReviewEligibility as any)
+  .openapi(routes.submitCustomerProductReview, handlers.submitCustomerProductReview as any)
+  .openapi(routes.updateCustomerProductReview, handlers.updateCustomerProductReview as any);
 
 export default router;

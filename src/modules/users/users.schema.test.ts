@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { loginRequestSchema } from "@/modules/users/users.schema";
+import {
+  loginRequestSchema,
+  updateCurrentUserRequestSchema,
+} from "@/modules/users/users.schema";
 
 describe("loginRequestSchema", () => {
   it("accepts Nextcloud App Passwords without WebApp complexity rules", () => {
@@ -28,5 +31,19 @@ describe("loginRequestSchema", () => {
     });
 
     expect(result.success).toBe(false);
+  });
+});
+
+describe("updateCurrentUserRequestSchema", () => {
+  it("treats empty phone as omitted optional field", () => {
+    const result = updateCurrentUserRequestSchema.safeParse({
+      fullName: "Jane Doe",
+      phoneNumber: "",
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.phoneNumber).toBeUndefined();
+    }
   });
 });

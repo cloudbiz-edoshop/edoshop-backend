@@ -12,8 +12,11 @@ import {
 } from "@/lib/zod-schemas";
 import { streetAddressSchema } from "@/lib/zod-schemas/common-schemas";
 import { userSchema } from "@/modules/users/users.schema";
+import { SUPPLIER_PRODUCT_TYPE_VALUES } from "@/constants/supplier-product-types.constants";
+
+const supplierProductTypeSchema = z.enum(SUPPLIER_PRODUCT_TYPE_VALUES);
+
 // Schema for creating a new supplier
-// Base schema without refinement
 const baseSupplierSchema = z.object({
   fullName: fullNameSchema.describe("Full name of the supplier"),
   storeName: nameSchema.describe("Name of the supplier's store"),
@@ -21,10 +24,20 @@ const baseSupplierSchema = z.object({
   phoneNumber: phoneSchema.describe("Supplier's WhatsApp number"),
   address: streetAddressSchema.describe("Address of the supplier"),
   countryId: idSchema.describe("ID of the country"),
-  paymentMethodId: idSchema.describe("ID of the payment method"),
-  entryTypeId: idSchema.describe("ID of the entry type"),
-  bankAccountName: nameSchema.describe("Bank account name"),
-  bankAccountNumber: z.string().min(10).max(20).describe("Bank account number"),
+  productTypes: z
+    .array(supplierProductTypeSchema)
+    .min(1, "Select at least one product type"),
+  paymentMethodIds: z
+    .array(idSchema)
+    .min(1, "Select at least one payment method"),
+  paymentMethodId: idSchema.optional().describe("Legacy primary payment method"),
+  entryTypeId: idSchema.optional().describe("Legacy entry type"),
+  bankAccountName: nameSchema.optional().describe("Bank account name"),
+  bankAccountNumber: z
+    .string()
+    .regex(/^[0-9]{8,20}$/, "Account number must be between 8-20 digits")
+    .optional()
+    .or(z.literal("")),
   profilePhotoUrl: profilePhotoUrlSchema.optional(),
 });
 

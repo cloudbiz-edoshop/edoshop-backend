@@ -184,6 +184,40 @@ export const publicReviewSchema = z.object({
   statusId: z.number().nullable().optional(),
   customerName: z.string().nullable().optional(),
   imageUrl: z.string().nullable().optional(),
+  verifiedPurchase: z.boolean().optional(),
+});
+
+export const publicProductReviewsResponseSchema = z.object({
+  reviews: z.array(publicReviewSchema),
+  averageRating: z.number(),
+  totalReviews: z.number(),
+});
+
+export const customerReviewEligibilitySchema = z.object({
+  canReview: z.boolean(),
+  reason: z.string(),
+  existingReview: z
+    .object({
+      id: z.number(),
+      rating: z.number(),
+      review: z.string().nullable(),
+      statusId: z.number(),
+    })
+    .nullable(),
+});
+
+export const customerSubmitReviewRequestSchema = z.object({
+  review: z.string().trim().min(1).max(1000),
+  rating: z.number().min(1).max(5),
+});
+
+export const customerSubmitReviewResponseSchema = z.object({
+  id: z.number(),
+  productId: z.number(),
+  rating: z.number(),
+  review: z.string().nullable(),
+  statusId: z.number(),
+  verifiedPurchase: z.literal(true),
 });
 
 export const publicTestimonialSchema = z.object({

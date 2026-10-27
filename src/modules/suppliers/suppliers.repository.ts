@@ -201,6 +201,8 @@ export class SupplierRepository {
       storeName,
       entryTypeId,
       paymentMethodId,
+      paymentMethodIds,
+      productTypes,
       bankAccountName,
       bankAccountNumber,
       supplierCode,
@@ -210,6 +212,8 @@ export class SupplierRepository {
       storeName: string;
       entryTypeId?: number;
       paymentMethodId?: number;
+      paymentMethodIds?: number[];
+      productTypes?: string[];
       bankAccountName?: string;
       bankAccountNumber?: string;
       supplierCode: string;
@@ -225,6 +229,8 @@ export class SupplierRepository {
         supplierCode,
         entryTypeId,
         paymentMethodId,
+        paymentMethodIds: paymentMethodIds ?? [],
+        productTypes: productTypes ?? [],
         bankAccountName,
         bankAccountNumber,
         createdBy,
@@ -279,6 +285,8 @@ export class SupplierRepository {
       storeName?: string;
       entryTypeId?: number;
       paymentMethodId?: number;
+      paymentMethodIds?: number[];
+      productTypes?: string[];
       bankAccountName?: string;
       bankAccountNumber?: string;
       supplierCode?: string;
@@ -371,22 +379,32 @@ export class SupplierRepository {
    * Get Next Supplier Code
    * @returns Next supplier code or null if error
    */
-  async getNextSupplierCode() {
-    const result = await db
-      .execute(sql`SELECT next_supplier_code()`)
-      .catch((err) => {
-        throw new Error(`Error in getNextSupplierCode : ${err}`);
-      });
+  /**
+   * Allocate the next supplier code for a country (e.g. PK-01, CN-02).
+   * Does not rely on the optional DB function `next_supplier_code()`.
+   */
+  async allocateSupplierCode(countryCode: string) {
+    const prefix = `${countryCode.toUpperCase()}_A`;
+    const rows = await db
+      .select({ supplierCode: suppliers.supplierCode })
+      .from(suppliers)
+      .where(eq(suppliers.isDeleted, false));
 
-    if (!result || result.length === 0) {
-      console.error(
-        "-------------------No result returned from getNextSupplierCode",
-      );
-      console.error(result);
-      return null;
+    let maxSequence = 0;
+    for (const row of rows) {
+      const code = row.supplierCode || "";
+      if (!code.toUpperCase().startsWith(prefix)) {
+        continue;
+      }
+      const suffix = code.slice(prefix.length);
+      const sequence = Number.parseInt(suffix, 10);
+      if (Number.isFinite(sequence)) {
+        maxSequence = Math.max(maxSequence, sequence);
+      }
     }
 
-    return result[0].next_supplier_code as string;
+    const nextSequence = maxSequence + 1;
+    return `${prefix}${String(nextSequence).padStart(2, "0")}`;
   }
 
   async getAllSupplierCodes(): Promise<string[]> {

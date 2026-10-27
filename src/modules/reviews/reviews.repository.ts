@@ -1,9 +1,10 @@
 import type { TX } from "@/lib/types";
-import { and, avg, count, desc, eq, sql } from "drizzle-orm";
+import { and, avg, count, desc, eq, inArray, sql } from "drizzle-orm";
 
+import { OrderStatusTypeIds } from "@/constants/order-statuses.constants";
 import { ReviewStatusIds } from "@/constants/review-statuses.constants";
 import db from "@/db";
-import { reviews } from "@/db/models/reviews";
+import { customers, orderItems, orders, reviews } from "@/db/models";
 import {
   createFilterConditions,
   createSearchCondition,
@@ -78,6 +79,44 @@ export class ReviewsRepository {
     return review;
   }
 
+  async customerPurchasedProduct(userId: number, productId: number) {
+    const qualifyingStatuses = [
+      OrderStatusTypeIds.DELIVERED,
+      OrderStatusTypeIds.SHIPPED,
+    ];
+
+    const [row] = await db
+      .select({ id: orderItems.id })
+      .from(orderItems)
+      .innerJoin(orders, eq(orderItems.orderId, orders.id))
+      .innerJoin(customers, eq(orders.customerId, customers.id))
+      .where(
+        and(
+          eq(customers.userId, userId),
+          eq(orderItems.productId, productId),
+          eq(orders.isDeleted, false),
+          inArray(orders.statusId, qualifyingStatuses),
+        ),
+      )
+      .limit(1);
+
+    return Boolean(row);
+  }
+
+  async findByProductAndUser(productId: number, userId: number) {
+    return await db.query.reviews.findFirst({
+      where: and(
+        eq(reviews.productId, productId),
+        eq(reviews.createdBy, userId),
+      ),
+      with: {
+        product: true,
+        status: true,
+        createdBy: true,
+      },
+    });
+  }
+
   async findByProductId(productId: number) {
     return await db.query.reviews.findMany({
       where: and(
@@ -125,6 +164,28 @@ export class ReviewsRepository {
     },
   ) {
     const [result] = await tx.insert(reviews).values(reviewData).returning();
+    return result;
+  }
+
+  async updateContent(
+    tx: TX,
+    id: number,
+    data: {
+      review: string;
+      rating: number;
+      updatedBy: number;
+    },
+  ) {
+    const [result] = await tx
+      .update(reviews)
+      .set({
+        review: data.review,
+        rating: data.rating,
+        updatedBy: data.updatedBy,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(reviews.id, id))
+      .returning();
     return result;
   }
 

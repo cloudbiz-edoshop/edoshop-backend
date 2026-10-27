@@ -1,11 +1,13 @@
 import type { z } from "zod";
 
 import { relations } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import {
   boolean,
   integer,
   pgTable,
   serial,
+  text,
   timestamp,
   varchar,
 } from "drizzle-orm/pg-core";
@@ -25,6 +27,14 @@ export const suppliers = pgTable("suppliers", {
   supplierCode: varchar({ length: 255 }).unique().notNull(),
   entryTypeId: integer().references(() => entryTypes.id),
   paymentMethodId: integer().references(() => paymentMethods.id),
+  productTypes: text("product_types")
+    .array()
+    .notNull()
+    .default(sql`'{}'::text[]`),
+  paymentMethodIds: integer("payment_method_ids")
+    .array()
+    .notNull()
+    .default(sql`'{}'::integer[]`),
   bankAccountName: varchar({ length: 255 }),
   bankAccountNumber: varchar({ length: 255 }),
   isActive: boolean().notNull().default(true),

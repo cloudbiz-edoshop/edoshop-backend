@@ -5,7 +5,7 @@ import type {
 
 import { and, eq } from "drizzle-orm";
 import { ReviewStatusIds } from "@/constants/review-statuses.constants";
-import { ConflictError, NotFoundError } from "@/core/errors";
+import { ConflictError, ForbiddenError, NotFoundError } from "@/core/errors";
 import db from "@/db";
 
 import { reviews } from "@/db/models";
@@ -62,6 +62,135 @@ export class ReviewsService {
     }
 
     return reviewWithRelations;
+  }
+
+  async getCustomerReviewEligibility(userId: number, productId: number) {
+    const purchased = await this.reviewsRepository.customerPurchasedProduct(
+      userId,
+      productId,
+    );
+    const existingReview = await this.reviewsRepository.findByProductAndUser(
+      productId,
+      userId,
+    );
+
+    if (!purchased) {
+      return {
+        canReview: false,
+        reason: "not_purchased",
+        existingReview: existingReview
+          ? {
+              id: existingReview.id,
+              rating: existingReview.rating,
+              review: existingReview.review,
+              statusId: existingReview.statusId,
+            }
+          : null,
+      };
+    }
+
+    return {
+      canReview: true,
+      reason: existingReview ? "edit_existing" : "create_new",
+      existingReview: existingReview
+        ? {
+            id: existingReview.id,
+            rating: existingReview.rating,
+            review: existingReview.review,
+            statusId: existingReview.statusId,
+          }
+        : null,
+    };
+  }
+
+  async createCustomerProductReview(
+    userId: number,
+    data: { productId: number; review: string; rating: number },
+  ) {
+    const purchased = await this.reviewsRepository.customerPurchasedProduct(
+      userId,
+      data.productId,
+    );
+    if (!purchased) {
+      throw new ForbiddenError(
+        "Only customers who purchased this product can submit a review.",
+      );
+    }
+
+    const existingReview = await this.reviewsRepository.findByProductAndUser(
+      data.productId,
+      userId,
+    );
+    if (existingReview) {
+      throw new ConflictError(
+        "You have already reviewed this product. Edit your existing review instead.",
+      );
+    }
+
+    const rating = Math.min(Math.max(data.rating ?? 0, 1), 5);
+    const reviewText = data.review.trim().slice(0, 1000);
+
+    const review = await db.transaction(async (tx) => {
+      return this.reviewsRepository.create(tx, {
+        productId: data.productId,
+        review: reviewText,
+        rating,
+        statusId: ReviewStatusIds.APPROVED,
+        reviewDate: todayDate(),
+        approvedDate: todayDate(),
+        createdBy: userId,
+        updatedBy: userId,
+      });
+    });
+
+    const reviewWithRelations = await this.reviewsRepository.findById(review.id);
+    if (!reviewWithRelations) {
+      throw new NotFoundError("Review not found after creation");
+    }
+
+    return reviewWithRelations;
+  }
+
+  async updateCustomerProductReview(
+    userId: number,
+    productId: number,
+    data: { review: string; rating: number },
+  ) {
+    const existingReview = await this.reviewsRepository.findByProductAndUser(
+      productId,
+      userId,
+    );
+    if (!existingReview) {
+      throw new NotFoundError("Review not found for this product");
+    }
+
+    const purchased = await this.reviewsRepository.customerPurchasedProduct(
+      userId,
+      productId,
+    );
+    if (!purchased) {
+      throw new ForbiddenError(
+        "Only customers who purchased this product can update a review.",
+      );
+    }
+
+    const rating = Math.min(Math.max(data.rating ?? 0, 1), 5);
+    const reviewText = data.review.trim().slice(0, 1000);
+
+    await db.transaction(async (tx) => {
+      await this.reviewsRepository.updateContent(tx, existingReview.id, {
+        review: reviewText,
+        rating,
+        updatedBy: userId,
+      });
+    });
+
+    const updated = await this.reviewsRepository.findById(existingReview.id);
+    if (!updated) {
+      throw new NotFoundError("Review not found after update");
+    }
+
+    return updated;
   }
 
   async createGuestReview(data: {

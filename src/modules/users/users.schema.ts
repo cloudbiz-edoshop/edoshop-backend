@@ -206,7 +206,10 @@ export const updateCurrentUserRequestSchema = z
   .object({
     fullName: fullNameSchema.optional(),
     email: emailSchema.optional().or(z.literal("")),
-    phoneNumber: phoneSchema.optional(),
+    phoneNumber: z.preprocess(
+      (value) => (value === "" || value == null ? undefined : value),
+      phoneSchema.optional(),
+    ),
     profilePhotoUrl: z.string().trim().optional().or(z.literal("")),
     homeLatitude: z.union([z.number(), z.string()]).optional().nullable(),
     homeLongitude: z.union([z.number(), z.string()]).optional().nullable(),

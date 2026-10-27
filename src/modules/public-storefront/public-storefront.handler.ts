@@ -1,3 +1,4 @@
+import { ForbiddenError } from "@/core/errors";
 import { ReviewStatusIds } from "@/constants/review-statuses.constants";
 import stripeConfig from "@/config/stripe.config";
 import {
@@ -43,6 +44,26 @@ const reviewsService = new ReviewsService();
 const testimonialsService = new TestimonialsService();
 const customersService = new CustomersService();
 const retailersService = new RetailersService();
+
+const mapPublicReview = (review: {
+  id: number;
+  productId: number;
+  rating: number;
+  review: string | null;
+  reviewDate: string | null;
+  statusId: number;
+  createdBy?: { fullName?: string | null; profilePhotoUrl?: string | null } | null;
+}) => ({
+  id: review.id,
+  productId: review.productId,
+  rating: review.rating,
+  review: review.review,
+  reviewDate: review.reviewDate,
+  statusId: review.statusId,
+  customerName: review.createdBy?.fullName || null,
+  imageUrl: review.createdBy?.profilePhotoUrl || null,
+  verifiedPurchase: Boolean(review.createdBy),
+});
 const paymentMethodService = new PaymentMethodService();
 
 type ListParams = {
@@ -463,16 +484,7 @@ export const listReviews = async (c: any) => {
     ...params,
     filters: { ...params.filters, statusId: ReviewStatusIds.APPROVED },
   });
-  const publicReviews = result.data.map((review) => ({
-    id: review.id,
-    productId: review.productId,
-    rating: review.rating,
-    review: review.review,
-    reviewDate: review.reviewDate,
-    statusId: review.statusId,
-    customerName: review.createdBy?.fullName || null,
-    imageUrl: review.createdBy?.profilePhotoUrl || null,
-  }));
+  const publicReviews = result.data.map((review) => mapPublicReview(review));
 
   return sendPublicList(
     c,
@@ -635,18 +647,96 @@ export const subscribeNewsletter = async (c: any) => {
   );
 };
 
-export const createReview = async (c: any) => {
-  const body = c.req.valid("json");
-  await reviewsService.createGuestReview(body);
+export const createReview = async () => {
+  throw new ForbiddenError(
+    "Sign in and purchase this product to leave a verified review.",
+  );
+};
+
+export const getProductReviews = async (c: any) => {
+  const productId = Number.parseInt(c.req.param("productId"), 10);
+  const result = await reviewsService.getReviewsByProductId(productId);
 
   return c.json(
     successResponse(
       {
-        submitted: true,
-        message: "Review submitted successfully and is pending approval.",
+        reviews: result.reviews.map((review) => mapPublicReview(review)),
+        averageRating: result.averageRating,
+        totalReviews: result.totalReviews,
+      },
+      "Product reviews retrieved successfully",
+    ),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const getCustomerReviewEligibility = async (c: any) => {
+  const productId = Number.parseInt(c.req.param("productId"), 10);
+  const { userId } = c.get("accessTokenPayload");
+  const eligibility = await reviewsService.getCustomerReviewEligibility(
+    userId,
+    productId,
+  );
+
+  return c.json(
+    successResponse(eligibility, "Review eligibility retrieved successfully"),
+    HttpStatusCodes.OK,
+  );
+};
+
+export const submitCustomerProductReview = async (c: any) => {
+  const productId = Number.parseInt(c.req.param("productId"), 10);
+  const body = c.req.valid("json");
+  const { userId } = c.get("accessTokenPayload");
+
+  const review = await reviewsService.createCustomerProductReview(userId, {
+    productId,
+    review: body.review,
+    rating: body.rating,
+  });
+
+  return c.json(
+    successResponse(
+      {
+        id: review.id,
+        productId: review.productId,
+        rating: review.rating,
+        review: review.review,
+        statusId: review.statusId,
+        verifiedPurchase: true as const,
       },
       "Review submitted successfully",
     ),
     HttpStatusCodes.CREATED,
+  );
+};
+
+export const updateCustomerProductReview = async (c: any) => {
+  const productId = Number.parseInt(c.req.param("productId"), 10);
+  const body = c.req.valid("json");
+  const { userId } = c.get("accessTokenPayload");
+
+  const review = await reviewsService.updateCustomerProductReview(
+    userId,
+    productId,
+    {
+      review: body.review,
+      rating: body.rating,
+    },
+  );
+
+  return c.json(
+    successResponse(
+      {
+        id: review.id,
+        productId: review.productId,
+        rating: review.rating,
+        review: review.review,
+        statusId: review.statusId,
+        verifiedPurchase: true as const,
+      },
+      "Review updated successfully",
+    ),
+    HttpStatusCodes.OK,
   );
 };

@@ -110,6 +110,7 @@ export class StorageService {
       await withTimeout(
         this.client.putObject(this.bucketName, fileName, buffer, buffer.length, {
           "Content-Type": contentType,
+          "Cache-Control": "public, max-age=86400",
         }),
         "File upload",
       );

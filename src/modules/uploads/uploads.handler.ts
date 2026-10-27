@@ -37,7 +37,8 @@ const buildStoredFileName = (
 ) => {
   const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
   const sequence = startIndex + index + 1;
-  return `${productId}-${sequence}.${extension}`;
+  // Unique suffix so replaced product photos get new URLs (avoids CDN/browser showing old bytes).
+  return `${productId}-${sequence}-${nanoid(10)}.${extension}`;
 };
 
 export const getPresignedUrl: AppRouteHandler<PresignedUrlRoute> = async (c) => {

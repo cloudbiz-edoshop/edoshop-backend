@@ -63,6 +63,19 @@ export class PermissionsService {
     if (!role) {
       return this.buildEmptyProfile();
     }
+
+    if (isSuperAdminRoleName(role.name)) {
+      const profile = this.buildSuperAdminProfile();
+      return {
+        ...profile,
+        role: {
+          id: role.id,
+          name: role.name,
+          description: role.description,
+        },
+      };
+    }
+
     const permissions = (role.permissions ?? []).map((permission) =>
       formatPermissionKey(
         permission.entity.name,
@@ -157,6 +170,15 @@ function isAdminRoleName(name?: string | null) {
     .replace(/[\s-]+/g, "_");
 
   return normalized === RoleType.ADMIN || normalized === "administrator";
+}
+
+function isSuperAdminRoleName(name?: string | null) {
+  const normalized = String(name || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+
+  return normalized === RoleType.SUPER_ADMIN;
 }
 
 export function getRolePermissionTemplate(roleName: RoleType) {

@@ -96,12 +96,23 @@ export class SupplierService {
       address,
       countryId,
       paymentMethodId,
+      paymentMethodIds,
+      productTypes,
       entryTypeId,
       bankAccountName,
       bankAccountNumber,
       profilePhotoUrl,
       createdBy,
     } = data;
+
+    const resolvedPaymentMethodIds =
+      paymentMethodIds?.length
+        ? paymentMethodIds
+        : paymentMethodId
+          ? [paymentMethodId]
+          : [];
+    const primaryPaymentMethodId =
+      resolvedPaymentMethodIds[0] ?? paymentMethodId;
 
     // Check if supplier already exists with this email
     const existingUser = await this.userRepository.findByEmail(email);
@@ -135,15 +146,8 @@ export class SupplierService {
       throw new NotFoundError(`Country with ID ${countryId} not found`);
     }
 
-    // generate supplier code with country code and supplier sequence
-    const supplierSequence =
-      await this.supplierRepository.getNextSupplierCode();
-
-    if (!supplierSequence) {
-      throw new AppError("Failed to generate supplier code");
-    }
-
-    const supplierCode = `${countryCode}-${supplierSequence}`;
+    const supplierCode =
+      await this.supplierRepository.allocateSupplierCode(countryCode);
 
     // Use a transaction to ensure atomicity between user and supplier creation
     const result = await db.transaction(async (tx) => {
@@ -170,9 +174,11 @@ export class SupplierService {
         userId: user.id,
         storeName,
         entryTypeId,
-        paymentMethodId,
-        bankAccountName,
-        bankAccountNumber,
+        paymentMethodId: primaryPaymentMethodId,
+        paymentMethodIds: resolvedPaymentMethodIds,
+        productTypes: productTypes ?? [],
+        bankAccountName: bankAccountName?.trim() || undefined,
+        bankAccountNumber: bankAccountNumber?.trim() || undefined,
         supplierCode,
         createdBy,
       });
@@ -220,6 +226,8 @@ export class SupplierService {
     storeName?: string;
     entryTypeId?: number;
     paymentMethodId?: number;
+    paymentMethodIds?: number[];
+    productTypes?: string[];
     bankAccountName?: string;
     bankAccountNumber?: string;
     email?: string;
@@ -234,6 +242,8 @@ export class SupplierService {
       storeName,
       entryTypeId,
       paymentMethodId,
+      paymentMethodIds,
+      productTypes,
       bankAccountName,
       bankAccountNumber,
       email,
@@ -242,6 +252,15 @@ export class SupplierService {
       address,
       fullName,
     } = data;
+
+    const resolvedPaymentMethodIds =
+      paymentMethodIds?.length
+        ? paymentMethodIds
+        : paymentMethodId
+          ? [paymentMethodId]
+          : undefined;
+    const primaryPaymentMethodId =
+      resolvedPaymentMethodIds?.[0] ?? paymentMethodId;
 
     // Find supplier
     const supplier = await this.supplierRepository.findById(id);
@@ -315,7 +334,9 @@ export class SupplierService {
         updatedBy,
         storeName,
         entryTypeId,
-        paymentMethodId,
+        paymentMethodId: primaryPaymentMethodId,
+        paymentMethodIds: resolvedPaymentMethodIds,
+        productTypes,
         bankAccountName,
         bankAccountNumber,
       });

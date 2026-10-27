@@ -1,5 +1,6 @@
 import { createRoute, z } from "@hono/zod-openapi";
 
+import { jwtMiddleware } from "@/core/middlewares";
 import * as HttpStatusCodes from "@/lib/http-status-codes";
 import { jsonContent, jsonContentRequired } from "@/lib/openapi/helpers";
 import { createSuccessResponseSchemaWithPagination } from "@/lib/openapi/schemas/create-api-response";
@@ -27,7 +28,12 @@ import {
   publicCreateReviewRequestSchema,
   publicCreateReviewResponseSchema,
   publicAboutUsSchema,
+  publicProductReviewsResponseSchema,
+  customerReviewEligibilitySchema,
+  customerSubmitReviewRequestSchema,
+  customerSubmitReviewResponseSchema,
 } from "./public-storefront.schema";
+import { jwtHeaderSchema } from "@/lib/zod-schemas";
 
 const tags = ["Public Storefront"];
 
@@ -212,9 +218,95 @@ export const createReview = createRoute({
     ),
   },
   responses: {
+    [HttpStatusCodes.FORBIDDEN]: jsonContent(
+      createSuccessResponseSchema(z.object({ message: z.string() })),
+      "Guest reviews are not allowed",
+    ),
+  },
+});
+
+export const getProductReviews = createRoute({
+  path: "/public/products/{productId}/reviews",
+  method: "get",
+  tags,
+  summary: "List approved reviews for a product",
+  request: {
+    params: z.object({
+      productId: z.string().regex(/^\d+$/, "productId must be a positive integer"),
+    }),
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(publicProductReviewsResponseSchema),
+      "Product reviews",
+    ),
+  },
+});
+
+export const getCustomerReviewEligibility = createRoute({
+  path: "/public/products/{productId}/review-eligibility",
+  method: "get",
+  tags,
+  summary: "Check whether the signed-in customer can review a product",
+  middleware: [jwtMiddleware()] as const,
+  request: {
+    params: z.object({
+      productId: z.string().regex(/^\d+$/, "productId must be a positive integer"),
+    }),
+    headers: jwtHeaderSchema,
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(customerReviewEligibilitySchema),
+      "Review eligibility",
+    ),
+  },
+});
+
+export const submitCustomerProductReview = createRoute({
+  path: "/public/products/{productId}/reviews",
+  method: "post",
+  tags,
+  summary: "Submit a verified-buyer product review",
+  middleware: [jwtMiddleware()] as const,
+  request: {
+    params: z.object({
+      productId: z.string().regex(/^\d+$/, "productId must be a positive integer"),
+    }),
+    headers: jwtHeaderSchema,
+    body: jsonContentRequired(
+      customerSubmitReviewRequestSchema,
+      "Verified buyer review",
+    ),
+  },
+  responses: {
     [HttpStatusCodes.CREATED]: jsonContent(
-      createSuccessResponseSchema(publicCreateReviewResponseSchema),
-      "Review submitted for approval",
+      createSuccessResponseSchema(customerSubmitReviewResponseSchema),
+      "Review created",
+    ),
+  },
+});
+
+export const updateCustomerProductReview = createRoute({
+  path: "/public/products/{productId}/reviews",
+  method: "patch",
+  tags,
+  summary: "Update the signed-in customer's review for a product",
+  middleware: [jwtMiddleware()] as const,
+  request: {
+    params: z.object({
+      productId: z.string().regex(/^\d+$/, "productId must be a positive integer"),
+    }),
+    headers: jwtHeaderSchema,
+    body: jsonContentRequired(
+      customerSubmitReviewRequestSchema,
+      "Verified buyer review update",
+    ),
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createSuccessResponseSchema(customerSubmitReviewResponseSchema),
+      "Review updated",
     ),
   },
 });
@@ -234,3 +326,7 @@ export type ListRetailersRoute = typeof listRetailers;
 export type ListPaymentMethodsRoute = typeof listPaymentMethods;
 export type SubscribeNewsletterRoute = typeof subscribeNewsletter;
 export type CreateReviewRoute = typeof createReview;
+export type GetProductReviewsRoute = typeof getProductReviews;
+export type GetCustomerReviewEligibilityRoute = typeof getCustomerReviewEligibility;
+export type SubmitCustomerProductReviewRoute = typeof submitCustomerProductReview;
+export type UpdateCustomerProductReviewRoute = typeof updateCustomerProductReview;
