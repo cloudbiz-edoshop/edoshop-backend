@@ -10,12 +10,21 @@ describe("publicCustomerSignupRequestSchema", () => {
     password: "2OXu1CYqgxQbsqiz",
   };
 
-  it("accepts names with apostrophes and hyphens", () => {
-    const result = publicCustomerSignupRequestSchema.safeParse({
-      ...base,
-      fullName: "N'guemo Jean-Paul",
-    });
-    expect(result.success).toBe(true);
+  it("accepts any reasonable display name (no format regex)", () => {
+    const names = [
+      "N'guemo Jean-Paul",
+      "Mary O'Brien",
+      "123 Shop",
+      "محمد",
+      "Test @nickname",
+    ];
+    for (const fullName of names) {
+      const result = publicCustomerSignupRequestSchema.safeParse({
+        ...base,
+        fullName,
+      });
+      expect(result.success, fullName).toBe(true);
+    }
   });
 
   it("rejects invalid phone format with a clear message", () => {

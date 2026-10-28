@@ -4,6 +4,7 @@ import { z } from "zod";
 import { users } from "@/db/models";
 import {
   emailSchema,
+  displayNameSchema,
   fullNameSchema,
   idSchema,
   jwtTokenSchema,
@@ -204,7 +205,7 @@ export const currentUserResponseSchema = userSchema.describe("Current user");
 
 export const updateCurrentUserRequestSchema = z
   .object({
-    fullName: fullNameSchema.optional(),
+    fullName: displayNameSchema.optional(),
     email: emailSchema.optional().or(z.literal("")),
     phoneNumber: z.preprocess(
       (value) => (value === "" || value == null ? undefined : value),

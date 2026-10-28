@@ -5,8 +5,8 @@ import { selectCountriesSchema } from "@/db/models/countries";
 import { customerSchema } from "@/db/models/customers";
 import {
   emailSchema,
+  displayNameSchema,
   idSchema,
-  nameSchema,
   passwordSchema,
   phoneSchema,
   streetAddressSchema,
@@ -14,20 +14,8 @@ import {
 
 import { userSchema } from "../users/users.schema";
 
-/** Storefront signup — allows common name punctuation (apostrophe, hyphen). */
-export const publicCustomerFullNameSchema = z
-  .string()
-  .trim()
-  .min(2, "Name must be at least 2 characters")
-  .max(100, "Name must be 100 characters or less")
-  .regex(
-    /^[\p{L}\s'.-]+$/u,
-    "Please enter a valid name using letters (you can use spaces, hyphens, or apostrophes)",
-  )
-  .describe("Customer name");
-
 const createCustomerBaseSchema = z.object({
-  fullName: nameSchema.describe("Customer name"),
+  fullName: displayNameSchema.describe("Customer name"),
   email: emailSchema.optional().or(z.literal("")).describe("Customer email"),
   phoneNumber: phoneSchema.describe("Customer phone number"),
   countryId: idSchema.describe("Country ID"),
@@ -58,7 +46,7 @@ export const createCustomerRequestSchema = createCustomerBaseSchema
 export type CreateCustomerRequest = z.infer<typeof createCustomerRequestSchema>;
 
 export const publicCustomerSignupRequestSchema = z.object({
-  fullName: publicCustomerFullNameSchema,
+  fullName: displayNameSchema,
   email: emailSchema.optional().or(z.literal("")).describe("Customer email"),
   phoneNumber: phoneSchema.describe("Customer WhatsApp phone number"),
   countryCode: z.string().min(2).describe("Customer country ISO code"),

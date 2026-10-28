@@ -36,6 +36,19 @@ export const nameSchema = z
   .describe("Name");
 
 /**
+ * Person display name (customers, profile) — length only, no character format rules.
+ */
+export const displayNameSchema = z
+  .string()
+  .trim()
+  .min(1, "Name is required")
+  .max(
+    constraintAndMessages.FULL_NAME.MAX_LENGTH,
+    constraintAndMessages.FULL_NAME.MAX_LENGTH_ERROR,
+  )
+  .describe("Display name");
+
+/**
  * Role slug schema — letters, numbers, underscores (e.g. w1_tech).
  */
 export const roleNameSchema = z
