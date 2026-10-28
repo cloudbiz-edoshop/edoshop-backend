@@ -4,9 +4,10 @@ import { addressesSchema } from "@/db/models/addresses";
 import { selectCountriesSchema } from "@/db/models/countries";
 import { customerSchema } from "@/db/models/customers";
 import {
-  emailSchema,
   displayNameSchema,
+  emailSchema,
   idSchema,
+  nameSchema,
   passwordSchema,
   phoneSchema,
   streetAddressSchema,
@@ -14,8 +15,13 @@ import {
 
 import { userSchema } from "../users/users.schema";
 
+/** Storefront signup — any reasonable name text; length only. */
+export const publicCustomerFullNameSchema = displayNameSchema
+  .min(2, "Name must be at least 2 characters")
+  .max(100, "Name must be 100 characters or less");
+
 const createCustomerBaseSchema = z.object({
-  fullName: displayNameSchema.describe("Customer name"),
+  fullName: nameSchema.describe("Customer name"),
   email: emailSchema.optional().or(z.literal("")).describe("Customer email"),
   phoneNumber: phoneSchema.describe("Customer phone number"),
   countryId: idSchema.describe("Country ID"),
@@ -46,14 +52,14 @@ export const createCustomerRequestSchema = createCustomerBaseSchema
 export type CreateCustomerRequest = z.infer<typeof createCustomerRequestSchema>;
 
 export const publicCustomerSignupRequestSchema = z.object({
-  fullName: displayNameSchema,
+  fullName: publicCustomerFullNameSchema,
   email: emailSchema.optional().or(z.literal("")).describe("Customer email"),
   phoneNumber: phoneSchema.describe("Customer WhatsApp phone number"),
   countryCode: z.string().min(2).describe("Customer country ISO code"),
   address: z
     .string()
     .trim()
-    .min(2, "Address must be at least 2 characters")
+    .min(1, "Address is required")
     .max(255, "Address must be 255 characters or less")
     .describe("Customer town, area, or reference point"),
   password: z.string().min(8).describe("Customer password"),

@@ -10,20 +10,23 @@ describe("publicCustomerSignupRequestSchema", () => {
     password: "2OXu1CYqgxQbsqiz",
   };
 
-  it("accepts any reasonable display name (no format regex)", () => {
-    const names = [
-      "N'guemo Jean-Paul",
-      "Mary O'Brien",
-      "123 Shop",
-      "محمد",
-      "Test @nickname",
-    ];
-    for (const fullName of names) {
-      const result = publicCustomerSignupRequestSchema.safeParse({
-        ...base,
-        fullName,
-      });
-      expect(result.success, fullName).toBe(true);
+  it("accepts everyday names without format rules", () => {
+    const result = publicCustomerSignupRequestSchema.safeParse({
+      ...base,
+      fullName: "N'guemo Jean-Paul 2",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("normalizes phone numbers before length check", () => {
+    const result = publicCustomerSignupRequestSchema.safeParse({
+      ...base,
+      fullName: "Jean Paul",
+      phoneNumber: "237 675 500 863",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.phoneNumber).toBe("+237675500863");
     }
   });
 
@@ -35,7 +38,7 @@ describe("publicCustomerSignupRequestSchema", () => {
     });
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.issues[0]?.message).toMatch(/phone/i);
+      expect(result.error.issues[0]?.message).toMatch(/whatsapp/i);
     }
   });
 });

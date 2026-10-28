@@ -131,13 +131,19 @@ export const nextcloudPasswordSchema = z
   .describe("Nextcloud account password or App Password");
 
 /**
- * Phone number schema with standardized validation
+ * WhatsApp / phone — normalize to +digits; only length is enforced (no pattern lecture).
  */
 export const phoneSchema = z
   .string()
-  .regex(
-    constraintAndMessages.PHONE.REGEX,
-    constraintAndMessages.PHONE.PATTERN_ERROR,
+  .trim()
+  .transform((raw) => {
+    const digits = raw.replace(/\D/g, "");
+    if (!digits) return raw;
+    return `+${digits}`;
+  })
+  .refine(
+    (value) => /^\+\d{8,15}$/.test(value),
+    "Enter your WhatsApp number",
   )
   .describe("WhatsApp number");
 

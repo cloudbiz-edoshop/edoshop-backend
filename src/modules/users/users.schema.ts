@@ -3,8 +3,8 @@ import { z } from "zod";
 
 import { users } from "@/db/models";
 import {
-  emailSchema,
   displayNameSchema,
+  emailSchema,
   fullNameSchema,
   idSchema,
   jwtTokenSchema,
