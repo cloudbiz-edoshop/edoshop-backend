@@ -11,6 +11,7 @@ import banners from "@/modules/banners/banners.index";
 import categories from "@/modules/categories/categories.index";
 import colors from "@/modules/colors/colors.index";
 import customerWallets from "@/modules/customer-wallets/customer-wallets.index";
+import customers from "@/modules/customers/customers.index";
 import dashboard from "@/modules/dashboard/dashboard.index";
 import deliveryPlans from "@/modules/delivery-plans/delivery-plans.index";
 import coupons from "@/modules/coupons/coupons.index";

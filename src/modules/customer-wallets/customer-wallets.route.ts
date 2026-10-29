@@ -63,11 +63,14 @@ export const patchAdminSettingsRoute = createRoute({
     [HttpStatusCodes.OK]: jsonContent(
       createSuccessResponseSchema(walletSettingsResponseSchema),
     ),
-    ...commonErrorResponses([
-      HttpStatusCodes.UNAUTHORIZED,
-      HttpStatusCodes.FORBIDDEN,
-      HttpStatusCodes.UNPROCESSABLE_ENTITY,
-    ]),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.FORBIDDEN,
+        HttpStatusCodes.UNPROCESSABLE_ENTITY,
+      ],
+      updateWalletSettingsSchema,
+    ),
   },
 });
 
@@ -111,11 +114,14 @@ export const createDepositRoute = createRoute({
   },
   responses: {
     [HttpStatusCodes.CREATED]: jsonContent(createSuccessResponseSchema(z.object({}))),
-    ...commonErrorResponses([
-      HttpStatusCodes.UNAUTHORIZED,
-      HttpStatusCodes.FORBIDDEN,
-      HttpStatusCodes.UNPROCESSABLE_ENTITY,
-    ]),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.FORBIDDEN,
+        HttpStatusCodes.UNPROCESSABLE_ENTITY,
+      ],
+      createWalletDepositSchema,
+    ),
   },
 });
 
@@ -130,11 +136,14 @@ export const createWithdrawalRoute = createRoute({
   },
   responses: {
     [HttpStatusCodes.CREATED]: jsonContent(createSuccessResponseSchema(z.object({}))),
-    ...commonErrorResponses([
-      HttpStatusCodes.UNAUTHORIZED,
-      HttpStatusCodes.FORBIDDEN,
-      HttpStatusCodes.UNPROCESSABLE_ENTITY,
-    ]),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.FORBIDDEN,
+        HttpStatusCodes.UNPROCESSABLE_ENTITY,
+      ],
+      createWalletWithdrawalSchema,
+    ),
   },
 });
 
@@ -179,11 +188,14 @@ export const manualAdjustRoute = createRoute({
   },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(createSuccessResponseSchema(z.object({}))),
-    ...commonErrorResponses([
-      HttpStatusCodes.UNAUTHORIZED,
-      HttpStatusCodes.FORBIDDEN,
-      HttpStatusCodes.UNPROCESSABLE_ENTITY,
-    ]),
+    ...commonErrorResponses(
+      [
+        HttpStatusCodes.UNAUTHORIZED,
+        HttpStatusCodes.FORBIDDEN,
+        HttpStatusCodes.UNPROCESSABLE_ENTITY,
+      ],
+      manualWalletAdjustmentSchema,
+    ),
   },
 });
 
