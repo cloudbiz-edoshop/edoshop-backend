@@ -23,10 +23,17 @@ export class CustomerWalletsService {
 
   async getPublicSettings() {
     const settings = await this.repo.ensureSettings();
+    const walletEnabled = settings.walletEnabled;
+    const withdrawalsEnabled = settings.withdrawalsEnabled && walletEnabled;
     return {
-      walletEnabled: settings.walletEnabled,
-      depositsEnabled: settings.depositsEnabled && settings.walletEnabled,
-      withdrawalsEnabled: settings.withdrawalsEnabled && settings.walletEnabled,
+      walletEnabled,
+      depositsEnabled: settings.depositsEnabled && walletEnabled,
+      withdrawalsEnabled,
+      withdrawalFeePercent: String(settings.withdrawalFeePercent),
+      withdrawalFeeMinXaf: String(settings.withdrawalFeeMinXaf),
+      minWithdrawalXaf: String(settings.minWithdrawalXaf),
+      maxWithdrawalXaf: String(settings.maxWithdrawalXaf),
+      withdrawalRequiresApproval: settings.withdrawalRequiresApproval,
     };
   }
 
@@ -132,7 +139,7 @@ export class CustomerWalletsService {
       throw new ValidationError("Withdrawal amount is too small after fees");
     }
 
-    return db.transaction(async (tx) => {
+    const result = await db.transaction(async (tx) => {
       const wallet = await this.repo.ensureWallet(customer.id, currency);
       const available = Number(wallet.availableBalance);
       const reserved = Number(wallet.reservedBalance);
@@ -152,9 +159,7 @@ export class CustomerWalletsService {
         feeAmount: String(fee),
         netAmount: String(net),
         currency,
-        status: settings.withdrawalRequiresApproval
-          ? WalletWithdrawalStatus.PENDING
-          : WalletWithdrawalStatus.APPROVED,
+        status: WalletWithdrawalStatus.PENDING,
         customerNote: input.note?.trim() || null,
       });
 
@@ -172,8 +177,33 @@ export class CustomerWalletsService {
         createdBy: userId,
       });
 
-      return withdrawal;
+      return {
+        withdrawal,
+        fee,
+        net,
+        autoApprove: !settings.withdrawalRequiresApproval,
+      };
     });
+
+    if (result.autoApprove) {
+      await this.approveWithdrawal(
+        result.withdrawal.id,
+        userId,
+        "Withdrawal processed automatically",
+      );
+    }
+
+    return {
+      withdrawalId: result.withdrawal.id,
+      amount: String(amount),
+      feeAmount: String(result.fee),
+      netAmount: String(result.net),
+      currency,
+      status: result.autoApprove
+        ? WalletWithdrawalStatus.PAID
+        : WalletWithdrawalStatus.PENDING,
+      requiresApproval: settings.withdrawalRequiresApproval,
+    };
   }
 
   async applyManualAdjustment(input: {

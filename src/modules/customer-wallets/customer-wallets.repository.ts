@@ -209,8 +209,23 @@ export class CustomerWalletsRepository {
 
   async listPendingWithdrawals() {
     return db
-      .select()
+      .select({
+        id: customerWalletWithdrawals.id,
+        customerId: customerWalletWithdrawals.customerId,
+        customerCode: customers.customerCode,
+        fullName: users.fullName,
+        email: users.email,
+        amount: customerWalletWithdrawals.amount,
+        feeAmount: customerWalletWithdrawals.feeAmount,
+        netAmount: customerWalletWithdrawals.netAmount,
+        currency: customerWalletWithdrawals.currency,
+        status: customerWalletWithdrawals.status,
+        customerNote: customerWalletWithdrawals.customerNote,
+        createdAt: customerWalletWithdrawals.createdAt,
+      })
       .from(customerWalletWithdrawals)
+      .innerJoin(customers, eq(customers.id, customerWalletWithdrawals.customerId))
+      .innerJoin(users, eq(users.id, customers.userId))
       .where(eq(customerWalletWithdrawals.status, WalletWithdrawalStatus.PENDING))
       .orderBy(desc(customerWalletWithdrawals.createdAt));
   }

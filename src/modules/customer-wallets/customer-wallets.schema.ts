@@ -63,4 +63,9 @@ export const publicWalletSettingsSchema = z.object({
   walletEnabled: z.boolean(),
   depositsEnabled: z.boolean(),
   withdrawalsEnabled: z.boolean(),
+  withdrawalFeePercent: z.string(),
+  withdrawalFeeMinXaf: z.string(),
+  minWithdrawalXaf: z.string(),
+  maxWithdrawalXaf: z.string(),
+  withdrawalRequiresApproval: z.boolean(),
 });
