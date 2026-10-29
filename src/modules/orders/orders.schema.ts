@@ -99,6 +99,9 @@ export const checkoutDirectOrderRequestSchema = checkoutFulfillmentFieldsSchema
   .extend({
     paymentMethodId: z.number().min(1).optional(),
     payOnDelivery: z.boolean().optional().default(false),
+    useWallet: z.boolean().optional().default(true),
+    walletAmount: z.number().min(0).optional(),
+    walletCurrency: z.enum(["xaf", "eur", "usd"]).optional().default("xaf"),
   })
   .merge(checkoutCouponFieldSchema)
   .superRefine(applyCheckoutFulfillmentRefine);

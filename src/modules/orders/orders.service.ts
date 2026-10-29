@@ -18,8 +18,13 @@ import { deliveryPlansService } from "@/modules/delivery-plans/delivery-plans.se
 import { db } from "@/db";
 import { OrdersRepository } from "./orders.repository";
 
+import { PAYMENT_STATUSES } from "@/constants/payment-statuses.constants";
+import { toMoney } from "@/modules/customer-wallets/customer-wallets.constants";
+import { CustomerWalletsService } from "@/modules/customer-wallets/customer-wallets.service";
+
 export class OrdersService {
   private readonly ordersRepository: OrdersRepository;
+  private readonly customerWalletsService = new CustomerWalletsService();
 
   constructor() {
     this.ordersRepository = new OrdersRepository();
@@ -189,9 +194,46 @@ export class OrdersService {
       clientPlatform,
     });
 
+    const totalAmount = Number(checkout.totalAmount);
+    const walletFlags = await this.customerWalletsService.getPublicSettings();
+    const walletCheckoutEnabled =
+      walletFlags.walletEnabled && payload.useWallet !== false;
+    const requestedWallet = walletCheckoutEnabled
+      ? payload.walletAmount != null
+        ? toMoney(Math.min(Number(payload.walletAmount), totalAmount))
+        : toMoney(totalAmount)
+      : 0;
+    const walletApplied =
+      walletCheckoutEnabled && requestedWallet > 0
+        ? (
+            await this.customerWalletsService.applyWalletPayment({
+              userId,
+              orderId: checkout.orderId,
+              orderCode: checkout.orderCode,
+              amount: Math.min(requestedWallet, totalAmount),
+              currency: payload.walletCurrency,
+            })
+          ).walletAmountApplied
+        : 0;
+
+    const remaining = toMoney(Math.max(0, totalAmount - walletApplied));
+
+    if (remaining <= 0) {
+      await this.ordersRepository.updatePaymentStatusByTransactionReference(
+        checkout.transactionReference,
+        PAYMENT_STATUSES.COMPLETED,
+        userId,
+      );
+      return {
+        ...checkout,
+        walletAmountApplied: walletApplied,
+        amountDue: "0",
+      };
+    }
+
     if (isMobileTransfer && !payOnDelivery && campayConfig.enabled) {
       const collect = await campayService.initCollect({
-        amount: Number(checkout.totalAmount),
+        amount: remaining,
         phone: payload.billing.whatsappNumber,
         description: `Edoshop order ${checkout.orderCode}`,
         externalReference: checkout.orderCode,
@@ -214,6 +256,8 @@ export class OrdersService {
         campayStatus: String(collect.status || "PENDING").toUpperCase(),
         campayOperator: collect.operator ?? null,
         campayUssdCode: collect.ussd_code ?? null,
+        walletAmountApplied: walletApplied,
+        amountDue: String(remaining),
       };
     }
 
@@ -221,7 +265,11 @@ export class OrdersService {
       throw new ValidationError("Mobile money payments are not configured yet");
     }
 
-    return checkout;
+    return {
+      ...checkout,
+      walletAmountApplied: walletApplied,
+      amountDue: String(remaining),
+    };
   }
 
   async getFulfillmentOptions() {

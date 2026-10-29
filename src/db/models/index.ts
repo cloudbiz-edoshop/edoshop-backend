@@ -23,6 +23,13 @@ export { default as colors, colorsRelations } from "./colors";
 export { default as countries } from "./countries";
 export { default as customers, customersRelations } from "./customers";
 export {
+  default as customerWalletSettings,
+  customerWallets,
+  customerWalletDeposits,
+  customerWalletWithdrawals,
+  customerWalletTransactions,
+} from "./customer-wallets";
+export {
   default as designPatterns,
   designPatternsRelations,
 } from "./design-patterns";
