@@ -26,6 +26,7 @@ const variantWithDetails = {
   with: {
     color: true,
     size: true,
+    images: true,
   },
 } as const;
 

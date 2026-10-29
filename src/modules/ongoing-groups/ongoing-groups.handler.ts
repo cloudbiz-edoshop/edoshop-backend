@@ -58,9 +58,29 @@ const mapDropshippingProductResponse = (dropshippingProduct: {
   };
 };
 
-const mapOngoingGroupRequestResponse = (item: Record<string, any>) => ({
-  ...item,
-  directOrderProduct:
+const resolveOngoingRequestImageUrl = (item: Record<string, any>) => {
+  const variantImage = item.variant?.images?.find(
+    (image: { imageUrl?: string | null }) => image?.imageUrl,
+  )?.imageUrl;
+  if (variantImage) return variantImage;
+
+  const product = item.product;
+  if (product?.imageUrl) return product.imageUrl;
+  const fromUrls = product?.imageUrls?.find(Boolean);
+  return fromUrls || null;
+};
+
+const mapOngoingGroupRequestResponse = (item: Record<string, any>) => {
+  const displayImageUrl = resolveOngoingRequestImageUrl(item);
+  return {
+    ...item,
+    product: item.product
+      ? {
+          ...item.product,
+          ...(displayImageUrl ? { imageUrl: displayImageUrl } : {}),
+        }
+      : item.product,
+    directOrderProduct:
     item.product?.directOrderProduct && item.product.directOrderProduct.productId != null
       ? {
           id: item.product.directOrderProduct.id,
@@ -69,7 +89,8 @@ const mapOngoingGroupRequestResponse = (item: Record<string, any>) => ({
         }
       : null,
   dropshippingProduct: mapDropshippingProductResponse(item.product?.dropshippingProduct),
-});
+  };
+};
 
 /**
  * List ongoing group requests
