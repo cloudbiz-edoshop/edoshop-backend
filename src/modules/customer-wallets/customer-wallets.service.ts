@@ -344,15 +344,25 @@ export class CustomerWalletsService {
         currency,
         campayReference: collect.reference,
         campayStatus: String(collect.status || "PENDING").toUpperCase(),
+        campayOperator: collect.operator ?? null,
+        campayUssdCode: collect.ussd_code ?? null,
       };
     }
 
-    return {
-      depositId: deposit.id,
-      amount: String(amount),
-      currency,
-      message: "Complete payment using the selected method to credit your wallet",
-    };
+    if (
+      (MOBILE_TRANSFER_PAYMENT_METHODS as readonly string[]).includes(
+        paymentMethod.name,
+      ) &&
+      !campayConfig.enabled
+    ) {
+      throw new ValidationError(
+        "Mobile money wallet top-up is not configured yet. Please try again later or contact Edoshop support.",
+      );
+    }
+
+    throw new ValidationError(
+      "This payment method is not supported for wallet top-up yet. Use MTN or Orange Mobile Money.",
+    );
   }
 
   async applyWalletPayment(input: {
