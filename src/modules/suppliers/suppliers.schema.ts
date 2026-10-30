@@ -16,13 +16,24 @@ import { SUPPLIER_PRODUCT_TYPE_VALUES } from "@/constants/supplier-product-types
 
 const supplierProductTypeSchema = z.enum(SUPPLIER_PRODUCT_TYPE_VALUES);
 
+const emptyStringToUndefined = (value: unknown) => {
+  if (value === "" || value === null || value === undefined) {
+    return undefined;
+  }
+  return value;
+};
+
 // Schema for creating a new supplier
 const baseSupplierSchema = z.object({
   fullName: fullNameSchema.describe("Full name of the supplier"),
   storeName: nameSchema.describe("Name of the supplier's store"),
-  email: emailSchema.describe("Email of the supplier"),
+  email: z
+    .preprocess(emptyStringToUndefined, emailSchema.optional())
+    .describe("Email of the supplier (optional)"),
   phoneNumber: phoneSchema.describe("Supplier's WhatsApp number"),
-  address: streetAddressSchema.describe("Address of the supplier"),
+  address: z
+    .preprocess(emptyStringToUndefined, streetAddressSchema.optional())
+    .describe("Address of the supplier (optional)"),
   countryId: idSchema.describe("ID of the country"),
   productTypes: z
     .array(supplierProductTypeSchema)

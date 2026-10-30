@@ -811,6 +811,22 @@ export class UsersService {
     return user as CreateUserResponseWithEmailAndPhone;
   }
 
+  async createUserWithPhoneNumberInTransaction(
+    tx: TX,
+    userData: CreateUserDataWithPhoneNumber,
+  ) {
+    if (userData.password) {
+      userData.password = await argon2.hash(userData.password);
+    } else {
+      userData.password = undefined;
+    }
+    const user = await this.userRepository.createWithPhoneNumber(tx, {
+      ...userData,
+      password: userData.password,
+    });
+    return user as CreateUserResponseWithPhoneNumber;
+  }
+
   /**
    * Update user with email within an active database transaction
    *

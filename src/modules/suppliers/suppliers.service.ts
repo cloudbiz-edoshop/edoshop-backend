@@ -1,4 +1,3 @@
-import type { CreateUserResponseWithEmailAndPhone } from "../users/users.schema";
 import type { CreateSupplierRequest } from "./suppliers.schema";
 import { AddressTypeIds } from "@/constants";
 import { AppError, ConflictError, NotFoundError } from "@/core/errors";
@@ -114,11 +113,25 @@ export class SupplierService {
     const primaryPaymentMethodId =
       resolvedPaymentMethodIds[0] ?? paymentMethodId;
 
-    // Check if supplier already exists with this email
-    const existingUser = await this.userRepository.findByEmail(email);
-    if (existingUser) {
-      throw new ConflictError(`User with email ${email} already exists`);
+    const normalizedEmail = email?.trim() || undefined;
+    const normalizedAddress = address?.trim() || undefined;
+
+    if (normalizedEmail) {
+      const existingEmailUser =
+        await this.userRepository.findByEmail(normalizedEmail);
+      if (existingEmailUser) {
+        throw new ConflictError(`User with email ${normalizedEmail} already exists`);
+      }
     }
+
+    const existingPhoneUser =
+      await this.userRepository.findByPhoneNumber(phoneNumber);
+    if (existingPhoneUser) {
+      throw new ConflictError(
+        `User with phone number ${phoneNumber} already exists`,
+      );
+    }
+
     // random numbers
     const randomNumbers = Math.random().toString().slice(2, 5);
     // split full name with whitespaces
@@ -136,10 +149,6 @@ export class SupplierService {
       throw new ConflictError(`Username ${username} already exists`);
     }
 
-    // check if email already exists
-    const userOrNull = await this.userRepository.findByEmail(email);
-    let user: CreateUserResponseWithEmailAndPhone | typeof userOrNull;
-
     // Get Country Code
     const countryCode = await this.addressService.getCountryCode(countryId);
     if (!countryCode) {
@@ -151,23 +160,25 @@ export class SupplierService {
 
     // Use a transaction to ensure atomicity between user and supplier creation
     const result = await db.transaction(async (tx) => {
-      // Create user if it doesn't exist - using transaction
-      if (!userOrNull) {
-        user =
-          await this.usersService.createUserWithEmailAndPhoneNumberInTransaction(
+      const user = normalizedEmail
+        ? await this.usersService.createUserWithEmailAndPhoneNumberInTransaction(
             tx,
             {
-              email,
+              email: normalizedEmail,
               fullName,
-              username,
+              username: parsedUsername,
               profilePhotoUrl,
               phoneNumber,
               createdBy,
             },
-          );
-      } else {
-        user = userOrNull;
-      }
+          )
+        : await this.usersService.createUserWithPhoneNumberInTransaction(tx, {
+            fullName,
+            username: parsedUsername,
+            profilePhotoUrl,
+            phoneNumber,
+            createdBy,
+          });
 
       // Create supplier with user - using transaction
       const createdSupplier = await this.supplierRepository.create(tx, {
@@ -183,15 +194,16 @@ export class SupplierService {
         createdBy,
       });
 
-      // Create address
-      await this.addressService.createAddress(tx, {
-        userId: user.id,
-        addressTypeId: AddressTypeIds.SUPPLIER,
-        streetAddress: address,
-        countryId,
-        createdBy,
-        updatedBy: createdBy,
-      });
+      if (normalizedAddress) {
+        await this.addressService.createAddress(tx, {
+          userId: user.id,
+          addressTypeId: AddressTypeIds.SUPPLIER,
+          streetAddress: normalizedAddress,
+          countryId,
+          createdBy,
+          updatedBy: createdBy,
+        });
+      }
 
       return createdSupplier;
     });
