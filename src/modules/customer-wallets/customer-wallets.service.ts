@@ -1,12 +1,18 @@
 import { ForbiddenError, NotFoundError, ValidationError } from "@/core/errors";
 import campayConfig from "@/config/campay.config";
+import currenciesConfig from "@/config/currencies.config";
+import stripeConfig from "@/config/stripe.config";
+import {
+  MOBILE_TRANSFER_PAYMENT_METHODS,
+  PaymentMethod,
+} from "@/constants/payment-methods.constants";
 import { campayService, normalizeCameroonPhone } from "@/modules/campay/campay.service";
-import { MOBILE_TRANSFER_PAYMENT_METHODS } from "@/constants/payment-methods.constants";
+import Stripe from "stripe";
 
 import { eq } from "drizzle-orm";
 
 import db from "@/db";
-import { customerWalletDeposits, paymentMethods } from "@/db/models";
+import { customerWalletDeposits, paymentMethods, users } from "@/db/models";
 
 import {
   normalizeWalletCurrency,
@@ -390,9 +396,132 @@ export class CustomerWalletsService {
       );
     }
 
+    if (
+      paymentMethod.name === PaymentMethod.STRIPE
+      || paymentMethod.name === PaymentMethod.PAYPAL
+    ) {
+      return this.initiateCardWalletDeposit({
+        deposit,
+        userId,
+        amount,
+        currency,
+        paymentMethod,
+      });
+    }
+
     throw new ValidationError(
-      "This payment method is not supported for wallet top-up yet. Use MTN or Orange Mobile Money.",
+      "This payment method is not supported for wallet top-up yet.",
     );
+  }
+
+  private async initiateCardWalletDeposit(input: {
+    deposit: typeof customerWalletDeposits.$inferSelect;
+    userId: number;
+    amount: number;
+    currency: WalletCurrency;
+    paymentMethod: typeof paymentMethods.$inferSelect;
+  }) {
+    if (!stripeConfig.enabled || !stripeConfig.secretKey) {
+      throw new ValidationError(
+        "Card and PayPal wallet top-up is not configured yet. Use mobile money or contact Edoshop support.",
+      );
+    }
+
+    const stripe = new Stripe(stripeConfig.secretKey);
+    const paymentGateway =
+      input.paymentMethod.name === PaymentMethod.PAYPAL ? "paypal" : "stripe";
+    const chargeCurrency = currenciesConfig.resolveCurrency(
+      String(input.currency).toLowerCase(),
+    );
+    const chargeAmount = currenciesConfig.convertFromBase(
+      input.amount,
+      chargeCurrency,
+    );
+    const stripeAmount = stripeConfig.toStripeAmount(chargeAmount, chargeCurrency);
+
+    const [userRow] = await db
+      .select({ email: users.email })
+      .from(users)
+      .where(eq(users.id, input.userId))
+      .limit(1);
+
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: stripeAmount,
+      currency: chargeCurrency,
+      ...(paymentGateway === "paypal"
+        ? { payment_method_types: ["paypal"] }
+        : { automatic_payment_methods: { enabled: true } }),
+      ...(userRow?.email ? { receipt_email: userRow.email } : {}),
+      metadata: {
+        walletDepositId: String(input.deposit.id),
+        userId: String(input.userId),
+        purpose: "wallet_deposit",
+        paymentGateway,
+      },
+      description: `Edoshop wallet top-up ${input.deposit.id}`,
+    });
+
+    if (!paymentIntent.client_secret) {
+      throw new ValidationError("Unable to initialize card or PayPal payment");
+    }
+
+    await db
+      .update(customerWalletDeposits)
+      .set({
+        transactionReference: paymentIntent.id,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(customerWalletDeposits.id, input.deposit.id));
+
+    return {
+      depositId: input.deposit.id,
+      amount: String(input.amount),
+      currency: input.currency,
+      chargeAmount: chargeAmount.toFixed(chargeCurrency === "xaf" ? 0 : 2),
+      chargeCurrency,
+      clientSecret: paymentIntent.client_secret,
+      paymentIntentId: paymentIntent.id,
+      paymentGateway,
+    };
+  }
+
+  async syncDepositPayment(reference: string, userId: number) {
+    const [deposit] = await db
+      .select()
+      .from(customerWalletDeposits)
+      .where(eq(customerWalletDeposits.transactionReference, reference))
+      .limit(1);
+    if (!deposit) throw new NotFoundError("Wallet deposit not found");
+
+    const customer = await this.repo.findCustomerByUserId(userId);
+    if (!customer || customer.id !== deposit.customerId) {
+      throw new ForbiddenError("Not allowed to sync this deposit");
+    }
+
+    if (deposit.paymentStatus === WalletDepositStatus.COMPLETED) {
+      return { paymentStatus: WalletDepositStatus.COMPLETED };
+    }
+
+    if (reference.startsWith("pi_") && stripeConfig.enabled && stripeConfig.secretKey) {
+      const stripe = new Stripe(stripeConfig.secretKey);
+      const paymentIntent = await stripe.paymentIntents.retrieve(reference);
+      if (paymentIntent.status === "succeeded") {
+        await this.creditDeposit(deposit.id, reference, userId);
+        return { paymentStatus: WalletDepositStatus.COMPLETED };
+      }
+      return { paymentStatus: paymentIntent.status };
+    }
+
+    const status = await campayService.syncTransactionStatus(reference);
+    if (String(status.paymentStatus).toLowerCase() === "completed") {
+      await this.creditDeposit(deposit.id, reference, userId);
+    }
+    return status;
+  }
+
+  /** @deprecated use syncDepositPayment */
+  async syncDepositFromCampayReference(reference: string, userId: number) {
+    return this.syncDepositPayment(reference, userId);
   }
 
   async applyWalletPayment(input: {
@@ -443,26 +572,6 @@ export class CustomerWalletsService {
 
       return { walletAmountApplied: amount };
     });
-  }
-
-  async syncDepositFromCampayReference(reference: string, userId: number) {
-    const [deposit] = await db
-      .select()
-      .from(customerWalletDeposits)
-      .where(eq(customerWalletDeposits.transactionReference, reference))
-      .limit(1);
-    if (!deposit) throw new NotFoundError("Wallet deposit not found");
-
-    const customer = await this.repo.findCustomerByUserId(userId);
-    if (!customer || customer.id !== deposit.customerId) {
-      throw new ForbiddenError("Not allowed to sync this deposit");
-    }
-
-    const status = await campayService.syncTransactionStatus(reference);
-    if (String(status.paymentStatus).toLowerCase() === "completed") {
-      await this.creditDeposit(deposit.id, reference, userId);
-    }
-    return status;
   }
 
   async listAdminWallets(search?: string, page = 1, limit = 25) {

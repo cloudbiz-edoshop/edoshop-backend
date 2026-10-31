@@ -143,6 +143,21 @@ export class StripeService {
 
     if (event.type === "payment_intent.succeeded") {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
+      if (paymentIntent.metadata?.walletDepositId) {
+        const { CustomerWalletsService } = await import(
+          "@/modules/customer-wallets/customer-wallets.service"
+        );
+        const walletService = new CustomerWalletsService();
+        const actorUserId = paymentIntent.metadata.userId
+          ? Number(paymentIntent.metadata.userId)
+          : null;
+        await walletService.creditDeposit(
+          Number(paymentIntent.metadata.walletDepositId),
+          paymentIntent.id,
+          Number.isFinite(actorUserId) ? actorUserId : null,
+        );
+        return { received: true };
+      }
       await this.ordersRepository.updatePaymentStatusByTransactionReference(
         paymentIntent.id,
         PAYMENT_STATUSES.COMPLETED,
